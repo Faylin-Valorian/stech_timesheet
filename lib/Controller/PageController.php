@@ -24,7 +24,7 @@ class PageController extends Controller {
         // Create the CSP object
         $csp = new ContentSecurityPolicy();
 
-        // Correct method names for Nextcloud v32+
+        // correct method names for Nextcloud v32+
         $csp->addAllowedScriptDomain('cdn.jsdelivr.net');
         $csp->addAllowedStyleDomain('cdn.jsdelivr.net');
 

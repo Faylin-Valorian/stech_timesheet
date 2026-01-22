@@ -16,10 +16,10 @@ class Application extends App implements IBootstrap {
     }
 
     public function register(IRegistrationContext $context): void {
-        // Registration logic if needed
+        // Registration logic
     }
 
     public function boot(IBootContext $context): void {
-        // Boot logic if needed
+        // Boot logic
     }
 }
