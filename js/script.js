@@ -55,11 +55,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // "Week" View Button
+// "Week" View Button
     var weekBtn = document.getElementById('view-week');
     if (weekBtn) {
         weekBtn.addEventListener('click', function() {
-            calendar.changeView('timeGridWeek');
+            calendar.changeView('dayGridWeek'); // <--- UPDATED TO BLOCKS VIEW
             toggleActive(weekBtn);
         });
     }
