@@ -89,22 +89,29 @@
     background-color: var(--color-background-hover) !important;
 }
 
-/* --- Interactive Day Highlighting --- */
+/* --- FIXED: Interactive Day Highlighting --- */
 
-/* 1. Target individual days in the Month Grid */
-.fc .fc-daygrid-day:hover {
-    background-color: var(--color-background-hover) !important;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
+/* 1. DISABLE the "Whole Calendar" Highlight */
+/* This stops the entire calendar from getting a blue border/glow when clicked or hovered */
+.fc, 
+.fc-view-harness, 
+.fc-scrollgrid, 
+.fc:focus, 
+.fc-view-harness:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    border-color: var(--color-border) !important;
 }
 
-/* 2. Optional: If you want the "Week" view columns to highlight */
-.fc .fc-timegrid-col:hover {
+/* 2. Highlight INDIVIDUAL Days on Hover */
+/* Target the actual day cell (td) */
+.fc .fc-daygrid-day.fc-day:hover {
     background-color: var(--color-background-hover) !important;
-    cursor: pointer;
+    cursor: pointer !important;
+    transition: background-color 0.1s ease-in-out;
 }
 
-/* 3. Remove default focus outline (Fixes "whole thing" highlighting on click/focus) */
-.fc:focus, .fc-view-harness:focus {
-    outline: none;
+/* 3. Ensure the inner "frame" of the day doesn't block the color */
+.fc .fc-daygrid-day-frame {
+    background: transparent !important;
 }
