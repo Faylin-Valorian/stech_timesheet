@@ -6,7 +6,6 @@ Util::addStyle('stech_timesheet', 'style');
 ?>
 <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js' nonce="<?php p(\OC::$server->getContentSecurityPolicyNonceManager()->getNonce()); ?>"></script>
-<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
 
 <div id="app">
     <div id="app-navigation">
