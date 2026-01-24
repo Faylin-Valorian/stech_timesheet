@@ -210,3 +210,30 @@
     background-color: var(--color-background-hover) !important;
     cursor: pointer;
 }
+
+/* --- FIXED: Remove Phantom Hover Glows --- */
+
+/* 1. Kill the global content hover */
+/* Nextcloud often highlights #app-content on hover. This stops it. */
+#app-content:hover,
+#app-content-wrapper:hover,
+#calendar-container:hover {
+    background-color: var(--color-background-hover) !important; /* Keep it static */
+    box-shadow: none !important;
+    border: none !important;
+}
+
+/* 2. Specific fix for the Calendar Grid */
+/* Ensure the calendar background stays white (or default) and doesn't darken */
+.fc-view-harness {
+    background: transparent !important;
+}
+
+/* 3. Re-assert Button Hover (Just to be safe) */
+/* Ensure buttons still glow when hovered */
+.icon-action:hover,
+.primary-button:hover,
+.secondary-button:hover {
+    background-color: var(--color-background-dark) !important;
+    opacity: 1 !important;
+}
