@@ -1,4 +1,29 @@
-/* Sidebar Icon Styling */
+/* 1. Force the container to take full height */
+#app-content {
+    background-color: var(--color-main-background);
+    height: 100vh;
+    overflow: hidden;
+}
+
+#app-content-wrapper {
+    height: 100%;
+    width: 100%;
+}
+
+/* 2. Give the calendar container explicit height so FullCalendar expands */
+#calendar-container {
+    height: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+#calendar {
+    flex-grow: 1; /* Grow to fill the container */
+}
+
+/* 3. Sidebar Icons */
 #app-navigation .icon-calendar-dark {
     background-image: var(--icon-calendar-dark);
 }
@@ -6,15 +31,7 @@
     background-image: var(--icon-settings-dark);
 }
 
-/* Calendar Container */
-#calendar-container {
-    height: 100vh; /* Fill the vertical space */
-    padding: 20px;
-    box-sizing: border-box;
-    background: var(--color-main-background);
-}
-
-/* FullCalendar Tweaks for Nextcloud Theme */
+/* 4. FullCalendar Styling Updates for Nextcloud */
 .fc {
     font-family: var(--font-face);
     color: var(--color-main-text);
@@ -24,17 +41,13 @@
     font-size: 1.5em !important;
 }
 
-.fc-col-header-cell-cushion,
-.fc-daygrid-day-number {
-    color: var(--color-main-text); 
-    text-decoration: none !important;
+.fc-theme-standard td, 
+.fc-theme-standard th {
+    border-color: var(--color-border);
 }
 
 .fc .fc-button-primary {
-    background-color: var(--color-primary);
-    border-color: var(--color-primary);
-}
-
-.fc .fc-button-primary:hover {
-    background-color: var(--color-primary-element-hover);
+    background-color: var(--color-primary-element);
+    border-color: var(--color-primary-element);
+    color: var(--color-primary-text);
 }
