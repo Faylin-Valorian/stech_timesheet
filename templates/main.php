@@ -63,7 +63,7 @@ Util::addStyle('stech_timesheet', 'style');
                             <h2 id="modal-date-title">New Entry</h2>
                             <span class="modal-subtitle">Daily Work Record</span>
                         </div>
-                        <button type="button" class="icon-close" id="modal-close-btn" title="Close"></button>
+                        <button type="button" class="btn-close-custom" id="modal-close-btn" title="Close">&times;</button>
                     </div>
 
                     <div class="modal-body">

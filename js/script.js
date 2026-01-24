@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var calendarEl = document.getElementById('calendar');
 
     // --- Overlay Elements ---
-    const overlay = document.getElementById('timesheet-modal-overlay'); // CHANGED ID
+    const overlay = document.getElementById('timesheet-modal-overlay');
     const form = document.getElementById('timesheet-form');
     
     var calendar = new FullCalendar.Calendar(calendarEl, {
@@ -22,20 +22,26 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     calendar.render();
 
-    // --- Modal Functions (Manual Toggle) ---
+    // --- Modal Functions ---
     
     function openModal(dateStr) {
-        document.getElementById('entry-date').value = dateStr;
+        var dateInput = document.getElementById('entry-date');
         
         // Reset Logic
         form.reset();
+        
+        // Force Date Set (Must happen after reset)
+        if (dateInput) {
+            dateInput.value = dateStr;
+        }
+        
         document.getElementById('work-rows-container').innerHTML = ''; 
         addWorkRow(); 
         document.getElementById('travel-fields-container').classList.remove('visible');
 
-        // SHOW OVERLAY (Manual Display)
+        // Show Overlay
         if (overlay) {
-            overlay.style.display = 'flex'; // This makes it visible
+            overlay.style.display = 'flex';
         }
     }
 
@@ -84,7 +90,7 @@ document.addEventListener('DOMContentLoaded', function() {
         row.innerHTML = `
             <input type="text" name="work_desc[]" class="form-control" placeholder="Description...">
             <input type="number" name="work_percent[]" class="form-control text-center" placeholder="0" min="0" max="100">
-            <div class="btn-remove-row" title="Remove">×</div>
+            <div class="btn-remove-row" title="Remove">&times;</div>
         `;
         row.querySelector('.btn-remove-row').addEventListener('click', () => row.remove());
         container.appendChild(row);
@@ -122,17 +128,28 @@ function setupSidebarButtons(calendar) {
     var todayBtn = document.getElementById('view-today');
     if (todayBtn) todayBtn.addEventListener('click', function() {
         calendar.today();
+        
         // Manual Open for Today
-        var todayStr = new Date().toISOString().split('T')[0];
-        document.getElementById('entry-date').value = todayStr;
-        document.getElementById('timesheet-form').reset();
-        document.getElementById('work-rows-container').innerHTML = '';
-        
-        // Trigger Add Row (Hack for scope)
-        document.getElementById('btn-add-row').click();
-        
-        // Show
-        document.getElementById('timesheet-modal-overlay').style.display = 'flex';
+        var now = new Date();
+        var offset = now.getTimezoneOffset();
+        var today = new Date(now.getTime() - (offset*60*1000));
+        var todayStr = today.toISOString().split('T')[0];
+
+        // Ensure date populates
+        var dateInput = document.getElementById('entry-date');
+        var form = document.getElementById('timesheet-form');
+        var overlay = document.getElementById('timesheet-modal-overlay');
+
+        if (dateInput && form && overlay) {
+            form.reset();
+            dateInput.value = todayStr; // Force Value
+            
+            document.getElementById('work-rows-container').innerHTML = '';
+            document.getElementById('btn-add-row').click(); 
+            document.getElementById('travel-fields-container').classList.remove('visible');
+            
+            overlay.style.display = 'flex';
+        }
     });
 
     var dateLabel = document.getElementById('current-date-label');
