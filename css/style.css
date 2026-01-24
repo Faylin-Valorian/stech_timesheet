@@ -1,4 +1,8 @@
-/* --- FIXED: Layout Structure --- */
+/* =========================================
+   1. LAYOUT & STRUCTURE
+   ========================================= */
+
+/* Main App Container - Force Flexbox */
 #app {
     display: flex !important;
     flex-direction: row !important;
@@ -7,63 +11,10 @@
     overflow: hidden;
 }
 
-/* Sidebar: Fixed width, full height */
+/* Sidebar Navigation - Fixed Width */
 #app-navigation {
     width: 300px;
-    min-width: 300px; /* Prevent shrinking */
-    height: 100%;
-    background-color: var(--color-main-background);
-    border-right: 1px solid var(--color-border);
-    display: flex;
-    flex-direction: column;
-    z-index: 50; /* Ensure it stays above content */
-}
-
-/* Content Area: Fills remaining width */
-#app-content {
-    flex-grow: 1;
-    height: 100%;
-    overflow: hidden;
-    position: relative;
-    background-color: var(--color-background-hover); 
-}
-
-/* Wrapper: Must pass height down */
-#app-content-wrapper {
-    height: 100%;
-    width: 100%;
-    padding: 20px;
-    box-sizing: border-box;
-}
-
-/* Calendar Container: The actual box holding the calendar */
-#calendar-container {
-    height: 100%;
-    width: 100%;
-    background: var(--color-main-background);
-    border-radius: var(--border-radius-large);
-    box-shadow: 0 0 10px var(--color-box-shadow);
-    padding: 15px;
-    box-sizing: border-box;
-    display: flex;    /* Vital for internal height */
-    flex-direction: column;
-}
-
-/* The Calendar Itself */
-#calendar {
-    flex-grow: 1;
-    height: 100%;
-    width: 100%;
-}
-
-/* Hide the "License Key" warning (if using standard version) */
-.fc-license-message {
-    display: none;
-}
-
-/* Sidebar Styling */
-#app-navigation {
-    width: 300px;
+    min-width: 300px;
     height: 100%;
     background-color: var(--color-main-background);
     border-right: 1px solid var(--color-border);
@@ -72,16 +23,65 @@
     padding-top: 20px;
     box-sizing: border-box;
     overflow-y: auto;
+    z-index: 50;
 }
 
-/* --- Sidebar Controls --- */
-
-/* Date Header Section */
-.nav-section-header {
-    padding: 10px 15px;
-    list-style: none;
+/* Main Content Area - Grow to Fill */
+#app-content {
+    flex-grow: 1;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    /* Default to grey, but overwritten by anti-glow below */
+    background-color: var(--color-background-hover); 
 }
 
+/* Wrapper */
+#app-content-wrapper {
+    height: 100%;
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* Calendar Container Box */
+#calendar-container {
+    height: 100%;
+    width: 100%;
+    background: var(--color-main-background);
+    border-radius: var(--border-radius-large);
+    box-shadow: 0 0 10px var(--color-box-shadow);
+    padding: 15px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
+
+/* The Calendar Instance */
+#calendar {
+    flex-grow: 1;
+    height: 100%;
+    width: 100%;
+}
+
+/* Hide FullCalendar License Warning */
+.fc-license-message {
+    display: none;
+}
+
+/* =========================================
+   2. SIDEBAR CONTROLS STYLING
+   ========================================= */
+
+/* List Resets */
+.nav-section-header, 
+.nav-section-views, 
+.nav-item { 
+    padding: 10px 15px; 
+    list-style: none; 
+}
+
+/* Date Header (Black Box) */
 .date-controls {
     display: flex;
     align-items: center;
@@ -91,71 +91,45 @@
     border-radius: var(--border-radius-large);
 }
 
+/* Date Label */
 #current-date-label {
     font-weight: bold;
     font-size: 16px;
     cursor: pointer;
     color: var(--color-main-text);
 }
-#current-date-label:hover {
-    text-decoration: underline;
-}
+#current-date-label:hover { text-decoration: underline; }
 
-/* Hidden Date Input (Active when clicking label) */
+/* Hidden Input for Date Picker */
 #date-picker-input {
-    position: absolute;
-    opacity: 0;
-    width: 1px;
-    height: 1px;
-    pointer-events: none;
+    position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;
 }
 
-/* Navigation Icons (< >) */
+/* Next/Prev Arrows */
 .icon-action {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 18px;
-    color: var(--color-main-text);
-    padding: 5px 10px;
-    border-radius: var(--border-radius);
+    background: none; border: none; cursor: pointer;
+    font-size: 18px; color: var(--color-main-text);
+    padding: 5px 10px; border-radius: var(--border-radius);
 }
-.icon-action:hover {
-    background-color: var(--color-background-hover);
-}
+.icon-action:hover { background-color: var(--color-background-hover); }
 #nav-prev::before { content: "‹"; font-size: 24px; }
 #nav-next::before { content: "›"; font-size: 24px; }
 
 /* View Buttons (Month/Week/Today) */
-.nav-section-views {
-    padding: 10px 15px;
-    list-style: none;
-}
-.view-buttons {
-    display: flex;
-    gap: 5px;
-    justify-content: center;
-}
+.view-buttons { display: flex; gap: 5px; justify-content: center; }
 
 .primary-button, .secondary-button {
-    padding: 8px 16px;
-    border: none;
-    border-radius: var(--border-radius-pill);
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 13px;
-    transition: all 0.2s;
+    padding: 8px 16px; border: none; border-radius: var(--border-radius-pill);
+    cursor: pointer; font-weight: bold; font-size: 13px; transition: all 0.2s;
 }
 
 .primary-button {
     background-color: var(--color-primary-element);
     color: var(--color-primary-text);
 }
-.primary-button:hover {
-    background-color: var(--color-primary-element-hover);
-}
+.primary-button:hover { background-color: var(--color-primary-element-hover); }
 .primary-button.active {
-    background-color: var(--color-primary-element-text-dark); /* Visually distinct active state */
+    background-color: var(--color-primary-element-text-dark);
     box-shadow: inset 0 0 4px rgba(0,0,0,0.2);
 }
 
@@ -164,76 +138,78 @@
     border: 1px solid var(--color-border);
     color: var(--color-main-text);
 }
-.secondary-button:hover {
-    background-color: var(--color-background-hover);
-}
+.secondary-button:hover { background-color: var(--color-background-hover); }
 
-/* Separator */
+/* Navigation Links */
 .app-navigation-separator {
-    height: 1px;
-    background-color: var(--color-border);
-    margin: 10px 15px;
-}
-
-/* Navigation Links (Timesheet / Admin) */
-.nav-item {
-    list-style: none;
+    height: 1px; background-color: var(--color-border); margin: 10px 15px;
 }
 .nav-link {
-    display: flex;
-    align-items: center;
-    padding: 10px 20px;
-    color: var(--color-main-text);
-    text-decoration: none;
-    opacity: 0.7;
-    transition: opacity 0.2s;
+    display: flex; align-items: center; padding: 10px 20px;
+    color: var(--color-main-text); text-decoration: none;
+    opacity: 0.7; transition: opacity 0.2s;
 }
 .nav-link:hover, .nav-link.active {
-    opacity: 1;
-    background-color: var(--color-background-hover);
+    opacity: 1; background-color: var(--color-background-hover);
 }
-.nav-link span[class^="icon-"] {
-    margin-right: 10px;
-    width: 20px;
-    text-align: center;
+.nav-link span[class^="icon-"] { margin-right: 10px; width: 20px; text-align: center; }
+
+/* =========================================
+   3. THEME OVERRIDES (Restored)
+   ========================================= */
+
+/* Grid Lines & Text Colors */
+.fc-theme-standard td, 
+.fc-theme-standard th {
+    border-color: var(--color-border);
+}
+.fc { color: var(--color-main-text); }
+.fc-col-header-cell-cushion, 
+.fc-daygrid-day-number {
+    color: var(--color-main-text);
+    text-decoration: none;
 }
 
-/* --- Calendar Tweaks --- */
-#calendar-container {
-    height: 100%;
-    padding: 20px;
-    box-sizing: border-box;
+/* Highlight "Today" Cell (Static) */
+.fc .fc-day-today {
+    background-color: rgba(0, 0, 0, 0.05) !important;
 }
 
-/* Highlight tweaks from previous step */
+/* =========================================
+   4. CRITICAL: ANTI-GLOW & HOVER FIXES
+   ========================================= */
+
+/* 1. Prevent Container from Glowing on Hover */
+#calendar-container:hover {
+    background-color: var(--color-main-background) !important;
+    background: var(--color-main-background) !important;
+    box-shadow: 0 0 10px var(--color-box-shadow) !important;
+    border-color: transparent !important;
+}
+
+/* 2. Prevent Wrapper from Glowing */
+#app-content:hover,
+#app-content-wrapper:hover {
+    background-color: var(--color-background-hover) !important;
+    box-shadow: none !important;
+}
+
+/* 3. Stop Nextcloud from Highlighting Grid Rows */
+.fc table tr:hover,
+.fc .fc-scrollgrid tr:hover,
+.fc .fc-row:hover {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* 4. Remove Blue Focus Rings */
+.fc-view-harness:focus, .fc:focus {
+    outline: none !important;
+}
+
+/* 5. INTERACTIVE: Highlight Only the Day You Hover */
 .fc .fc-daygrid-day:hover {
     background-color: var(--color-background-hover) !important;
     cursor: pointer;
-}
-
-/* --- FIXED: Remove Phantom Hover Glows --- */
-
-/* 1. Kill the global content hover */
-/* Nextcloud often highlights #app-content on hover. This stops it. */
-#app-content:hover,
-#app-content-wrapper:hover,
-#calendar-container:hover {
-    background-color: var(--color-background-hover) !important; /* Keep it static */
-    box-shadow: none !important;
-    border: none !important;
-}
-
-/* 2. Specific fix for the Calendar Grid */
-/* Ensure the calendar background stays white (or default) and doesn't darken */
-.fc-view-harness {
-    background: transparent !important;
-}
-
-/* 3. Re-assert Button Hover (Just to be safe) */
-/* Ensure buttons still glow when hovered */
-.icon-action:hover,
-.primary-button:hover,
-.secondary-button:hover {
-    background-color: var(--color-background-dark) !important;
-    opacity: 1 !important;
+    transition: background-color 0.1s ease-in-out;
 }
