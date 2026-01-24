@@ -1,53 +1,81 @@
-/* 1. Force the container to take full height */
+/* --- Fix for Layout Width --- */
+/* Ensure the main container fills the available flexible space */
 #app-content {
-    background-color: var(--color-main-background);
-    height: 100vh;
-    overflow: hidden;
+    flex-grow: 1;
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* Prevents double scrollbars */
 }
 
+/* Container sizing */
 #app-content-wrapper {
     height: 100%;
     width: 100%;
-}
-
-/* 2. Give the calendar container explicit height so FullCalendar expands */
-#calendar-container {
-    height: 100%;
     padding: 20px;
     box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
+    background-color: var(--color-main-background);
 }
 
-#calendar {
-    flex-grow: 1; /* Grow to fill the container */
-}
-
-/* 3. Sidebar Icons */
-#app-navigation .icon-calendar-dark {
-    background-image: var(--icon-calendar-dark);
-}
-#app-navigation .icon-settings-dark {
-    background-image: var(--icon-settings-dark);
-}
-
-/* 4. FullCalendar Styling Updates for Nextcloud */
-.fc {
-    font-family: var(--font-face);
+#calendar-container {
+    background: var(--color-main-background);
     color: var(--color-main-text);
+    /* Ensure it takes full width of the wrapper */
+    width: 100%; 
+    height: calc(100vh - 100px); /* Adjust for header */
+    padding: 15px;
+    border-radius: var(--border-radius-large);
+    box-shadow: 0 0 10px var(--color-box-shadow);
+    /* Ensure sizing includes padding so it doesn't overflow */
+    box-sizing: border-box; 
 }
 
-.fc-toolbar-title {
-    font-size: 1.5em !important;
+/* --- Overriding FullCalendar to match Nextcloud Theme --- */
+
+/* Toolbar Buttons (Month/Week/Today) */
+.fc .fc-button-primary {
+    background-color: var(--color-primary-element);
+    border-color: var(--color-primary-element);
+    color: var(--color-primary-text);
+    border-radius: var(--border-radius);
+    transition: opacity 0.2s;
 }
 
+.fc .fc-button-primary:hover {
+    background-color: var(--color-primary-element-hover);
+    border-color: var(--color-primary-element-hover);
+}
+
+.fc .fc-button-primary:disabled {
+    opacity: 0.6;
+}
+
+/* Active State */
+.fc .fc-button-primary:not(:disabled).fc-button-active, 
+.fc .fc-button-primary:not(:disabled):active {
+    background-color: var(--color-primary-element-light);
+    border-color: var(--color-primary-element-light);
+    color: var(--color-primary-text-dark);
+}
+
+/* Grid & Text Colors */
 .fc-theme-standard td, 
 .fc-theme-standard th {
     border-color: var(--color-border);
 }
 
-.fc .fc-button-primary {
-    background-color: var(--color-primary-element);
-    border-color: var(--color-primary-element);
-    color: var(--color-primary-text);
+.fc {
+    color: var(--color-main-text);
+    /* Force calendar to respect container width */
+    width: 100%; 
+}
+
+.fc-col-header-cell-cushion, 
+.fc-daygrid-day-number {
+    color: var(--color-main-text);
+    text-decoration: none;
+}
+
+/* Highlight Today */
+.fc .fc-day-today {
+    background-color: var(--color-background-hover) !important;
 }
