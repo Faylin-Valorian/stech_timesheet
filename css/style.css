@@ -236,25 +236,35 @@
     background: var(--color-main-background);
     color: var(--color-main-text);
     
-    /* Layout Dimensions */
+    /* Dimensions */
     width: 80%; 
     max-width: 95%; 
     
-    /* CRITICAL: Constrain Height so it fits in the screen */
-    max-height: 95%; 
+    /* CRITICAL: Height Constraints */
+    /* Use 'vh' to ensure it fits in the browser window */
+    max-height: 90vh; 
     
     border-radius: var(--border-radius-large);
     box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-    overflow: hidden; /* Contains the children */
+    
+    /* Flex Setup */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; 
 }
 
-/* 3. CRITICAL FIX: Make the Form fill the Card */
-/* The form wraps all content, so IT must be the flex container */
+/* 3. The Form Container */
+/* The form must be a flex container that fills the card but allows shrinking */
 #timesheet-form {
     display: flex;
     flex-direction: column;
-    height: 100%; /* Fill the card height */
-    overflow: hidden; /* Prevent spilling */
+    
+    /* CRITICAL: Allows form to shrink to fit the card */
+    flex: 1 1 auto; 
+    min-height: 0; 
+    
+    height: 100%;
+    width: 100%;
 }
 
 /* Header */
@@ -263,7 +273,7 @@
     padding: 20px 25px;
     background: var(--color-background-hover);
     border-bottom: 1px solid var(--color-border);
-    flex-shrink: 0; /* Prevent header from squishing */
+    flex-shrink: 0; /* Never shrink */
 }
 .modal-header h2 { margin: 0; font-size: 20px; font-weight: bold; }
 .modal-subtitle { font-size: 13px; opacity: 0.6; }
@@ -279,9 +289,9 @@
     padding: 25px; 
     
     /* SCROLLING LOGIC */
-    overflow-y: auto;  /* Enable vertical scroll */
-    flex-grow: 1;      /* Fill available space */
-    min-height: 0;     /* CRITICAL: Allows flex child to shrink & scroll */
+    overflow-y: auto;  /* Trigger scrollbar */
+    flex-grow: 1;      /* Fill empty space */
+    min-height: 0;     /* Allow shrinking */
 }
 
 /* Footer */
@@ -290,11 +300,11 @@
     border-top: 1px solid var(--color-border); 
     background: var(--color-background-hover); 
     display: flex; justify-content: flex-end; gap: 10px;
-    flex-shrink: 0; /* Prevent footer from squishing */
+    flex-shrink: 0; /* Never shrink */
 }
 
 
-/* --- Form Internals (Standard Grid) --- */
+/* --- Form Internals --- */
 .form-row-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; }
 .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; }
 .form-row-1 { display: block; width: 100%; }
