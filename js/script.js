@@ -1,45 +1,101 @@
-console.log('Stech Timesheet: JS Loaded');
-
-// This function checks for the element every 100ms until it finds it
-function waitForCalendar() {
+document.addEventListener('DOMContentLoaded', function() {
     var calendarEl = document.getElementById('calendar');
 
-    if (calendarEl) {
-        console.log('Stech Timesheet: Found #calendar div. Initializing...');
-        initCalendar(calendarEl);
-    } else {
-        // Not found yet, try again in 100ms
-        setTimeout(waitForCalendar, 100);
-    }
-}
-
-function initCalendar(element) {
-    // Safety check: Don't double-initialize if already running
-    if (element.innerHTML !== '') return;
-
-    if (typeof FullCalendar === 'undefined') {
-        console.error('Stech Timesheet: FullCalendar library missing. Check CDN/Internet.');
-        element.innerHTML = '<h2 style="color:red; padding:20px;">Error: Calendar Library Failed to Load</h2>';
-        return;
-    }
-
-    var calendar = new FullCalendar.Calendar(element, {
+    // 1. Initialize the Calendar
+    var calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek'
-        },
         firstDay: 0, 
+        
+        // --- THIS HIDES THE DEFAULT BUTTONS ---
+        headerToolbar: false, 
+        // --------------------------------------
+
         height: '100%',
+        themeSystem: 'standard',
+        
+        // Update the Sidebar Title (e.g. "January 2026") when view changes
+        datesSet: function(info) {
+            var titleEl = document.getElementById('current-date-label');
+            if (titleEl) {
+                titleEl.innerText = info.view.title;
+            }
+        },
+
         windowResize: function(view) {
             calendar.render();
         }
     });
 
     calendar.render();
-    console.log('Stech Timesheet: Render complete.');
-}
 
-// Start looking for the calendar immediately
-waitForCalendar();
+    // 2. Connect the Sidebar Buttons to the Calendar
+    
+    // Previous Month Button
+    var prevBtn = document.getElementById('nav-prev');
+    if (prevBtn) {
+        prevBtn.addEventListener('click', function() {
+            calendar.prev();
+        });
+    }
+
+    // Next Month Button
+    var nextBtn = document.getElementById('nav-next');
+    if (nextBtn) {
+        nextBtn.addEventListener('click', function() {
+            calendar.next();
+        });
+    }
+
+    // "Month" View Button
+    var monthBtn = document.getElementById('view-month');
+    if (monthBtn) {
+        monthBtn.addEventListener('click', function() {
+            calendar.changeView('dayGridMonth');
+            toggleActive(monthBtn);
+        });
+    }
+
+    // "Week" View Button
+    var weekBtn = document.getElementById('view-week');
+    if (weekBtn) {
+        weekBtn.addEventListener('click', function() {
+            calendar.changeView('timeGridWeek');
+            toggleActive(weekBtn);
+        });
+    }
+
+    // "Today" Button
+    var todayBtn = document.getElementById('view-today');
+    if (todayBtn) {
+        todayBtn.addEventListener('click', function() {
+            calendar.today();
+        });
+    }
+
+    // Date Picker Input (Hidden)
+    var dateLabel = document.getElementById('current-date-label');
+    var dateInput = document.getElementById('date-picker-input');
+
+    if (dateLabel && dateInput) {
+        // Clicking label opens picker
+        dateLabel.addEventListener('click', function() {
+            dateInput.showPicker(); 
+        });
+
+        // Changing date updates calendar
+        dateInput.addEventListener('change', function() {
+            if (this.value) {
+                calendar.gotoDate(this.value + '-01');
+            }
+        });
+    }
+
+    // Helper to switch the "Active" blue button state
+    function toggleActive(activeBtn) {
+        var buttons = document.querySelectorAll('.view-buttons button');
+        buttons.forEach(function(btn) {
+            btn.classList.remove('active');
+        });
+        activeBtn.classList.add('active');
+    }
+});
