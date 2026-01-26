@@ -6,15 +6,21 @@ use Closure;
 use OCP\DB\ISchemaWrapper;
 use OCP\Migration\IOutput;
 use OCP\Migration\SimpleMigrationStep;
+use OCP\Log\ILogger;
 
 class Version010000Date20260124120000 extends SimpleMigrationStep {
 
     public function changeSchema(IOutput $output, Closure $schemaClosure, array $options) {
         /** @var ISchemaWrapper $schema */
         $schema = $schemaClosure();
+        
+        // LOGGING START
+        $logger = \OCP\Server::get(\OCP\ILogger::class);
+        $logger->info('STECH MIGRATION: Starting schema update...', ['app' => 'stech_timesheet']);
 
-        // 1. Table: oc_stech_states (Renamed from states)
+        // 1. Table: oc_stech_states
         if (!$schema->hasTable('stech_states')) {
+            $logger->info('STECH MIGRATION: Creating table stech_states', ['app' => 'stech_timesheet']);
             $table = $schema->createTable('stech_states');
             $table->addColumn('id', 'integer', ['autoincrement' => true, 'notnull' => true]);
             $table->addColumn('state_name', 'string', ['notnull' => true, 'length' => 100]);
@@ -25,8 +31,9 @@ class Version010000Date20260124120000 extends SimpleMigrationStep {
             $table->setPrimaryKey(['id']);
         }
 
-        // 2. Table: oc_stech_counties (Renamed from counties)
+        // 2. Table: oc_stech_counties
         if (!$schema->hasTable('stech_counties')) {
+            $logger->info('STECH MIGRATION: Creating table stech_counties', ['app' => 'stech_timesheet']);
             $table = $schema->createTable('stech_counties');
             $table->addColumn('id', 'integer', ['autoincrement' => true, 'notnull' => true]);
             $table->addColumn('county_name', 'string', ['notnull' => true, 'length' => 100]);
@@ -41,6 +48,7 @@ class Version010000Date20260124120000 extends SimpleMigrationStep {
 
         // 3. Table: oc_stech_timesheets
         if (!$schema->hasTable('stech_timesheets')) {
+            $logger->info('STECH MIGRATION: Creating table stech_timesheets', ['app' => 'stech_timesheet']);
             $table = $schema->createTable('stech_timesheets');
             $table->addColumn('timesheet_id', 'integer', ['autoincrement' => true, 'notnull' => true]);
             $table->addColumn('userid', 'string', ['notnull' => true, 'length' => 64]);
@@ -70,6 +78,7 @@ class Version010000Date20260124120000 extends SimpleMigrationStep {
 
         // 4. Table: oc_stech_activity
         if (!$schema->hasTable('stech_activity')) {
+            $logger->info('STECH MIGRATION: Creating table stech_activity', ['app' => 'stech_timesheet']);
             $table = $schema->createTable('stech_activity');
             $table->addColumn('activity_id', 'integer', ['autoincrement' => true, 'notnull' => true]);
             $table->addColumn('timesheet_id', 'integer', ['notnull' => true]);
@@ -83,6 +92,7 @@ class Version010000Date20260124120000 extends SimpleMigrationStep {
 
         // 5. Table: oc_stech_holidays
         if (!$schema->hasTable('stech_holidays')) {
+            $logger->info('STECH MIGRATION: Creating table stech_holidays', ['app' => 'stech_timesheet']);
             $table = $schema->createTable('stech_holidays');
             $table->addColumn('holiday_id', 'integer', ['autoincrement' => true, 'notnull' => true]);
             $table->addColumn('holiday_name', 'string', ['notnull' => true, 'length' => 255]);
@@ -93,6 +103,7 @@ class Version010000Date20260124120000 extends SimpleMigrationStep {
 
         // 6. Table: oc_stech_jobs
         if (!$schema->hasTable('stech_jobs')) {
+            $logger->info('STECH MIGRATION: Creating table stech_jobs', ['app' => 'stech_timesheet']);
             $table = $schema->createTable('stech_jobs');
             $table->addColumn('job_id', 'integer', ['autoincrement' => true, 'notnull' => true]);
             $table->addColumn('job_name', 'string', ['notnull' => true, 'length' => 255]);

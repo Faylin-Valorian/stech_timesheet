@@ -25,6 +25,38 @@ class TimesheetController extends Controller {
      * @NoAdminRequired
      * @NoCSRFRequired
      */
+    public function checkDb(): DataResponse {
+        $tables = [
+            'stech_states', 
+            'stech_counties', 
+            'stech_timesheets', 
+            'stech_activity', 
+            'stech_holidays', 
+            'stech_jobs'
+        ];
+        $status = [];
+
+        foreach ($tables as $table) {
+            try {
+                // Try to select 1 record to see if table exists
+                $this->db->executeQuery("SELECT * FROM `$table` LIMIT 1");
+                $status[$table] = 'OK (Table Exists)';
+            } catch (\Exception $e) {
+                // If this catches, the table is missing
+                $status[$table] = 'FAIL: ' . $e->getMessage();
+            }
+        }
+
+        return new DataResponse([
+            'status' => 'Debug Report', 
+            'tables' => $status
+        ]);
+    }
+
+    /**
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
     public function getAttributes(): DataResponse {
         // Fetch Jobs
         $qbJobs = $this->db->getQueryBuilder();
@@ -33,7 +65,7 @@ class TimesheetController extends Controller {
                ->where($qbJobs->expr()->eq('job_archive', $qbJobs->createNamedParameter(false)));
         $jobs = $qbJobs->executeQuery()->fetchAll();
 
-        // Fetch States (Updated Table Name)
+        // Fetch States
         $qbStates = $this->db->getQueryBuilder();
         $qbStates->select('*')
                  ->from('stech_states')
@@ -52,7 +84,7 @@ class TimesheetController extends Controller {
      * @NoCSRFRequired
      */
     public function getCounties(string $stateAbbr): DataResponse {
-        // Find State FIPS first (Updated Table Name)
+        // Find State FIPS first
         $qbState = $this->db->getQueryBuilder();
         $qbState->select('fips_code')
                 ->from('stech_states')
@@ -63,7 +95,7 @@ class TimesheetController extends Controller {
             return new DataResponse([], 404);
         }
 
-        // Fetch Counties by FIPS (Updated Table Name)
+        // Fetch Counties by FIPS
         $qb = $this->db->getQueryBuilder();
         $qb->select('*')
            ->from('stech_counties')
@@ -89,7 +121,6 @@ class TimesheetController extends Controller {
         
         $results = $qb->executeQuery()->fetchAll();
         
-        // Transform for FullCalendar
         $events = [];
         $today = date('Y-m-d');
 
@@ -101,16 +132,13 @@ class TimesheetController extends Controller {
             $title = '';
 
             if ($isClosed) {
-                // Completed
-                $color = '#28a745'; // Green
+                $color = '#28a745'; 
                 $title = $row['time_total'] . ' hrs';
             } elseif ($date < $today) {
-                // Forgot to clock out
-                $color = '#dc3545'; // Red
+                $color = '#dc3545'; 
                 $title = 'Missing Out';
             } else {
-                // Active / Today
-                $color = '#ffc107'; // Yellow/Orange
+                $color = '#ffc107'; 
                 $title = 'Active';
             }
 
