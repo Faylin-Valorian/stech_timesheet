@@ -33,10 +33,10 @@ class TimesheetController extends Controller {
                ->where($qbJobs->expr()->eq('job_archive', $qbJobs->createNamedParameter(false)));
         $jobs = $qbJobs->executeQuery()->fetchAll();
 
-        // Fetch States
+        // Fetch States (Updated Table Name)
         $qbStates = $this->db->getQueryBuilder();
         $qbStates->select('*')
-                 ->from('states')
+                 ->from('stech_states')
                  ->where($qbStates->expr()->eq('is_enabled', $qbStates->createNamedParameter(true)))
                  ->orderBy('state_name', 'ASC');
         $states = $qbStates->executeQuery()->fetchAll();
@@ -52,10 +52,10 @@ class TimesheetController extends Controller {
      * @NoCSRFRequired
      */
     public function getCounties(string $stateAbbr): DataResponse {
-        // Find State FIPS first
+        // Find State FIPS first (Updated Table Name)
         $qbState = $this->db->getQueryBuilder();
         $qbState->select('fips_code')
-                ->from('states')
+                ->from('stech_states')
                 ->where($qbState->expr()->eq('state_abbr', $qbState->createNamedParameter($stateAbbr)));
         $state = $qbState->executeQuery()->fetch();
 
@@ -63,10 +63,10 @@ class TimesheetController extends Controller {
             return new DataResponse([], 404);
         }
 
-        // Fetch Counties by FIPS
+        // Fetch Counties by FIPS (Updated Table Name)
         $qb = $this->db->getQueryBuilder();
         $qb->select('*')
-           ->from('counties')
+           ->from('stech_counties')
            ->where($qb->expr()->eq('state_fips', $qb->createNamedParameter($state['fips_code'])))
            ->andWhere($qb->expr()->eq('is_enabled', $qb->createNamedParameter(true)))
            ->orderBy('county_name', 'ASC');
@@ -136,7 +136,6 @@ class TimesheetController extends Controller {
         $data = $this->request->getParams();
         $date = $data['date'];
         
-        // 1. Check for open entries on this day
         $qbCheck = $this->db->getQueryBuilder();
         $qbCheck->select('*')
                 ->from('stech_timesheets')
@@ -147,12 +146,10 @@ class TimesheetController extends Controller {
         
         $lastEntry = $qbCheck->executeQuery()->fetch();
 
-        // If previous entry exists and isn't clocked out, block new entry
         if ($lastEntry && empty($lastEntry['time_out'])) {
             return new DataResponse(['error' => 'You must clock out of your previous entry for this day before adding a new one.'], 400);
         }
 
-        // 2. Insert Timesheet
         $qb = $this->db->getQueryBuilder();
         $qb->insert('stech_timesheets')
            ->values([
@@ -162,7 +159,6 @@ class TimesheetController extends Controller {
                'time_out' => $qb->createNamedParameter($data['time_out']),
                'time_break' => $qb->createNamedParameter((int)$data['break_min']),
                'time_total' => $qb->createNamedParameter((float)$data['total_hours']),
-               // Fix: Check for checkbox existence using isset()
                'travel' => $qb->createNamedParameter(isset($data['has_travel']), \PDO::PARAM_BOOL),
                'travel_per_diem' => $qb->createNamedParameter(isset($data['req_per_diem']), \PDO::PARAM_BOOL),
                'travel_road_scanning' => $qb->createNamedParameter(isset($data['road_scanning']), \PDO::PARAM_BOOL),
@@ -179,7 +175,6 @@ class TimesheetController extends Controller {
         $qb->execute();
         $timesheetId = $qb->getLastInsertId();
 
-        // 3. Insert Activities
         if (isset($data['work_desc']) && is_array($data['work_desc'])) {
             foreach ($data['work_desc'] as $index => $desc) {
                 if (empty($desc)) continue;
