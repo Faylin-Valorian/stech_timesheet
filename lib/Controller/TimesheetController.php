@@ -23,6 +23,7 @@ class TimesheetController extends Controller {
 
     /**
      * @NoAdminRequired
+     * @NoCSRFRequired
      */
     public function getAttributes(): DataResponse {
         // Fetch Jobs
@@ -48,6 +49,7 @@ class TimesheetController extends Controller {
 
     /**
      * @NoAdminRequired
+     * @NoCSRFRequired
      */
     public function getCounties(string $stateAbbr): DataResponse {
         // Find State FIPS first
@@ -75,6 +77,7 @@ class TimesheetController extends Controller {
 
     /**
      * @NoAdminRequired
+     * @NoCSRFRequired
      */
     public function getTimesheets(string $start, string $end): DataResponse {
         $qb = $this->db->getQueryBuilder();
@@ -127,6 +130,7 @@ class TimesheetController extends Controller {
 
     /**
      * @NoAdminRequired
+     * @NoCSRFRequired
      */
     public function saveTimesheet(): DataResponse {
         $data = $this->request->getParams();
@@ -143,8 +147,8 @@ class TimesheetController extends Controller {
         
         $lastEntry = $qbCheck->executeQuery()->fetch();
 
+        // If previous entry exists and isn't clocked out, block new entry
         if ($lastEntry && empty($lastEntry['time_out'])) {
-            // Previous entry not closed
             return new DataResponse(['error' => 'You must clock out of your previous entry for this day before adding a new one.'], 400);
         }
 
@@ -158,11 +162,12 @@ class TimesheetController extends Controller {
                'time_out' => $qb->createNamedParameter($data['time_out']),
                'time_break' => $qb->createNamedParameter((int)$data['break_min']),
                'time_total' => $qb->createNamedParameter((float)$data['total_hours']),
-               'travel' => $qb->createNamedParameter($data['has_travel'] === 'on' || $data['has_travel'] === true, \PDO::PARAM_BOOL),
-               'travel_per_diem' => $qb->createNamedParameter($data['req_per_diem'] === 'on', \PDO::PARAM_BOOL),
-               'travel_road_scanning' => $qb->createNamedParameter($data['road_scanning'] === 'on', \PDO::PARAM_BOOL),
-               'travel_first_last_day' => $qb->createNamedParameter($data['first_last_day'] === 'on', \PDO::PARAM_BOOL),
-               'travel_overnight' => $qb->createNamedParameter($data['overnight'] === 'on', \PDO::PARAM_BOOL),
+               // Fix: Check for checkbox existence using isset()
+               'travel' => $qb->createNamedParameter(isset($data['has_travel']), \PDO::PARAM_BOOL),
+               'travel_per_diem' => $qb->createNamedParameter(isset($data['req_per_diem']), \PDO::PARAM_BOOL),
+               'travel_road_scanning' => $qb->createNamedParameter(isset($data['road_scanning']), \PDO::PARAM_BOOL),
+               'travel_first_last_day' => $qb->createNamedParameter(isset($data['first_last_day']), \PDO::PARAM_BOOL),
+               'travel_overnight' => $qb->createNamedParameter(isset($data['overnight']), \PDO::PARAM_BOOL),
                'travel_state' => $qb->createNamedParameter($data['state']),
                'travel_county' => $qb->createNamedParameter($data['county']),
                'travel_miles' => $qb->createNamedParameter((int)$data['miles']),

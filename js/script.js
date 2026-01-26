@@ -16,7 +16,20 @@ document.addEventListener('DOMContentLoaded', function() {
         headerToolbar: false,
         height: '100%',
         themeSystem: 'standard',
-        events: OC.generateUrl('/apps/stech_timesheet/api/list'), // Event Feed
+        events: function(info, successCallback, failureCallback) {
+            // Manual Fetch to include Headers
+            let url = OC.generateUrl('/apps/stech_timesheet/api/list') + '?start=' + info.startStr + '&end=' + info.endStr;
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'requesttoken': OC.requestToken,
+                    'OCS-APIRequest': 'true'
+                }
+            })
+            .then(response => response.json())
+            .then(data => successCallback(data))
+            .catch(error => failureCallback(error));
+        },
         eventContent: function(arg) {
             // Custom Rendering for Tags
             let div = document.createElement('div');
@@ -43,24 +56,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 3. API Calls
     function fetchAttributes() {
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/attributes'))
-            .then(response => response.json())
-            .then(data => {
-                // Store Jobs
+        fetch(OC.generateUrl('/apps/stech_timesheet/api/attributes'), {
+            headers: {
+                'requesttoken': OC.requestToken,
+                'OCS-APIRequest': 'true'
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error("API Request Failed");
+            return response.json();
+        })
+        .then(data => {
+            // Store Jobs
+            if (data.jobs) {
                 jobOptions = data.jobs;
-                
-                // Populate States
-                const stateSelect = document.getElementById('travel-state');
-                if (stateSelect) {
-                    stateSelect.innerHTML = '<option value="">Select State...</option>';
-                    data.states.forEach(state => {
-                        let opt = document.createElement('option');
-                        opt.value = state.state_abbr;
-                        opt.innerText = state.state_name;
-                        stateSelect.appendChild(opt);
-                    });
-                }
-            });
+            }
+            
+            // Populate States
+            const stateSelect = document.getElementById('travel-state');
+            if (stateSelect && data.states) {
+                stateSelect.innerHTML = '<option value="">Select State...</option>';
+                data.states.forEach(state => {
+                    let opt = document.createElement('option');
+                    opt.value = state.state_abbr;
+                    opt.innerText = state.state_name;
+                    stateSelect.appendChild(opt);
+                });
+            }
+        })
+        .catch(console.error);
     }
 
     // State Change Listener
@@ -72,17 +96,22 @@ document.addEventListener('DOMContentLoaded', function() {
             countySelect.innerHTML = '<option value="">Loading...</option>';
             
             if (val) {
-                fetch(OC.generateUrl('/apps/stech_timesheet/api/counties/' + val))
-                    .then(res => res.json())
-                    .then(counties => {
-                        countySelect.innerHTML = '<option value="">Select County...</option>';
-                        counties.forEach(c => {
-                            let opt = document.createElement('option');
-                            opt.value = c.county_name;
-                            opt.innerText = c.county_name;
-                            countySelect.appendChild(opt);
-                        });
+                fetch(OC.generateUrl('/apps/stech_timesheet/api/counties/' + val), {
+                    headers: {
+                        'requesttoken': OC.requestToken,
+                        'OCS-APIRequest': 'true'
+                    }
+                })
+                .then(res => res.json())
+                .then(counties => {
+                    countySelect.innerHTML = '<option value="">Select County...</option>';
+                    counties.forEach(c => {
+                        let opt = document.createElement('option');
+                        opt.value = c.county_name;
+                        opt.innerText = c.county_name;
+                        countySelect.appendChild(opt);
                     });
+                });
             } else {
                 countySelect.innerHTML = '<option value="">Select County...</option>';
             }
@@ -110,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btn-cancel').addEventListener('click', closeModal);
     document.getElementById('modal-close-btn').addEventListener('click', closeModal);
 
-    // 5. Dynamic Rows (Updated for Dropdown)
+    // 5. Dynamic Rows
     document.getElementById('btn-add-row').addEventListener('click', addWorkRow);
 
     function addWorkRow() {
@@ -120,9 +149,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Build Select Options
         let optionsHtml = '<option value="">Select Job...</option>';
-        jobOptions.forEach(job => {
-            optionsHtml += `<option value="${job.job_name}">${job.job_name}</option>`;
-        });
+        if (jobOptions) {
+            jobOptions.forEach(job => {
+                optionsHtml += `<option value="${job.job_name}">${job.job_name}</option>`;
+            });
+        }
 
         row.innerHTML = `
             <select name="work_desc[]" class="form-control">${optionsHtml}</select>
@@ -143,7 +174,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         fetch(OC.generateUrl('/apps/stech_timesheet/api/save'), {
             method: 'POST',
-            body: payload
+            body: payload,
+            headers: {
+                'requesttoken': OC.requestToken,
+                'OCS-APIRequest': 'true'
+            }
         })
         .then(response => response.json())
         .then(result => {
@@ -234,10 +269,7 @@ function setupSidebarButtons(calendar) {
             dateInput.value = todayStr; // Force Value
             
             document.getElementById('work-rows-container').innerHTML = '';
-            // Trigger addWorkRow() manually or via click if the button is available, 
-            // but since scope issues might prevent calling local addWorkRow, we simulate click:
             document.getElementById('btn-add-row').click(); 
-            
             document.getElementById('travel-fields-container').classList.remove('visible');
             
             overlay.style.display = 'flex';
