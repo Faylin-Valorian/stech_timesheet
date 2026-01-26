@@ -1,16 +1,35 @@
 document.addEventListener('DOMContentLoaded', function() {
     var calendarEl = document.getElementById('calendar');
-
-    // --- Overlay Elements ---
     const overlay = document.getElementById('timesheet-modal-overlay');
     const form = document.getElementById('timesheet-form');
     
+    // Data Stores
+    let jobOptions = [];
+    
+    // 1. Initial Data Fetch
+    fetchAttributes();
+
+    // 2. Calendar Setup
     var calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         firstDay: 0,
         headerToolbar: false,
         height: '100%',
         themeSystem: 'standard',
+        events: OC.generateUrl('/apps/stech_timesheet/api/list'), // Event Feed
+        eventContent: function(arg) {
+            // Custom Rendering for Tags
+            let div = document.createElement('div');
+            div.style.padding = '2px 4px';
+            div.style.borderRadius = '3px';
+            div.style.backgroundColor = arg.event.backgroundColor;
+            div.style.color = '#fff';
+            div.style.fontSize = '0.85em';
+            div.style.overflow = 'hidden';
+            div.style.whiteSpace = 'nowrap';
+            div.innerText = arg.event.title;
+            return { domNodes: [div] };
+        },
         dateClick: function(info) {
             openModal(info.dateStr);
         },
@@ -22,40 +41,133 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     calendar.render();
 
-    // --- Modal Functions ---
-    
+    // 3. API Calls
+    function fetchAttributes() {
+        fetch(OC.generateUrl('/apps/stech_timesheet/api/attributes'))
+            .then(response => response.json())
+            .then(data => {
+                // Store Jobs
+                jobOptions = data.jobs;
+                
+                // Populate States
+                const stateSelect = document.getElementById('travel-state');
+                if (stateSelect) {
+                    stateSelect.innerHTML = '<option value="">Select State...</option>';
+                    data.states.forEach(state => {
+                        let opt = document.createElement('option');
+                        opt.value = state.state_abbr;
+                        opt.innerText = state.state_name;
+                        stateSelect.appendChild(opt);
+                    });
+                }
+            });
+    }
+
+    // State Change Listener
+    const stateSelect = document.getElementById('travel-state');
+    if (stateSelect) {
+        stateSelect.addEventListener('change', function() {
+            const val = this.value;
+            const countySelect = document.getElementById('travel-county');
+            countySelect.innerHTML = '<option value="">Loading...</option>';
+            
+            if (val) {
+                fetch(OC.generateUrl('/apps/stech_timesheet/api/counties/' + val))
+                    .then(res => res.json())
+                    .then(counties => {
+                        countySelect.innerHTML = '<option value="">Select County...</option>';
+                        counties.forEach(c => {
+                            let opt = document.createElement('option');
+                            opt.value = c.county_name;
+                            opt.innerText = c.county_name;
+                            countySelect.appendChild(opt);
+                        });
+                    });
+            } else {
+                countySelect.innerHTML = '<option value="">Select County...</option>';
+            }
+        });
+    }
+
+    // 4. Modal Functions
     function openModal(dateStr) {
         var dateInput = document.getElementById('entry-date');
-        
-        // Reset Logic
         form.reset();
         
-        // Force Date Set (Must happen after reset)
-        if (dateInput) {
-            dateInput.value = dateStr;
-        }
+        if (dateInput) dateInput.value = dateStr;
         
         document.getElementById('work-rows-container').innerHTML = ''; 
         addWorkRow(); 
         document.getElementById('travel-fields-container').classList.remove('visible');
 
-        // Show Overlay
-        if (overlay) {
-            overlay.style.display = 'flex';
-        }
+        if (overlay) overlay.style.display = 'flex';
     }
 
     function closeModal() {
-        if (overlay) {
-            overlay.style.display = 'none';
-        }
+        if (overlay) overlay.style.display = 'none';
     }
 
-    // Close Listeners
     document.getElementById('btn-cancel').addEventListener('click', closeModal);
     document.getElementById('modal-close-btn').addEventListener('click', closeModal);
 
-    // --- Auto-Calculate Hours ---
+    // 5. Dynamic Rows (Updated for Dropdown)
+    document.getElementById('btn-add-row').addEventListener('click', addWorkRow);
+
+    function addWorkRow() {
+        const container = document.getElementById('work-rows-container');
+        const row = document.createElement('div');
+        row.className = 'work-row';
+        
+        // Build Select Options
+        let optionsHtml = '<option value="">Select Job...</option>';
+        jobOptions.forEach(job => {
+            optionsHtml += `<option value="${job.job_name}">${job.job_name}</option>`;
+        });
+
+        row.innerHTML = `
+            <select name="work_desc[]" class="form-control">${optionsHtml}</select>
+            <input type="number" name="work_percent[]" class="form-control text-center" placeholder="0" min="0" max="100">
+            <div class="btn-remove-row" title="Remove">&times;</div>
+        `;
+        
+        row.querySelector('.btn-remove-row').addEventListener('click', () => row.remove());
+        container.appendChild(row);
+    }
+
+    // 6. Form Submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const payload = new URLSearchParams(formData);
+
+        fetch(OC.generateUrl('/apps/stech_timesheet/api/save'), {
+            method: 'POST',
+            body: payload
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.error) {
+                alert(result.error);
+            } else {
+                closeModal();
+                calendar.refetchEvents();
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Error saving timesheet.');
+        });
+    });
+
+    // --- Travel Toggle ---
+    document.getElementById('toggle-travel').addEventListener('change', function() {
+        const container = document.getElementById('travel-fields-container');
+        if (this.checked) container.classList.add('visible');
+        else container.classList.remove('visible');
+    });
+
+    // Auto Calc (Existing)
     const timeInputs = document.querySelectorAll('.calc-time');
     timeInputs.forEach(input => {
         input.addEventListener('change', calculateTotalHours);
@@ -79,30 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
             totalEl.value = "0.00";
         }
     }
-
-    // --- Dynamic Rows ---
-    document.getElementById('btn-add-row').addEventListener('click', addWorkRow);
-
-    function addWorkRow() {
-        const container = document.getElementById('work-rows-container');
-        const row = document.createElement('div');
-        row.className = 'work-row';
-        row.innerHTML = `
-            <input type="text" name="work_desc[]" class="form-control" placeholder="Description...">
-            <input type="number" name="work_percent[]" class="form-control text-center" placeholder="0" min="0" max="100">
-            <div class="btn-remove-row" title="Remove">&times;</div>
-        `;
-        row.querySelector('.btn-remove-row').addEventListener('click', () => row.remove());
-        container.appendChild(row);
-    }
-
-    // --- Travel Toggle ---
-    document.getElementById('toggle-travel').addEventListener('change', function() {
-        const container = document.getElementById('travel-fields-container');
-        if (this.checked) container.classList.add('visible');
-        else container.classList.remove('visible');
-    });
-
+    
     setupSidebarButtons(calendar);
 });
 
@@ -145,7 +234,10 @@ function setupSidebarButtons(calendar) {
             dateInput.value = todayStr; // Force Value
             
             document.getElementById('work-rows-container').innerHTML = '';
+            // Trigger addWorkRow() manually or via click if the button is available, 
+            // but since scope issues might prevent calling local addWorkRow, we simulate click:
             document.getElementById('btn-add-row').click(); 
+            
             document.getElementById('travel-fields-container').classList.remove('visible');
             
             overlay.style.display = 'flex';

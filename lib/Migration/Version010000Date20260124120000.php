@@ -117,9 +117,7 @@ class Version010000Date20260124120000 extends SimpleMigrationStep {
                 'scale' => 2,
                 'precision' => 10,
             ]);
-            $table->addColumn('work_description', 'text', [
-                'notnull' => false,
-            ]);
+            // work_description removed, moved to activity table
             $table->addColumn('travel', 'boolean', [
                 'notnull' => true,
                 'default' => false,
@@ -141,7 +139,15 @@ class Version010000Date20260124120000 extends SimpleMigrationStep {
                 'notnull' => true,
                 'default' => false,
             ]);
+            $table->addColumn('travel_road_scanning', 'boolean', [
+                'notnull' => true,
+                'default' => false,
+            ]);
             $table->addColumn('travel_state', 'string', [
+                'notnull' => false,
+                'length' => 100,
+            ]);
+            $table->addColumn('travel_county', 'string', [
                 'notnull' => false,
                 'length' => 100,
             ]);

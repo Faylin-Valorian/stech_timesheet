@@ -76,7 +76,7 @@ Util::addStyle('stech_timesheet', 'style');
                                 </div>
                                 <div class="input-group">
                                     <label>Time In</label>
-                                    <input type="time" id="time-in" name="time_in" class="form-control calc-time">
+                                    <input type="time" id="time-in" name="time_in" class="form-control calc-time" required>
                                 </div>
                                 <div class="input-group">
                                     <label>Time Out</label>
@@ -156,16 +156,14 @@ Util::addStyle('stech_timesheet', 'style');
                                 <div class="form-row-3">
                                     <div class="input-group">
                                         <label>State</label>
-                                        <select name="state" class="form-control">
+                                        <select name="state" id="travel-state" class="form-control">
                                             <option value="">Select State...</option>
-                                            <option value="TX">Texas</option>
                                         </select>
                                     </div>
                                     <div class="input-group">
                                         <label>County</label>
-                                        <select name="county" class="form-control">
+                                        <select name="county" id="travel-county" class="form-control">
                                             <option value="">Select County...</option>
-                                            <option value="Travis">Travis</option>
                                         </select>
                                     </div>
                                      <div class="input-group">
