@@ -20,8 +20,9 @@ class Version010000Date20260124120000 extends SimpleMigrationStep {
             $table->addColumn('state_name', 'string', ['notnull' => true, 'length' => 100]);
             $table->addColumn('state_abbr', 'string', ['notnull' => true, 'length' => 10]);
             $table->addColumn('fips_code', 'string', ['notnull' => false, 'length' => 10]);
-            // FIX: Use 1 instead of true, 0 instead of false
+            // FIX: Use 1 for true
             $table->addColumn('is_enabled', 'boolean', ['notnull' => true, 'default' => 1]);
+            // FIX: Use 0 for false
             $table->addColumn('is_locked', 'boolean', ['notnull' => true, 'default' => 0]);
             $table->setPrimaryKey(['id']);
         }
@@ -33,7 +34,7 @@ class Version010000Date20260124120000 extends SimpleMigrationStep {
             $table->addColumn('county_name', 'string', ['notnull' => true, 'length' => 100]);
             $table->addColumn('geo_id', 'string', ['notnull' => false, 'length' => 50]);
             $table->addColumn('state_fips', 'string', ['notnull' => false, 'length' => 50]);
-            // FIX: Use 1/0 for boolean defaults
+            // FIX: Use 1/0
             $table->addColumn('is_active', 'boolean', ['notnull' => true, 'default' => 1]);
             $table->addColumn('is_enabled', 'boolean', ['notnull' => true, 'default' => 1]);
             $table->addColumn('is_locked', 'boolean', ['notnull' => true, 'default' => 0]);
@@ -51,7 +52,7 @@ class Version010000Date20260124120000 extends SimpleMigrationStep {
             $table->addColumn('time_out', 'string', ['notnull' => false, 'length' => 20]);
             $table->addColumn('time_break', 'integer', ['notnull' => false, 'default' => 0]);
             $table->addColumn('time_total', 'decimal', ['notnull' => false, 'scale' => 2, 'precision' => 10]);
-            // FIX: Use 0 for boolean defaults
+            // FIX: Use 0
             $table->addColumn('travel', 'boolean', ['notnull' => true, 'default' => 0]);
             $table->addColumn('travel_time', 'decimal', ['notnull' => false, 'scale' => 2, 'precision' => 10]);
             $table->addColumn('travel_per_diem', 'boolean', ['notnull' => true, 'default' => 0]);
@@ -78,7 +79,7 @@ class Version010000Date20260124120000 extends SimpleMigrationStep {
             $table->addColumn('timesheet_id', 'integer', ['notnull' => true]);
             $table->addColumn('activity_description', 'string', ['notnull' => true, 'length' => 255]);
             $table->addColumn('activity_percent', 'integer', ['notnull' => true, 'default' => 0]);
-            // FIX: Use 0 for boolean default
+            // FIX: Use 0
             $table->addColumn('activity_archive', 'boolean', ['notnull' => true, 'default' => 0]);
             
             $table->setPrimaryKey(['activity_id']);
@@ -101,7 +102,7 @@ class Version010000Date20260124120000 extends SimpleMigrationStep {
             $table->addColumn('job_id', 'integer', ['autoincrement' => true, 'notnull' => true]);
             $table->addColumn('job_name', 'string', ['notnull' => true, 'length' => 255]);
             $table->addColumn('job_description', 'string', ['notnull' => false, 'length' => 255]);
-            // FIX: Use 0 for boolean default
+            // FIX: Use 0
             $table->addColumn('job_archive', 'boolean', ['notnull' => true, 'default' => 0]);
             $table->setPrimaryKey(['job_id']);
         }

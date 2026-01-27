@@ -25,38 +25,6 @@ class TimesheetController extends Controller {
      * @NoAdminRequired
      * @NoCSRFRequired
      */
-    public function checkDb(): DataResponse {
-        $tables = [
-            'stech_states', 
-            'stech_counties', 
-            'stech_timesheets', 
-            'stech_activity', 
-            'stech_holidays', 
-            'stech_jobs'
-        ];
-        $status = [];
-
-        foreach ($tables as $table) {
-            try {
-                // Try to select 1 record to see if table exists
-                $this->db->executeQuery("SELECT * FROM `$table` LIMIT 1");
-                $status[$table] = 'OK (Table Exists)';
-            } catch (\Exception $e) {
-                // If this catches, the table is missing
-                $status[$table] = 'FAIL: ' . $e->getMessage();
-            }
-        }
-
-        return new DataResponse([
-            'status' => 'Debug Report', 
-            'tables' => $status
-        ]);
-    }
-
-    /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     */
     public function getAttributes(): DataResponse {
         // Fetch Jobs
         $qbJobs = $this->db->getQueryBuilder();
@@ -68,7 +36,7 @@ class TimesheetController extends Controller {
         // Fetch States
         $qbStates = $this->db->getQueryBuilder();
         $qbStates->select('*')
-                 ->from('stech_states')
+                 ->from('stech_states') // Updated table name
                  ->where($qbStates->expr()->eq('is_enabled', $qbStates->createNamedParameter(true)))
                  ->orderBy('state_name', 'ASC');
         $states = $qbStates->executeQuery()->fetchAll();
@@ -87,7 +55,7 @@ class TimesheetController extends Controller {
         // Find State FIPS first
         $qbState = $this->db->getQueryBuilder();
         $qbState->select('fips_code')
-                ->from('stech_states')
+                ->from('stech_states') // Updated table name
                 ->where($qbState->expr()->eq('state_abbr', $qbState->createNamedParameter($stateAbbr)));
         $state = $qbState->executeQuery()->fetch();
 
@@ -98,7 +66,7 @@ class TimesheetController extends Controller {
         // Fetch Counties by FIPS
         $qb = $this->db->getQueryBuilder();
         $qb->select('*')
-           ->from('stech_counties')
+           ->from('stech_counties') // Updated table name
            ->where($qb->expr()->eq('state_fips', $qb->createNamedParameter($state['fips_code'])))
            ->andWhere($qb->expr()->eq('is_enabled', $qb->createNamedParameter(true)))
            ->orderBy('county_name', 'ASC');
@@ -132,13 +100,13 @@ class TimesheetController extends Controller {
             $title = '';
 
             if ($isClosed) {
-                $color = '#28a745'; 
+                $color = '#28a745'; // Green
                 $title = $row['time_total'] . ' hrs';
             } elseif ($date < $today) {
-                $color = '#dc3545'; 
+                $color = '#dc3545'; // Red
                 $title = 'Missing Out';
             } else {
-                $color = '#ffc107'; 
+                $color = '#ffc107'; // Yellow/Orange
                 $title = 'Active';
             }
 
