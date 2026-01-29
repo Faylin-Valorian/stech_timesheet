@@ -6,6 +6,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Data Stores
     let jobOptions = [];
     
+    // Helper for API URLs (Supports Admin Impersonation)
+    function getApiUrl(endpoint) {
+        const target = document.getElementById('global-target-user')?.value;
+        let url = OC.generateUrl('/apps/stech_timesheet' + endpoint);
+        if(target) {
+            url += (url.includes('?') ? '&' : '?') + 'target_user=' + target;
+        }
+        return url;
+    }
+
     // 1. Initial Data Fetch
     fetchAttributes();
 
@@ -18,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
         themeSystem: 'standard',
         
         events: function(info, successCallback, failureCallback) {
-            let url = OC.generateUrl('/apps/stech_timesheet/api/list') + '?start=' + info.startStr + '&end=' + info.endStr;
+            let url = getApiUrl('/api/list') + '&start=' + info.startStr + '&end=' + info.endStr;
             fetch(url, { headers: { 'requesttoken': OC.requestToken, 'OCS-APIRequest': 'true' } })
             .then(res => res.json())
             .then(data => successCallback(data))
@@ -27,43 +37,33 @@ document.addEventListener('DOMContentLoaded', function() {
         
         eventContent: function(arg) {
             let div = document.createElement('div');
-            div.className = 'fc-event-content-box'; // Hook for CSS
+            div.className = 'fc-event-content-box'; 
             div.style.backgroundColor = arg.event.backgroundColor;
             div.innerText = arg.event.title;
             return { domNodes: [div] };
         },
 
-        // --- CLICK TAB TO OPEN RECORD ---
+        // --- CLICK TAB (EDIT) ---
         eventClick: function(info) {
             const id = info.event.id;
-            // Fetch full details for Edit
-            fetch(OC.generateUrl('/apps/stech_timesheet/api/get/' + id), {
+            fetch(getApiUrl('/api/get/' + id), {
                 headers: { 'requesttoken': OC.requestToken, 'OCS-APIRequest': 'true' }
             })
             .then(res => res.json())
             .then(data => {
-                openModal(data.timesheet_date, data); // Open in Edit Mode
+                openModal(data.timesheet_date, data);
             })
             .catch(err => console.error(err));
         },
 
-        // --- CLICK DATE FOR NEW ENTRY (Safety Check) ---
+        // --- CLICK DATE (NEW) ---
         dateClick: function(info) {
-            // Get all events for this specific day
-            const dayEvents = calendar.getEvents().filter(e => {
-                return e.startStr === info.dateStr;
-            });
-
-            // Check if any event is NOT closed
+            const dayEvents = calendar.getEvents().filter(e => e.startStr === info.dateStr);
             const hasOpenEntry = dayEvents.some(e => !e.extendedProps.isClosed);
 
             if (hasOpenEntry) {
-                OC.dialogs.alert(
-                    'You have an open entry for this date. You must clock out of the existing record before creating a new one.', 
-                    'Cannot Create Entry'
-                );
+                OC.dialogs.alert('You have an open entry for this date. Clock out first.', 'Active Entry Exists');
             } else {
-                // All clear, open new
                 openModal(info.dateStr, null);
             }
         },
@@ -76,12 +76,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     calendar.render();
 
-    // 3. API Calls (Fetch Attributes)
+    // 3. API Calls
     function fetchAttributes() {
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/attributes'), {
+        fetch(getApiUrl('/api/attributes'), {
             headers: { 'requesttoken': OC.requestToken, 'OCS-APIRequest': 'true' }
         })
-        .then(response => { if (!response.ok) throw new Error("API Request Failed"); return response.json(); })
+        .then(response => response.json())
         .then(data => {
             if (data.jobs) jobOptions = data.jobs;
             
@@ -95,8 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     stateSelect.appendChild(opt);
                 });
             }
-        })
-        .catch(console.error);
+        });
     }
 
     // State Change Listener
@@ -107,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const countySelect = document.getElementById('travel-county');
             countySelect.innerHTML = '<option value="">Loading...</option>';
             if (val) {
-                fetch(OC.generateUrl('/apps/stech_timesheet/api/counties/' + val), {
+                fetch(getApiUrl('/api/counties/' + val), {
                     headers: { 'requesttoken': OC.requestToken, 'OCS-APIRequest': 'true' }
                 }).then(res => res.json()).then(counties => {
                     countySelect.innerHTML = '<option value="">Select County...</option>';
@@ -122,53 +121,53 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // 4. Modal Functions (Updated for Edit Mode)
+    // 4. Modal Functions (Populator)
     function openModal(dateStr, existingData) {
         form.reset();
         document.getElementById('entry-date').value = dateStr;
         document.getElementById('work-rows-container').innerHTML = '';
         document.getElementById('travel-fields-container').classList.remove('visible');
+        
+        // Reset ID
+        document.getElementById('timesheet_id').value = existingData ? existingData.timesheet_id : '';
 
-        // Manage Hidden ID field for updates
-        let idField = document.getElementById('timesheet_id');
-        if(!idField) {
-            idField = document.createElement('input');
-            idField.type = 'hidden';
-            idField.id = 'timesheet_id';
-            idField.name = 'timesheet_id';
-            form.appendChild(idField);
-        }
-        // Set ID if editing, empty if new
-        idField.value = existingData ? existingData.timesheet_id : '';
+        // Reset Checkboxes (Important for "New" mode)
+        ['toggle-pto', 'toggle-travel', 'req-per-diem', 'road-scanning', 'first-last-day', 'overnight'].forEach(id => {
+            if(document.getElementById(id)) document.getElementById(id).checked = false;
+        });
 
-        // If Editing: Populate Fields
         if (existingData) {
+            // Populate Basic Fields
             document.getElementById('time-in').value = existingData.time_in || '';
             document.getElementById('time-out').value = existingData.time_out || '';
             document.getElementById('break-min').value = existingData.time_break || 0;
             document.getElementById('total-hours').value = existingData.time_total || 0;
-            document.getElementById('comments').value = existingData.additional_comments || '';
             
-            // Travel Fields
+            // Populate Comments (Strip PTO tag for display)
+            let comms = existingData.additional_comments || '';
+            if (comms.includes('[PTO]')) {
+                document.getElementById('toggle-pto').checked = true;
+                comms = comms.replace('[PTO]', '').trim();
+            }
+            document.getElementById('comments').value = comms;
+
+            // Travel Logic
             if (existingData.travel == 1) {
                 document.getElementById('toggle-travel').checked = true;
                 document.getElementById('travel-fields-container').classList.add('visible');
+                
+                // Set Checkboxes
                 document.getElementById('req-per-diem').checked = (existingData.travel_per_diem == 1);
                 document.getElementById('road-scanning').checked = (existingData.travel_road_scanning == 1);
                 document.getElementById('first-last-day').checked = (existingData.travel_first_last_day == 1);
                 document.getElementById('overnight').checked = (existingData.travel_overnight == 1);
+                
+                // Set Values
                 document.getElementById('miles').value = existingData.travel_miles;
                 document.getElementById('extra-expense').value = existingData.travel_extra_expenses;
-                
-                const stSelect = document.getElementById('travel-state');
-                stSelect.value = existingData.travel_state;
-            }
-
-            // PTO Toggle Check (Based on text tag)
-            const ptoToggle = document.getElementById('toggle-pto');
-            if(ptoToggle && existingData.additional_comments && existingData.additional_comments.includes('[PTO]')) {
-                ptoToggle.checked = true;
-                document.getElementById('comments').value = existingData.additional_comments.replace('[PTO]', '').trim();
+                document.getElementById('travel-state').value = existingData.travel_state;
+                // Note: County dropdown won't populate instantly if state wasn't loaded, 
+                // but setting value usually works if options exist.
             }
 
             // Activities
@@ -181,8 +180,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             // New Entry
             addWorkRow();
-            const ptoToggle = document.getElementById('toggle-pto');
-            if(ptoToggle) ptoToggle.checked = false;
         }
 
         if (overlay) overlay.style.display = 'flex';
@@ -195,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btn-cancel').addEventListener('click', closeModal);
     document.getElementById('modal-close-btn').addEventListener('click', closeModal);
 
-    // 5. Dynamic Rows (Updated)
+    // 5. Dynamic Rows
     document.getElementById('btn-add-row').addEventListener('click', () => addWorkRow());
 
     function addWorkRow(descVal = '', percentVal = '') {
@@ -221,11 +218,10 @@ document.addEventListener('DOMContentLoaded', function() {
         container.appendChild(row);
     }
 
-    // 6. Save (Updated for PTO & validation)
+    // 6. Save
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         
-        // Validation: 100% check
         let totalPercent = 0;
         document.querySelectorAll('.work-percent-input').forEach(i => totalPercent += parseInt(i.value) || 0);
         if (totalPercent > 100) {
@@ -234,15 +230,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         const formData = new FormData(form);
-        
-        // PTO Logic: Append tag
         const ptoToggle = document.getElementById('toggle-pto');
         if (ptoToggle && ptoToggle.checked) {
             let c = formData.get('comments') || '';
             if (!c.includes('[PTO]')) formData.set('comments', '[PTO] ' + c);
         }
 
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/save'), {
+        fetch(getApiUrl('/api/save'), {
             method: 'POST',
             body: new URLSearchParams(formData),
             headers: { 'requesttoken': OC.requestToken, 'OCS-APIRequest': 'true' }

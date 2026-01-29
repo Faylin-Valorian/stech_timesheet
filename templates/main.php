@@ -32,22 +32,31 @@ Util::addStyle('stech_timesheet', 'style');
             <div class="app-navigation-separator"></div>
 
             <li class="nav-item">
-                <a class="nav-link active" href="#">
+                <a class="nav-link active" href="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.page.index')); ?>">
                     <span class="icon-history"></span>
                     <span>Timesheet</span>
                 </a>
             </li>
+            
+            <?php if(\OC::$server->getGroupManager()->isAdmin(\OC::$server->getUserSession()->getUser()->getUID())): ?>
             <li class="nav-item">
-                <a class="nav-link" href="#">
+                <a class="nav-link" href="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.index')); ?>">
                     <span class="icon-settings-dark"></span>
                     <span>Admin Panel</span>
                 </a>
             </li>
+            <?php endif; ?>
         </ul>
     </div>
 
     <div id="app-content">
-        
+        <?php if(!empty($_['target_user'])): ?>
+        <div style="background-color: #d9534f; color: white; padding: 10px; text-align: center; font-weight: bold;">
+            ⚠️ You are viewing the timesheet for user: <?php p($_['target_user']); ?>
+        </div>
+        <input type="hidden" id="global-target-user" value="<?php p($_['target_user']); ?>">
+        <?php endif; ?>
+
         <div id="app-content-wrapper">
             <div id="calendar-container">
                 <div id="calendar"></div>
@@ -57,10 +66,11 @@ Util::addStyle('stech_timesheet', 'style');
         <div id="timesheet-modal-overlay" class="modal-overlay" style="display: none;">
             <div class="modal-card">
                 <form id="timesheet-form">
-                    
+                    <input type="hidden" id="timesheet_id" name="timesheet_id">
+
                     <div class="modal-header">
                         <div>
-                            <h2 id="modal-date-title">New Entry</h2>
+                            <h2 id="modal-date-title">Entry Details</h2>
                             <span class="modal-subtitle">Daily Work Record</span>
                         </div>
                         <button type="button" class="btn-close-custom" id="modal-close-btn" title="Close">&times;</button>
@@ -72,11 +82,11 @@ Util::addStyle('stech_timesheet', 'style');
                             <div class="form-row-4">
                                 <div class="input-group">
                                     <label>Date</label>
-                                    <input type="date" id="entry-date" name="date" class="form-control" readonly>
+                                    <input type="date" id="entry-date" name="date" class="form-control readonly-highlight" readonly>
                                 </div>
                                 <div class="input-group">
                                     <label>Time In</label>
-                                    <input type="time" id="time-in" name="time_in" class="form-control calc-time" required>
+                                    <input type="time" id="time-in" name="time_in" class="form-control calc-time">
                                 </div>
                                 <div class="input-group">
                                     <label>Time Out</label>
@@ -118,8 +128,8 @@ Util::addStyle('stech_timesheet', 'style');
 
                         <div class="form-section toggle-row-container">
                             <div class="toggle-wrapper">
-                                <input type="checkbox" id="toggle-vacation" name="is_vacation" class="toggle-checkbox">
-                                <label for="toggle-vacation" class="toggle-button">
+                                <input type="checkbox" id="toggle-pto" name="is_vacation" class="toggle-checkbox">
+                                <label for="toggle-pto" class="toggle-button">
                                     <span class="icon-vacation"></span> Vacation / PTO
                                 </label>
                             </div>
@@ -137,19 +147,19 @@ Util::addStyle('stech_timesheet', 'style');
                                 <div class="travel-toggles-grid">
                                     <div class="switch-wrapper">
                                         <label class="switch-label">Request Per Diem</label>
-                                        <label class="switch"><input type="checkbox" name="req_per_diem"><span class="slider round"></span></label>
+                                        <label class="switch"><input type="checkbox" id="req-per-diem" name="req_per_diem"><span class="slider round"></span></label>
                                     </div>
                                     <div class="switch-wrapper">
                                         <label class="switch-label">Road Scanning</label>
-                                        <label class="switch"><input type="checkbox" name="road_scanning"><span class="slider round"></span></label>
+                                        <label class="switch"><input type="checkbox" id="road-scanning" name="road_scanning"><span class="slider round"></span></label>
                                     </div>
                                     <div class="switch-wrapper">
                                         <label class="switch-label">First / Last Day</label>
-                                        <label class="switch"><input type="checkbox" name="first_last_day"><span class="slider round"></span></label>
+                                        <label class="switch"><input type="checkbox" id="first-last-day" name="first_last_day"><span class="slider round"></span></label>
                                     </div>
                                     <div class="switch-wrapper">
                                         <label class="switch-label">Overnight Stay</label>
-                                        <label class="switch"><input type="checkbox" name="overnight"><span class="slider round"></span></label>
+                                        <label class="switch"><input type="checkbox" id="overnight" name="overnight"><span class="slider round"></span></label>
                                     </div>
                                 </div>
 
@@ -168,7 +178,7 @@ Util::addStyle('stech_timesheet', 'style');
                                     </div>
                                      <div class="input-group">
                                         <label>Total Miles</label>
-                                        <input type="number" name="miles" class="form-control" placeholder="0">
+                                        <input type="number" id="miles" name="miles" class="form-control" placeholder="0">
                                     </div>
                                 </div>
 
@@ -177,7 +187,7 @@ Util::addStyle('stech_timesheet', 'style');
                                         <label>Extra Expenses Request</label>
                                         <div class="currency-group">
                                             <span class="currency-symbol">$</span>
-                                            <input type="number" name="extra_expense" placeholder="0.00" step="0.01" min="0">
+                                            <input type="number" id="extra-expense" name="extra_expense" placeholder="0.00" step="0.01" min="0">
                                         </div>
                                     </div>
                                 </div>
@@ -189,7 +199,7 @@ Util::addStyle('stech_timesheet', 'style');
                         <div class="form-section">
                             <div class="input-group">
                                 <label>Additional Comments</label>
-                                <textarea name="comments" rows="3" class="form-control" placeholder="Add details..."></textarea>
+                                <textarea name="comments" id="comments" rows="3" class="form-control" placeholder="Add details..."></textarea>
                             </div>
                         </div>
 

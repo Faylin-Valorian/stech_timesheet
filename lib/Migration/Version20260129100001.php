@@ -71,14 +71,13 @@ class Version20260129100001 implements IMigrationStep {
             $table->addColumn('time_out', 'time', ['notnull' => false]);
             $table->addColumn('time_break', 'decimal', ['precision' => 5, 'scale' => 2, 'default' => 0]);
             $table->addColumn('time_total', 'decimal', ['precision' => 5, 'scale' => 2, 'default' => 0]);
-            $table->addColumn('work_description', 'text', ['notnull' => false]);
-            $table->addColumn('travel', 'integer', ['default' => 0]);
+            $table->addColumn('travel_road_scanning', 'integer', ['default' => 0]);
             $table->addColumn('travel_time', 'decimal', ['precision' => 5, 'scale' => 2, 'default' => 0]);
             $table->addColumn('travel_per_diem', 'decimal', ['precision' => 10, 'scale' => 2, 'default' => 0]);
             $table->addColumn('travel_first_last_day', 'integer', ['default' => 0]);
             $table->addColumn('travel_overnight', 'integer', ['default' => 0]);
             $table->addColumn('travel_state', 'string', ['length' => 100, 'notnull' => false]);
-            $table->addColumn('travel_city', 'string', ['length' => 100, 'notnull' => false]);
+            $table->addColumn('travel_county', 'string', ['length' => 100, 'notnull' => false]);
             $table->addColumn('travel_miles', 'integer', ['default' => 0]);
             $table->addColumn('travel_extra_expenses', 'decimal', ['precision' => 10, 'scale' => 2, 'default' => 0]);
             $table->addColumn('additional_comments', 'text', ['notnull' => false]);
