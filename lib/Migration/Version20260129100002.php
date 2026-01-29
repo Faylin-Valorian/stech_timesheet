@@ -35,7 +35,6 @@ class Version20260129100002 implements IMigrationStep {
     public function postSchemaChange(IOutput $output, \Closure $schemaClosure, array $options): void {
         
         // 1. Insert Jobs
-        // Note: Target table is now *PREFIX*stech_jobs, columns match your spec
         $stmt = $this->db->prepare("
             INSERT INTO `*PREFIX*stech_jobs` (job_name, job_description, job_archive) VALUES
             ('Site Survey', 'Initial site inspection and data gathering', 0),
@@ -50,9 +49,8 @@ class Version20260129100002 implements IMigrationStep {
         $stmt->execute();
 
         // 2. Insert States
-        // Note: Target table is now *PREFIX*states
         $stmt = $this->db->prepare("
-            INSERT INTO `*PREFIX*states` (state_name, state_abbr, fips_code, is_enabled, is_locked) VALUES
+            INSERT INTO `*PREFIX*stech_states` (state_name, state_abbr, fips_code, is_enabled, is_locked) VALUES
             ('Alabama', 'AL', '01', 1, 0),
             ('Alaska', 'AK', '02', 1, 0),
             ('Arizona', 'AZ', '04', 1, 0),
@@ -108,10 +106,9 @@ class Version20260129100002 implements IMigrationStep {
         $stmt->execute();
 
         // 3. Insert Counties
-        // Note: Target table is now *PREFIX*counties
-        // Using '0' for geo_id and '' for notes as placeholders for the new columns
+        // Note: Target table is *PREFIX*stech_counties
         $stmt = $this->db->prepare("
-            INSERT INTO `*PREFIX*counties` (county_name, state_fips, is_active, is_enabled, is_locked, geo_id, notes) VALUES
+            INSERT INTO `*PREFIX*stech_counties` (county_name, state_fips, is_active, is_enabled, is_locked, geo_id, notes) VALUES
             ('Autauga County', '01', 1, 1, 0, '0', ''), ('Baldwin County', '01', 1, 1, 0, '0', ''), ('Barbour County', '01', 1, 1, 0, '0', ''), ('Bibb County', '01', 1, 1, 0, '0', ''), 
             ('Blount County', '01', 1, 1, 0, '0', ''), ('Bullock County', '01', 1, 1, 0, '0', ''), ('Butler County', '01', 1, 1, 0, '0', ''), ('Calhoun County', '01', 1, 1, 0, '0', ''), 
             ('Chambers County', '01', 1, 1, 0, '0', ''), ('Cherokee County', '01', 1, 1, 0, '0', ''), ('Chilton County', '01', 1, 1, 0, '0', ''), ('Choctaw County', '01', 1, 1, 0, '0', ''), 

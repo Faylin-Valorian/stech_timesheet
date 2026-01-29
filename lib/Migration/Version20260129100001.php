@@ -11,7 +11,7 @@ use OCP\Migration\IOutput;
 class Version20260129100001 implements IMigrationStep {
 
     public function name(): string {
-        return 'Creates states, counties, activity, holidays, jobs, and timesheets tables';
+        return 'Creates stech_states, stech_counties, activity, holidays, jobs, and timesheets tables';
     }
 
     public function description(): string {
@@ -25,11 +25,11 @@ class Version20260129100001 implements IMigrationStep {
         /** @var ISchemaWrapper $schema */
         $schema = $schemaClosure();
 
-        // 1. Table: oc_states (Note: Nextcloud adds 'oc_' automatically)
-        if (!$schema->hasTable('states')) {
-            $table = $schema->createTable('states');
-            $table->addColumn('id', 'integer', ['autoincrement' => true, 'notnull' => true]); // Internal ID
-            $table->addColumn('state_name', 'string', ['length' => 100, 'notnull' => true]); // Fixed typo 'sate_name'
+        // 1. Table: oc_stech_states
+        if (!$schema->hasTable('stech_states')) {
+            $table = $schema->createTable('stech_states');
+            $table->addColumn('id', 'integer', ['autoincrement' => true, 'notnull' => true]);
+            $table->addColumn('state_name', 'string', ['length' => 100, 'notnull' => true]);
             $table->addColumn('state_abbr', 'string', ['length' => 10, 'notnull' => true]);
             $table->addColumn('fips_code', 'string', ['length' => 10, 'notnull' => true]);
             $table->addColumn('is_enabled', 'integer', ['default' => 1, 'notnull' => true]);
@@ -37,9 +37,9 @@ class Version20260129100001 implements IMigrationStep {
             $table->setPrimaryKey(['id']);
         }
 
-        // 2. Table: oc_counties
-        if (!$schema->hasTable('counties')) {
-            $table = $schema->createTable('counties');
+        // 2. Table: oc_stech_counties
+        if (!$schema->hasTable('stech_counties')) {
+            $table = $schema->createTable('stech_counties');
             $table->addColumn('id', 'integer', ['autoincrement' => true, 'notnull' => true]);
             $table->addColumn('county_name', 'string', ['length' => 255, 'notnull' => true]);
             $table->addColumn('geo_id', 'string', ['length' => 50, 'notnull' => false]);
@@ -49,7 +49,7 @@ class Version20260129100001 implements IMigrationStep {
             $table->addColumn('is_locked', 'integer', ['default' => 0, 'notnull' => true]);
             $table->addColumn('notes', 'text', ['notnull' => false]);
             $table->setPrimaryKey(['id']);
-            $table->addIndex(['state_fips'], 'idx_counties_state_fips');
+            $table->addIndex(['state_fips'], 'idx_stech_counties_state_fips');
         }
 
         // 3. Table: oc_stech_jobs
@@ -72,7 +72,7 @@ class Version20260129100001 implements IMigrationStep {
             $table->addColumn('time_break', 'decimal', ['precision' => 5, 'scale' => 2, 'default' => 0]);
             $table->addColumn('time_total', 'decimal', ['precision' => 5, 'scale' => 2, 'default' => 0]);
             $table->addColumn('work_description', 'text', ['notnull' => false]);
-            $table->addColumn('travel', 'integer', ['default' => 0]); // Boolean flag
+            $table->addColumn('travel', 'integer', ['default' => 0]);
             $table->addColumn('travel_time', 'decimal', ['precision' => 5, 'scale' => 2, 'default' => 0]);
             $table->addColumn('travel_per_diem', 'decimal', ['precision' => 10, 'scale' => 2, 'default' => 0]);
             $table->addColumn('travel_first_last_day', 'integer', ['default' => 0]);
