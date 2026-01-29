@@ -92,18 +92,23 @@ class TimesheetController extends Controller {
             $isClosed = !empty($row['time_out']);
             $date = $row['timesheet_date'];
             
-            $color = '';
-            $title = '';
+            // --- COLOR LOGIC ---
+            $color = '#ffc107'; // Active (Yellow/Orange)
+            $title = 'Active';
 
-            if ($isClosed) {
-                $color = '#28a745'; // Green
+            // Check for PTO tag in comments
+            $isPto = (strpos($row['additional_comments'] ?? '', '[PTO]') !== false);
+
+            if ($isPto) {
+                $color = '#9b59b6'; // Purple for Vacation/PTO
+                $title = 'PTO / Vacation';
+                $isClosed = true; // Treat PTO as closed
+            } elseif ($isClosed) {
+                $color = '#28a745'; // Green for Closed
                 $title = $row['time_total'] . ' hrs';
             } elseif ($date < $today) {
-                $color = '#dc3545'; // Red
+                $color = '#dc3545'; // Red for Missing Out
                 $title = 'Missing Out';
-            } else {
-                $color = '#ffc107'; // Yellow/Orange
-                $title = 'Active';
             }
 
             $events[] = [
@@ -124,54 +129,115 @@ class TimesheetController extends Controller {
      * @NoAdminRequired
      * @NoCSRFRequired
      */
+    public function getTimesheet(int $id): DataResponse {
+        // 1. Fetch Main Record
+        $qb = $this->db->getQueryBuilder();
+        $qb->select('*')
+           ->from('stech_timesheets')
+           ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id)))
+           ->andWhere($qb->expr()->eq('userid', $qb->createNamedParameter($this->userId)));
+        $timesheet = $qb->executeQuery()->fetch();
+
+        if (!$timesheet) {
+            return new DataResponse([], 404);
+        }
+
+        // 2. Fetch Activities
+        $qbAct = $this->db->getQueryBuilder();
+        $qbAct->select('*')
+              ->from('stech_activity')
+              ->where($qbAct->expr()->eq('timesheet_id', $qbAct->createNamedParameter($id)));
+        $activities = $qbAct->executeQuery()->fetchAll();
+
+        // 3. Combine
+        $timesheet['activities'] = $activities;
+        
+        return new DataResponse($timesheet);
+    }
+
+    /**
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
     public function saveTimesheet(): DataResponse {
         $data = $this->request->getParams();
         $date = $data['date'];
         
-        $qbCheck = $this->db->getQueryBuilder();
-        $qbCheck->select('*')
-                ->from('stech_timesheets')
-                ->where($qbCheck->expr()->eq('userid', $qbCheck->createNamedParameter($this->userId)))
-                ->andWhere($qbCheck->expr()->eq('timesheet_date', $qbCheck->createNamedParameter($date)))
-                ->orderBy('timesheet_id', 'DESC')
-                ->setMaxResults(1);
+        // --- 1. Validation Logic ---
         
-        $lastEntry = $qbCheck->executeQuery()->fetch();
+        // If this is a NEW entry (no ID provided), check if previous is closed
+        if (empty($data['timesheet_id'])) {
+            $qbCheck = $this->db->getQueryBuilder();
+            $qbCheck->select('*')
+                    ->from('stech_timesheets')
+                    ->where($qbCheck->expr()->eq('userid', $qbCheck->createNamedParameter($this->userId)))
+                    ->andWhere($qbCheck->expr()->eq('timesheet_date', $qbCheck->createNamedParameter($date)))
+                    ->orderBy('timesheet_id', 'DESC')
+                    ->setMaxResults(1);
+            
+            $lastEntry = $qbCheck->executeQuery()->fetch();
 
-        if ($lastEntry && empty($lastEntry['time_out'])) {
-            return new DataResponse(['error' => 'You must clock out of your previous entry for this day before adding a new one.'], 400);
+            if ($lastEntry && empty($lastEntry['time_out'])) {
+                // Allow multiple entries ONLY if previous is clocked out
+                return new DataResponse(['error' => 'You must clock out of your previous entry for this day before adding a new one.'], 400);
+            }
         }
 
+        // Handle Time Strings (Convert empty to NULL to avoid SQL Error 1292)
+        $timeIn = empty($data['time_in']) ? null : $data['time_in'];
+        $timeOut = empty($data['time_out']) ? null : $data['time_out'];
+
+        $values = [
+            'userid' => $this->userId,
+            'timesheet_date' => $date,
+            'time_in' => $timeIn,
+            'time_out' => $timeOut,
+            'time_break' => (int)$data['break_min'],
+            'time_total' => (float)$data['total_hours'],
+            'travel' => isset($data['has_travel']) ? 1 : 0,
+            'travel_per_diem' => isset($data['req_per_diem']) ? 1 : 0,
+            'travel_road_scanning' => isset($data['road_scanning']) ? 1 : 0,
+            'travel_first_last_day' => isset($data['first_last_day']) ? 1 : 0,
+            'travel_overnight' => isset($data['overnight']) ? 1 : 0,
+            'travel_state' => $data['state'],
+            'travel_county' => $data['county'],
+            'travel_miles' => (int)$data['miles'],
+            'travel_extra_expenses' => (float)$data['extra_expense'],
+            'additional_comments' => $data['comments'],
+            'archive' => 0
+        ];
+
         $qb = $this->db->getQueryBuilder();
-        $qb->insert('stech_timesheets')
-           ->values([
-               'userid' => $qb->createNamedParameter($this->userId),
-               'timesheet_date' => $qb->createNamedParameter($date),
-               'time_in' => $qb->createNamedParameter($data['time_in']),
-               'time_out' => $qb->createNamedParameter($data['time_out']),
-               'time_break' => $qb->createNamedParameter((int)$data['break_min']),
-               'time_total' => $qb->createNamedParameter((float)$data['total_hours']),
-               // CHANGED: Cast to (int) and use PARAM_INT
-               'travel' => $qb->createNamedParameter(isset($data['has_travel']) ? 1 : 0, \PDO::PARAM_INT),
-               'travel_per_diem' => $qb->createNamedParameter(isset($data['req_per_diem']) ? 1 : 0, \PDO::PARAM_INT),
-               'travel_road_scanning' => $qb->createNamedParameter(isset($data['road_scanning']) ? 1 : 0, \PDO::PARAM_INT),
-               'travel_first_last_day' => $qb->createNamedParameter(isset($data['first_last_day']) ? 1 : 0, \PDO::PARAM_INT),
-               'travel_overnight' => $qb->createNamedParameter(isset($data['overnight']) ? 1 : 0, \PDO::PARAM_INT),
-               'travel_state' => $qb->createNamedParameter($data['state']),
-               'travel_county' => $qb->createNamedParameter($data['county']),
-               'travel_miles' => $qb->createNamedParameter((int)$data['miles']),
-               'travel_extra_expenses' => $qb->createNamedParameter((float)$data['extra_expense']),
-               'additional_comments' => $qb->createNamedParameter($data['comments']),
-               'archive' => $qb->createNamedParameter(0, \PDO::PARAM_INT),
-           ]);
-        
-        $qb->execute();
-        $timesheetId = $qb->getLastInsertId();
+
+        if (!empty($data['timesheet_id'])) {
+            // --- UPDATE EXISTING ---
+            $qb->update('stech_timesheets');
+            foreach ($values as $col => $val) {
+                if ($col === 'userid') continue; // Don't update userid
+                $qb->set($col, $qb->createNamedParameter($val));
+            }
+            $qb->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($data['timesheet_id'])));
+            $qb->execute();
+            $timesheetId = $data['timesheet_id'];
+        } else {
+            // --- INSERT NEW ---
+            $qb->insert('stech_timesheets');
+            foreach ($values as $col => $val) {
+                $qb->setValue($col, $qb->createNamedParameter($val));
+            }
+            $qb->execute();
+            $timesheetId = $qb->getLastInsertId();
+        }
+
+        // --- Handle Activities (Delete Old, Insert New) ---
+        $qbDel = $this->db->getQueryBuilder();
+        $qbDel->delete('stech_activity')
+              ->where($qbDel->expr()->eq('timesheet_id', $qbDel->createNamedParameter($timesheetId)));
+        $qbDel->execute();
 
         if (isset($data['work_desc']) && is_array($data['work_desc'])) {
             foreach ($data['work_desc'] as $index => $desc) {
                 if (empty($desc)) continue;
-                
                 $percent = isset($data['work_percent'][$index]) ? (int)$data['work_percent'][$index] : 0;
 
                 $qbAct = $this->db->getQueryBuilder();

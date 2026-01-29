@@ -368,3 +368,37 @@ input:checked + .slider:before { transform: translateX(14px); }
 .currency-symbol { opacity: 0.5; font-weight: bold; margin-right: 5px; }
 .currency-group input { border: none; outline: none; background: transparent; width: 100%; font-weight: bold; color: var(--color-main-text); }
 .form-separator { height: 1px; background: var(--color-border); margin: 20px 0; opacity: 0.5; }
+
+/* =========================================
+   5. CALENDAR TAB HOVER EFFECTS (NEW)
+   ========================================= */
+
+/* The FullCalendar Event Container */
+.fc-event {
+    cursor: pointer !important;
+    transition: transform 0.1s, filter 0.1s;
+}
+
+/* Hovering the Tab itself */
+.fc-event:hover {
+    filter: brightness(1.15) contrast(1.1);
+    transform: scale(1.02);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 50 !important; /* Bring to front */
+}
+
+/* Custom Div inside the event */
+.fc-event-content-box {
+    padding: 2px 4px;
+    border-radius: 3px;
+    color: #fff;
+    font-size: 0.85em;
+    overflow: hidden;
+    white-space: nowrap;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+}
+
+/* Adjust Date Cell Hover (Separate from event) */
+.fc .fc-daygrid-day:hover {
+    background-color: rgba(0, 0, 0, 0.03) !important; /* Lighter highlight */
+}
