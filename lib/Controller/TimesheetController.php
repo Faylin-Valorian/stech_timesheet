@@ -26,18 +26,16 @@ class TimesheetController extends Controller {
      * @NoCSRFRequired
      */
     public function getAttributes(): DataResponse {
-        // Fetch Jobs
         $qbJobs = $this->db->getQueryBuilder();
         $qbJobs->select('*')
                ->from('stech_jobs')
-               ->where($qbJobs->expr()->eq('job_archive', $qbJobs->createNamedParameter(false)));
+               ->where($qbJobs->expr()->eq('job_archive', $qbJobs->createNamedParameter(0, \PDO::PARAM_INT)));
         $jobs = $qbJobs->executeQuery()->fetchAll();
 
-        // Fetch States
         $qbStates = $this->db->getQueryBuilder();
         $qbStates->select('*')
-                 ->from('stech_states') // Updated table name
-                 ->where($qbStates->expr()->eq('is_enabled', $qbStates->createNamedParameter(true)))
+                 ->from('stech_states')
+                 ->where($qbStates->expr()->eq('is_enabled', $qbStates->createNamedParameter(1, \PDO::PARAM_INT)))
                  ->orderBy('state_name', 'ASC');
         $states = $qbStates->executeQuery()->fetchAll();
 
@@ -52,10 +50,9 @@ class TimesheetController extends Controller {
      * @NoCSRFRequired
      */
     public function getCounties(string $stateAbbr): DataResponse {
-        // Find State FIPS first
         $qbState = $this->db->getQueryBuilder();
         $qbState->select('fips_code')
-                ->from('stech_states') // Updated table name
+                ->from('stech_states')
                 ->where($qbState->expr()->eq('state_abbr', $qbState->createNamedParameter($stateAbbr)));
         $state = $qbState->executeQuery()->fetch();
 
@@ -63,12 +60,11 @@ class TimesheetController extends Controller {
             return new DataResponse([], 404);
         }
 
-        // Fetch Counties by FIPS
         $qb = $this->db->getQueryBuilder();
         $qb->select('*')
-           ->from('stech_counties') // Updated table name
+           ->from('stech_counties')
            ->where($qb->expr()->eq('state_fips', $qb->createNamedParameter($state['fips_code'])))
-           ->andWhere($qb->expr()->eq('is_enabled', $qb->createNamedParameter(true)))
+           ->andWhere($qb->expr()->eq('is_enabled', $qb->createNamedParameter(1, \PDO::PARAM_INT)))
            ->orderBy('county_name', 'ASC');
         $counties = $qb->executeQuery()->fetchAll();
 
@@ -155,17 +151,18 @@ class TimesheetController extends Controller {
                'time_out' => $qb->createNamedParameter($data['time_out']),
                'time_break' => $qb->createNamedParameter((int)$data['break_min']),
                'time_total' => $qb->createNamedParameter((float)$data['total_hours']),
-               'travel' => $qb->createNamedParameter(isset($data['has_travel']), \PDO::PARAM_BOOL),
-               'travel_per_diem' => $qb->createNamedParameter(isset($data['req_per_diem']), \PDO::PARAM_BOOL),
-               'travel_road_scanning' => $qb->createNamedParameter(isset($data['road_scanning']), \PDO::PARAM_BOOL),
-               'travel_first_last_day' => $qb->createNamedParameter(isset($data['first_last_day']), \PDO::PARAM_BOOL),
-               'travel_overnight' => $qb->createNamedParameter(isset($data['overnight']), \PDO::PARAM_BOOL),
+               // CHANGED: Cast to (int) and use PARAM_INT
+               'travel' => $qb->createNamedParameter(isset($data['has_travel']) ? 1 : 0, \PDO::PARAM_INT),
+               'travel_per_diem' => $qb->createNamedParameter(isset($data['req_per_diem']) ? 1 : 0, \PDO::PARAM_INT),
+               'travel_road_scanning' => $qb->createNamedParameter(isset($data['road_scanning']) ? 1 : 0, \PDO::PARAM_INT),
+               'travel_first_last_day' => $qb->createNamedParameter(isset($data['first_last_day']) ? 1 : 0, \PDO::PARAM_INT),
+               'travel_overnight' => $qb->createNamedParameter(isset($data['overnight']) ? 1 : 0, \PDO::PARAM_INT),
                'travel_state' => $qb->createNamedParameter($data['state']),
                'travel_county' => $qb->createNamedParameter($data['county']),
                'travel_miles' => $qb->createNamedParameter((int)$data['miles']),
                'travel_extra_expenses' => $qb->createNamedParameter((float)$data['extra_expense']),
                'additional_comments' => $qb->createNamedParameter($data['comments']),
-               'archive' => $qb->createNamedParameter(false, \PDO::PARAM_BOOL),
+               'archive' => $qb->createNamedParameter(0, \PDO::PARAM_INT),
            ]);
         
         $qb->execute();
