@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace DoctrineMigrations;
+namespace OCA\StechTimesheet\Migration;
 
 use Doctrine\DBAL\Schema\Schema;
 use Doctrine\Migrations\AbstractMigration;
 
-final class Version_PopulateStechData extends AbstractMigration
+class Version20260129100002 extends AbstractMigration
 {
     public function getDescription(): string
     {
@@ -88,7 +88,6 @@ final class Version_PopulateStechData extends AbstractMigration
         // 3. Insert Counties
         $this->addSql("
             INSERT INTO stech_counties (county_name, state_fips, is_active, is_enabled, is_locked) VALUES
-            -- Alabama (01)
             ('Autauga County', '01', 1, 1, 0), ('Baldwin County', '01', 1, 1, 0), ('Barbour County', '01', 1, 1, 0), ('Bibb County', '01', 1, 1, 0), 
             ('Blount County', '01', 1, 1, 0), ('Bullock County', '01', 1, 1, 0), ('Butler County', '01', 1, 1, 0), ('Calhoun County', '01', 1, 1, 0), 
             ('Chambers County', '01', 1, 1, 0), ('Cherokee County', '01', 1, 1, 0), ('Chilton County', '01', 1, 1, 0), ('Choctaw County', '01', 1, 1, 0), 
@@ -106,8 +105,6 @@ final class Version_PopulateStechData extends AbstractMigration
             ('Russell County', '01', 1, 1, 0), ('St. Clair County', '01', 1, 1, 0), ('Shelby County', '01', 1, 1, 0), ('Sumter County', '01', 1, 1, 0), 
             ('Talladega County', '01', 1, 1, 0), ('Tallapoosa County', '01', 1, 1, 0), ('Tuscaloosa County', '01', 1, 1, 0), ('Walker County', '01', 1, 1, 0), 
             ('Washington County', '01', 1, 1, 0), ('Wilcox County', '01', 1, 1, 0), ('Winston County', '01', 1, 1, 0),
-
-            -- Alaska (02)
             ('Aleutians East Borough', '02', 1, 1, 0), ('Aleutians West Census Area', '02', 1, 1, 0), ('Anchorage Municipality', '02', 1, 1, 0), 
             ('Bethel Census Area', '02', 1, 1, 0), ('Bristol Bay Borough', '02', 1, 1, 0), ('Denali Borough', '02', 1, 1, 0), 
             ('Dillingham Census Area', '02', 1, 1, 0), ('Fairbanks North Star Borough', '02', 1, 1, 0), ('Haines Borough', '02', 1, 1, 0), 
@@ -118,14 +115,10 @@ final class Version_PopulateStechData extends AbstractMigration
             ('Prince of Wales-Hyder Census Area', '02', 1, 1, 0), ('Sitka City and Borough', '02', 1, 1, 0), ('Skagway Municipality', '02', 1, 1, 0), 
             ('Southeast Fairbanks Census Area', '02', 1, 1, 0), ('Valdez-Cordova Census Area', '02', 1, 1, 0), ('Wrangell City and Borough', '02', 1, 1, 0), 
             ('Yakutat City and Borough', '02', 1, 1, 0), ('Yukon-Koyukuk Census Area', '02', 1, 1, 0),
-
-            -- Arizona (04)
             ('Apache County', '04', 1, 1, 0), ('Cochise County', '04', 1, 1, 0), ('Coconino County', '04', 1, 1, 0), ('Gila County', '04', 1, 1, 0), 
             ('Graham County', '04', 1, 1, 0), ('Greenlee County', '04', 1, 1, 0), ('La Paz County', '04', 1, 1, 0), ('Maricopa County', '04', 1, 1, 0), 
             ('Mohave County', '04', 1, 1, 0), ('Navajo County', '04', 1, 1, 0), ('Pima County', '04', 1, 1, 0), ('Pinal County', '04', 1, 1, 0), 
             ('Santa Cruz County', '04', 1, 1, 0), ('Yavapai County', '04', 1, 1, 0), ('Yuma County', '04', 1, 1, 0),
-
-            -- Arkansas (05)
             ('Arkansas County', '05', 1, 1, 0), ('Ashley County', '05', 1, 1, 0), ('Baxter County', '05', 1, 1, 0), ('Benton County', '05', 1, 1, 0), 
             ('Boone County', '05', 1, 1, 0), ('Bradley County', '05', 1, 1, 0), ('Calhoun County', '05', 1, 1, 0), ('Carroll County', '05', 1, 1, 0), 
             ('Chicot County', '05', 1, 1, 0), ('Clark County', '05', 1, 1, 0), ('Clay County', '05', 1, 1, 0), ('Cleburne County', '05', 1, 1, 0), 
@@ -145,8 +138,6 @@ final class Version_PopulateStechData extends AbstractMigration
             ('Searcy County', '05', 1, 1, 0), ('Sebastian County', '05', 1, 1, 0), ('Sevier County', '05', 1, 1, 0), ('Sharp County', '05', 1, 1, 0), 
             ('Stone County', '05', 1, 1, 0), ('Union County', '05', 1, 1, 0), ('Van Buren County', '05', 1, 1, 0), ('Washington County', '05', 1, 1, 0), 
             ('White County', '05', 1, 1, 0), ('Woodruff County', '05', 1, 1, 0), ('Yell County', '05', 1, 1, 0),
-
-            -- California (06)
             ('Alameda County', '06', 1, 1, 0), ('Alpine County', '06', 1, 1, 0), ('Amador County', '06', 1, 1, 0), ('Butte County', '06', 1, 1, 0), 
             ('Calaveras County', '06', 1, 1, 0), ('Colusa County', '06', 1, 1, 0), ('Contra Costa County', '06', 1, 1, 0), ('Del Norte County', '06', 1, 1, 0), 
             ('El Dorado County', '06', 1, 1, 0), ('Fresno County', '06', 1, 1, 0), ('Glenn County', '06', 1, 1, 0), ('Humboldt County', '06', 1, 1, 0), 
@@ -167,7 +158,7 @@ final class Version_PopulateStechData extends AbstractMigration
 
     public function down(Schema $schema): void
     {
-        // Truncate tables on rollback to remove data
+        // Truncate all data on rollback
         $this->addSql('TRUNCATE TABLE stech_counties');
         $this->addSql('TRUNCATE TABLE stech_states');
         $this->addSql('TRUNCATE TABLE stech_jobs');
