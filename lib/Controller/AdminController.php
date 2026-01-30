@@ -8,7 +8,7 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\FileDisplayResponse;
-use OCP\AppFramework\Http\Response;
+use OCP\AppFramework\Http\StreamResponse; 
 use OCP\IDBConnection;
 use OCP\IUserSession;
 use OCP\IGroupManager;
@@ -47,53 +47,65 @@ class AdminController extends Controller {
         return new TemplateResponse('stech_timesheet', 'admin');
     }
 
+    // --- SETTINGS & THUMBNAILS ---
+
     /** @NoCSRFRequired */
     public function getSettings(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
+        
         try {
             $schema = \OC::$server->getDatabaseConnection()->getSchemaManager();
             if (!$schema->tablesExist(['stech_admin_settings'])) {
                 return new DataResponse([]);
             }
+
             $qb = $this->db->getQueryBuilder();
             $rows = $qb->select('*')->from('stech_admin_settings')->executeQuery()->fetchAll();
+            
             $settings = [];
             foreach ($rows as $row) {
                 $settings[$row['setting_key']] = $row['setting_value'];
             }
             return new DataResponse($settings);
         } catch (\Exception $e) {
-            return new DataResponse(['error' => $e->getMessage()], 500);
+            // Return empty if table missing to prevent crash
+            return new DataResponse([]);
         }
     }
 
     /** @NoCSRFRequired */
     public function saveSetting(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
+        
         $data = $this->request->getParams();
         $key = $data['key'] ?? null;
         $value = $data['value'] ?? '';
+        
         if (!$key) return new DataResponse(['error' => 'Missing key'], 400);
 
         try {
-            $qb = $this->db->getQueryBuilder();
-            $exists = $qb->select('setting_key')->from('stech_admin_settings')
-                         ->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))
-                         ->executeQuery()->fetch();
-
-            $qb = $this->db->getQueryBuilder();
-            if ($exists) {
-                $qb->update('stech_admin_settings')->set('setting_value', $qb->createNamedParameter($value))
-                   ->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))->execute();
-            } else {
-                $qb->insert('stech_admin_settings')->values([
-                    'setting_key' => $qb->createNamedParameter($key),
-                    'setting_value' => $qb->createNamedParameter($value)
-                ])->execute();
-            }
+            $this->saveSettingValue($key, $value);
             return new DataResponse(['status' => 'success']);
         } catch (\Exception $e) {
             return new DataResponse(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    private function saveSettingValue($key, $value) {
+        $qb = $this->db->getQueryBuilder();
+        $exists = $qb->select('setting_key')->from('stech_admin_settings')
+                     ->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))
+                     ->executeQuery()->fetch();
+
+        $qb = $this->db->getQueryBuilder();
+        if ($exists) {
+            $qb->update('stech_admin_settings')->set('setting_value', $qb->createNamedParameter($value))
+               ->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))->execute();
+        } else {
+            $qb->insert('stech_admin_settings')->values([
+                'setting_key' => $qb->createNamedParameter($key),
+                'setting_value' => $qb->createNamedParameter($value)
+            ])->execute();
         }
     }
 
@@ -101,15 +113,25 @@ class AdminController extends Controller {
      * @NoAdminRequired
      * @NoCSRFRequired
      */
-    public function getThumbnail(string $filename): Response {
+    public function getThumbnail(string $filename) {
+        $filename = basename($filename); // Security sanitization
+        
+        // 1. Try APP img/ folder (Manual/Local images)
+        $appPath = \OC::$server->getAppManager()->getAppPath('stech_timesheet');
+        $localPath = $appPath . '/img/' . $filename;
+
+        if (file_exists($localPath)) {
+            // Serve local file
+            return new StreamResponse(fopen($localPath, 'rb'));
+        }
+
+        // 2. Try AppData folder (Uploaded fallback)
         try {
             $folder = $this->appData->getFolder('thumbnails');
             $file = $folder->getFile($filename);
             return new FileDisplayResponse($file);
-        } catch (NotFoundException $e) {
-            return new DataResponse(['error' => 'File not found'], 404);
         } catch (\Exception $e) {
-            return new DataResponse(['error' => $e->getMessage()], 500);
+            return new DataResponse(['error' => 'File not found'], 404);
         }
     }
 
@@ -117,88 +139,119 @@ class AdminController extends Controller {
     public function uploadThumbnail(string $cardId): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         
+        $validCards = ['users', 'holidays', 'jobs', 'locations'];
+        if (!in_array($cardId, $validCards)) return new DataResponse(['error' => 'Invalid card ID'], 400);
+
+        // --- 1. GET FILE CONTENT ---
         $uploadedFile = $this->request->getUploadedFile('image');
-        if (is_array($uploadedFile)) {
-            $uploadedFile = $uploadedFile[0] ?? null;
+        $sourceStream = null;
+
+        if ($uploadedFile) {
+            // Handle array wrapper quirk
+            if (is_array($uploadedFile)) $uploadedFile = $uploadedFile[0] ?? null;
+            if ($uploadedFile) $sourceStream = $uploadedFile->getStream();
+        } 
+        
+        // Fallback: Check raw $_FILES if OCP helper failed (Fixes 400 error in some configs)
+        if (!$sourceStream && isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
+            $sourceStream = fopen($_FILES['image']['tmp_name'], 'rb');
         }
 
-        if (!$uploadedFile) return new DataResponse(['error' => 'No file received'], 400);
-        
-        $fileName = 'thumb-' . $cardId . '.png';
-        try {
-            try { $folder = $this->appData->getFolder('thumbnails'); } catch (NotFoundException $e) { $folder = $this->appData->newFolder('thumbnails'); }
-            
-            try { $folder->getFile($fileName)->delete(); } catch(NotFoundException $e) {}
+        if (!$sourceStream) {
+            return new DataResponse(['error' => 'No file received or upload failed'], 400);
+        }
 
-            $file = $folder->newFile($fileName);
-            $file->putContent($uploadedFile->getStream());
-            return new DataResponse(['status' => 'success']);
-        } catch (\Exception $e) { return new DataResponse(['error' => $e->getMessage()], 500); }
+        $fileName = 'thumb-' . $cardId . '.png';
+        
+        // --- 2. TRY SAVING TO IMG/ FOLDER ---
+        $appPath = \OC::$server->getAppManager()->getAppPath('stech_timesheet');
+        $localImgDir = $appPath . '/img/';
+        $localFile = $localImgDir . $fileName;
+        $savedToLocal = false;
+
+        if (is_writable($localImgDir)) {
+            $content = stream_get_contents($sourceStream);
+            if (file_put_contents($localFile, $content) !== false) {
+                $savedToLocal = true;
+            }
+            rewind($sourceStream); // Reset if needed for fallback (though stream_get_contents reads it all)
+        }
+
+        // --- 3. FALLBACK TO APPDATA (If img/ is locked) ---
+        if (!$savedToLocal) {
+            try {
+                try { $folder = $this->appData->getFolder('thumbnails'); } 
+                catch (NotFoundException $e) { $folder = $this->appData->newFolder('thumbnails'); }
+                
+                // Delete old
+                try { $folder->getFile($fileName)->delete(); } catch(NotFoundException $e) {}
+
+                // Save new
+                $file = $folder->newFile($fileName);
+                
+                // If stream was read, we need to write the content we grabbed
+                if (isset($content)) {
+                    $file->putContent($content);
+                } else {
+                    $file->putContent($sourceStream);
+                }
+            } catch (\Exception $e) { 
+                return new DataResponse(['error' => 'Storage failed: ' . $e->getMessage()], 500); 
+            }
+        }
+
+        // --- 4. RECORD PATH IN DB ---
+        // We just save the filename. getThumbnail will check locations.
+        $this->saveSettingValue('thumb_path_' . $cardId, $fileName);
+
+        return new DataResponse(['status' => 'success']);
     }
 
+    // --- STANDARD ADMIN METHODS ---
     /** @NoCSRFRequired */
     public function getUsers(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         $users = $this->userManager->search('');
-        $result = []; 
-        foreach ($users as $u) {
-            $result[] = ['uid' => $u->getUID(), 'displayname' => $u->getDisplayName()];
-        }
+        $result = []; foreach ($users as $u) $result[] = ['uid' => $u->getUID(), 'displayname' => $u->getDisplayName()];
         return new DataResponse($result);
     }
-
     /** @NoCSRFRequired */
     public function getHolidays(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
-        $qb = $this->db->getQueryBuilder();
-        return new DataResponse($qb->select('*')->from('stech_holidays')->orderBy('holiday_start_date', 'DESC')->executeQuery()->fetchAll());
+        return new DataResponse($this->db->getQueryBuilder()->select('*')->from('stech_holidays')->orderBy('holiday_start_date', 'DESC')->executeQuery()->fetchAll());
     }
-
     /** @NoCSRFRequired */
     public function saveHoliday(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         $data = $this->request->getParams();
-        $this->db->getQueryBuilder()->insert('stech_holidays')->values([
-            'holiday_name' => $this->db->getQueryBuilder()->createNamedParameter($data['name']), 
-            'holiday_start_date' => $this->db->getQueryBuilder()->createNamedParameter($data['start']), 
-            'holiday_end_date' => $this->db->getQueryBuilder()->createNamedParameter($data['end'])
-        ])->execute();
+        $this->db->getQueryBuilder()->insert('stech_holidays')->values(['holiday_name' => $this->db->getQueryBuilder()->createNamedParameter($data['name']), 'holiday_start_date' => $this->db->getQueryBuilder()->createNamedParameter($data['start']), 'holiday_end_date' => $this->db->getQueryBuilder()->createNamedParameter($data['end'])])->execute();
         return new DataResponse(['status' => 'success']);
     }
-
     /** @NoCSRFRequired */
     public function deleteHoliday(int $id): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         $this->db->getQueryBuilder()->delete('stech_holidays')->where($this->db->getQueryBuilder()->expr()->eq('holiday_id', $this->db->getQueryBuilder()->createNamedParameter($id)))->execute();
         return new DataResponse(['status' => 'success']);
     }
-
     /** @NoCSRFRequired */
     public function saveJob(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         $data = $this->request->getParams();
-        $this->db->getQueryBuilder()->insert('stech_jobs')->values([
-            'job_name' => $this->db->getQueryBuilder()->createNamedParameter($data['name']), 
-            'job_description' => $this->db->getQueryBuilder()->createNamedParameter($data['description'] ?? ''), 
-            'job_archive' => 0
-        ])->execute();
+        $this->db->getQueryBuilder()->insert('stech_jobs')->values(['job_name' => $this->db->getQueryBuilder()->createNamedParameter($data['name']), 'job_description' => $this->db->getQueryBuilder()->createNamedParameter($data['description'] ?? ''), 'job_archive' => 0])->execute();
         return new DataResponse(['status' => 'success']);
     }
-
     /** @NoCSRFRequired */
     public function toggleJob(int $id): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         $this->db->getQueryBuilder()->update('stech_jobs')->set('job_archive', '1 - job_archive')->where($this->db->getQueryBuilder()->expr()->eq('job_id', $this->db->getQueryBuilder()->createNamedParameter($id)))->execute();
         return new DataResponse(['status' => 'success']);
     }
-
     /** @NoCSRFRequired */
     public function toggleState(int $id): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         $this->db->getQueryBuilder()->update('stech_states')->set('is_enabled', '1 - is_enabled')->where($this->db->getQueryBuilder()->expr()->eq('id', $this->db->getQueryBuilder()->createNamedParameter($id)))->execute();
         return new DataResponse(['status' => 'success']);
     }
-
     /** @NoCSRFRequired */
     public function toggleCounty(int $id): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);

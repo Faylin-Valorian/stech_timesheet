@@ -3,7 +3,6 @@ use OCP\Util;
 Util::addScript('stech_timesheet', 'admin');
 Util::addStyle('stech_timesheet', 'style'); 
 Util::addStyle('stech_timesheet', 'admin'); 
-// Fallback image
 $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/picture.svg'); 
 ?>
 
