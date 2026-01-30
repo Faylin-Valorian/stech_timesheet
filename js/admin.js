@@ -1,39 +1,40 @@
 document.addEventListener('DOMContentLoaded', function() {
     
-    // --- STATE MANAGEMENT ---
+    // --- GLOBAL STATE ---
     let allUsers = [];
     let allJobs = [];
     let allStates = [];
     let currentCounties = [];
 
-    // --- MODAL CONTROLS ---
+    // =========================================================
+    // 1. MODAL SYSTEM (Safe Open/Close)
+    // =========================================================
     function openModal(id) {
-        document.getElementById(id).classList.remove('hidden');
+        document.getElementById(id).style.display = 'flex';
     }
 
     function closeModal(modal) {
-        modal.classList.add('hidden');
-        // Optional: clear forms on close if desired
+        modal.style.display = 'none';
     }
     
-    // Close buttons
+    // Wire up close buttons
     document.querySelectorAll('.close-modal').forEach(btn => {
         btn.addEventListener('click', function() {
             closeModal(this.closest('.modal-overlay'));
         });
     });
 
-    // Close on background click
+    // Wire up background click close
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', function(e) {
             if (e.target === this) closeModal(this);
         });
     });
 
-    // --- DASHBOARD CARD CLICK LISTENERS ---
+    // --- DASHBOARD CLICK LISTENERS ---
     document.getElementById('card-users').addEventListener('click', () => {
         openModal('modal-users');
-        loadUsers();
+        loadUsers(); // Fetch fresh data
     });
 
     document.getElementById('card-holidays').addEventListener('click', () => {
@@ -52,26 +53,31 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
 
-    // =================================================================================
-    // 1. USER MANAGEMENT (Searchable Dropdown)
-    // =================================================================================
+    // =========================================================
+    // 2. USER MANAGEMENT (Searchable Dropdown)
+    // =========================================================
     
     function loadUsers() {
+        // Reset Interface
         const input = document.getElementById('user-search');
-        input.value = ''; // Reset
+        input.value = '';
         input.focus();
         
         const list = document.getElementById('user-dropdown-list');
-        list.innerHTML = '<div class="dropdown-item" style="cursor:default">Loading...</div>';
+        list.innerHTML = '<div class="dropdown-item" style="cursor:default">Loading users...</div>';
         list.classList.remove('hidden');
 
+        // Fetch
         fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users'))
             .then(response => response.json())
             .then(users => {
                 allUsers = users;
                 renderUserList(allUsers);
             })
-            .catch(console.error);
+            .catch(err => {
+                console.error(err);
+                list.innerHTML = '<div class="dropdown-item">Error loading users</div>';
+            });
     }
 
     function renderUserList(users) {
@@ -79,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
         list.innerHTML = '';
 
         if (users.length === 0) {
-            list.innerHTML = '<div style="padding:10px; opacity:0.6">No users found</div>';
+            list.innerHTML = '<div class="dropdown-item" style="cursor:default; opacity:0.6;">No users found</div>';
             return;
         }
 
@@ -103,9 +109,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('btn-view-user').disabled = false;
     }
 
-    // Search Input Listener
+    // Filter Logic
     const userSearchInput = document.getElementById('user-search');
-    
     userSearchInput.addEventListener('input', function() {
         const term = this.value.toLowerCase();
         const filtered = allUsers.filter(u => 
@@ -116,48 +121,44 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('user-dropdown-list').classList.remove('hidden');
     });
 
-    // Show list on focus
     userSearchInput.addEventListener('focus', () => {
-        if(allUsers.length > 0) {
-            document.getElementById('user-dropdown-list').classList.remove('hidden');
-        }
+        if(allUsers.length > 0) document.getElementById('user-dropdown-list').classList.remove('hidden');
     });
 
-    // Hide list when clicking outside
+    // Close Dropdown on Outside Click
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.searchable-select-wrapper')) {
             document.getElementById('user-dropdown-list').classList.add('hidden');
         }
     });
 
-    // "Open Calendar" Button
+    // Open Calendar Action
     document.getElementById('btn-view-user').addEventListener('click', () => {
         const uid = document.getElementById('selected-user-uid').value;
         if (uid) {
-            // Redirect to main page with target_user param
             window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + uid;
         }
     });
 
 
-    // =================================================================================
-    // 2. HOLIDAYS
-    // =================================================================================
+    // =========================================================
+    // 3. HOLIDAYS
+    // =========================================================
 
     function loadHolidays() {
+        const list = document.getElementById('holiday-list');
+        list.innerHTML = '<div style="padding:10px;">Loading...</div>';
+
         fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays'))
             .then(r => r.json())
             .then(data => {
-                const list = document.getElementById('holiday-list');
                 list.innerHTML = '';
-                
                 if (data.length === 0) {
                     list.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.6">No holidays found.</div>';
                     return;
                 }
 
                 data.forEach(h => {
-                    // Create Item
                     const div = document.createElement('div');
                     div.className = 'list-item';
                     div.innerHTML = `
@@ -167,10 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                         <button class="icon-delete" title="Delete Holiday"></button>
                     `;
-                    
-                    // Delete Action
                     div.querySelector('.icon-delete').addEventListener('click', () => deleteHoliday(h.holiday_id));
-                    
                     list.appendChild(div);
                 });
             });
@@ -178,7 +176,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('form-holiday').addEventListener('submit', (e) => {
         e.preventDefault();
-        
         const payload = {
             name: document.getElementById('holiday-name').value,
             start: document.getElementById('holiday-start').value,
@@ -187,37 +184,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
         fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays'), {
             method: 'POST',
-            headers: {
-                'requesttoken': OC.requestToken,
-                'Content-Type': 'application/json'
-            },
+            headers: {'requesttoken': OC.requestToken, 'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
-        })
-        .then(response => response.json())
-        .then(() => {
+        }).then(() => {
             document.getElementById('form-holiday').reset();
-            loadHolidays(); // Refresh list
-        })
-        .catch(err => alert('Error saving holiday'));
+            loadHolidays();
+        });
     });
 
     function deleteHoliday(id) {
-        if (!confirm('Are you sure you want to delete this holiday?')) return;
-
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays/' + id), {
-            method: 'DELETE',
-            headers: { 'requesttoken': OC.requestToken }
-        })
-        .then(() => loadHolidays());
+        if (confirm('Are you sure you want to delete this holiday?')) {
+            fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays/' + id), {
+                method: 'DELETE', headers: { 'requesttoken': OC.requestToken }
+            }).then(() => loadHolidays());
+        }
     }
 
 
-    // =================================================================================
-    // 3. JOB CODES (With Filtering)
-    // =================================================================================
+    // =========================================================
+    // 4. JOBS (With Status Filter & Search)
+    // =========================================================
 
     function loadJobs() {
-        // We reuse the public attributes API for now
+        const list = document.getElementById('job-list');
+        list.innerHTML = '<div style="padding:10px;">Loading...</div>';
+
         fetch(OC.generateUrl('/apps/stech_timesheet/api/attributes'))
             .then(r => r.json())
             .then(data => {
@@ -228,12 +219,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderJobs() {
         const searchTerm = document.getElementById('job-search-input').value.toLowerCase();
-        const filterStatus = document.getElementById('job-filter-status').value; // 'all', 'active', 'archived'
+        const filterStatus = document.getElementById('job-filter-status').value;
         const list = document.getElementById('job-list');
         list.innerHTML = '';
 
         const filtered = allJobs.filter(j => {
-            const isActive = (j.job_archive == 0); // Assuming 0 is active
+            const isActive = (j.job_archive == 0);
             const matchesSearch = j.job_name.toLowerCase().includes(searchTerm);
             
             let matchesStatus = true;
@@ -244,16 +235,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         if (filtered.length === 0) {
-            list.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.6">No jobs match your filter.</div>';
+            list.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.6">No matching jobs.</div>';
             return;
         }
 
         filtered.forEach(j => {
             const isActive = (j.job_archive == 0);
-            
             const div = document.createElement('div');
             div.className = 'list-item';
-            div.style.opacity = isActive ? '1' : '0.6';
+            if(!isActive) div.style.opacity = '0.6';
             
             div.innerHTML = `
                 <span>${j.job_name}</span>
@@ -263,31 +253,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 </label>
             `;
 
-            // Toggle Logic
+            // Toggle Handler
             div.querySelector('input').addEventListener('change', () => toggleJob(j.job_id));
-            
             list.appendChild(div);
         });
     }
 
-    // Filter Listeners
     document.getElementById('job-search-input').addEventListener('input', renderJobs);
     document.getElementById('job-filter-status').addEventListener('change', renderJobs);
 
-    // Create Job
     document.getElementById('form-job').addEventListener('submit', (e) => {
         e.preventDefault();
         const payload = {
             name: document.getElementById('job-name').value,
             description: document.getElementById('job-desc').value
         };
-
         fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs'), {
             method: 'POST',
-            headers: {
-                'requesttoken': OC.requestToken,
-                'Content-Type': 'application/json'
-            },
+            headers: {'requesttoken': OC.requestToken, 'Content-Type': 'application/json'},
             body: JSON.stringify(payload)
         }).then(() => {
             document.getElementById('form-job').reset();
@@ -297,18 +280,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function toggleJob(id) {
         fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs/' + id + '/toggle'), {
-            method: 'POST',
-            headers: { 'requesttoken': OC.requestToken }
-        })
-        .then(loadJobs); // Reload to ensure server state consistency
+            method: 'POST', headers: { 'requesttoken': OC.requestToken }
+        }).then(loadJobs); // Reload to reflect status changes
     }
 
 
-    // =================================================================================
-    // 4. LOCATIONS (States & Counties with Split Filter)
-    // =================================================================================
+    // =========================================================
+    // 5. LOCATIONS (Split View Filter)
+    // =========================================================
 
     function loadStates() {
+        const list = document.getElementById('state-list');
+        list.innerHTML = '<div style="padding:10px;">Loading...</div>';
+
         fetch(OC.generateUrl('/apps/stech_timesheet/api/attributes'))
             .then(r => r.json())
             .then(data => {
@@ -326,7 +310,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         filtered.forEach(s => {
             const isEnabled = (s.is_enabled == 1);
-            
             const div = document.createElement('div');
             div.className = 'list-item';
             div.innerHTML = `
@@ -337,16 +320,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 </label>
             `;
 
-            // Text Click -> Load Counties
+            // Click Text -> Load Counties
             div.querySelector('span').addEventListener('click', () => {
-                // Highlight active state
-                document.querySelectorAll('#state-list .list-item').forEach(el => el.classList.remove('active'));
-                div.classList.add('active');
-                
+                // Visual Highlight
+                document.querySelectorAll('#state-list .list-item').forEach(el => el.style.backgroundColor = '');
+                div.style.backgroundColor = 'var(--color-primary-light)';
                 loadCounties(s.state_abbr, s.state_name);
             });
 
-            // Toggle Click
+            // Click Toggle -> API
             div.querySelector('input').addEventListener('change', () => toggleState(s.id));
 
             list.appendChild(div);
@@ -361,12 +343,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- COUNTY LOGIC ---
+    // --- COUNTIES ---
 
     function loadCounties(abbr, name) {
         document.getElementById('county-header').innerText = 'Counties: ' + name;
         
-        // Enable search input
         const searchInput = document.getElementById('county-search-input');
         searchInput.disabled = false;
         searchInput.value = '';
@@ -397,7 +378,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         filtered.forEach(c => {
             const isEnabled = (c.is_enabled == 1);
-            
             const div = document.createElement('div');
             div.className = 'list-item';
             div.innerHTML = `

@@ -1,8 +1,8 @@
 <?php
 use OCP\Util;
 Util::addScript('stech_timesheet', 'admin');
-Util::addStyle('stech_timesheet', 'style'); 
-Util::addStyle('stech_timesheet', 'admin'); 
+Util::addStyle('stech_timesheet', 'style'); // Sidebar styles
+Util::addStyle('stech_timesheet', 'admin'); // Admin specific styles
 ?>
 
 <div id="app">
@@ -103,7 +103,7 @@ Util::addStyle('stech_timesheet', 'admin');
     </div>
 </div>
 
-<div id="modal-users" class="modal-overlay hidden">
+<div id="modal-users" class="modal-overlay" style="display: none;">
     <div class="modal-card admin-modal-standard">
         <div class="modal-header">
             <h2>User Management</h2>
@@ -114,13 +114,12 @@ Util::addStyle('stech_timesheet', 'admin');
                 <label>Select Employee</label>
                 <div class="searchable-select-wrapper">
                     <input type="text" id="user-search" class="form-control" placeholder="Type to search users..." autocomplete="off">
-                    <div id="user-dropdown-list" class="custom-dropdown-list hidden">
-                        </div>
+                    <div id="user-dropdown-list" class="custom-dropdown-list hidden"></div>
                     <input type="hidden" id="selected-user-uid">
                 </div>
                 
-                <p class="hint-text" style="margin-top:15px;">
-                    Clicking "Open Calendar" will redirect you to the timesheet interface as the selected user.
+                <p class="hint-text" style="margin-top:15px; font-size:13px; opacity:0.7;">
+                    Clicking "Open Calendar" will redirect you to the timesheet interface acting as this user.
                 </p>
             </div>
         </div>
@@ -131,7 +130,7 @@ Util::addStyle('stech_timesheet', 'admin');
     </div>
 </div>
 
-<div id="modal-holidays" class="modal-overlay hidden">
+<div id="modal-holidays" class="modal-overlay" style="display: none;">
     <div class="modal-card admin-modal-split">
         <div class="modal-header">
             <h2>Holidays</h2>
@@ -164,7 +163,7 @@ Util::addStyle('stech_timesheet', 'admin');
     </div>
 </div>
 
-<div id="modal-jobs" class="modal-overlay hidden">
+<div id="modal-jobs" class="modal-overlay" style="display: none;">
     <div class="modal-card admin-modal-split">
         <div class="modal-header">
             <h2>Job Codes</h2>
@@ -203,7 +202,7 @@ Util::addStyle('stech_timesheet', 'admin');
     </div>
 </div>
 
-<div id="modal-locations" class="modal-overlay hidden">
+<div id="modal-locations" class="modal-overlay" style="display: none;">
     <div class="modal-card admin-modal-split">
         <div class="modal-header">
             <h2>Location Settings</h2>

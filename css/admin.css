@@ -1,4 +1,6 @@
-/* --- LAYOUT UPDATES --- */
+/* =========================================
+   1. ADMIN LAYOUT & WRAPPER
+   ========================================= */
 .admin-page-title {
     padding: 20px 40px 0 40px;
     margin: 0;
@@ -9,152 +11,258 @@
 
 .admin-wrapper {
     padding: 20px 40px 40px 40px;
-    height: calc(100vh - 50px); /* Adjust based on header height */
+    height: calc(100vh - 80px); /* Fill remaining height */
     overflow-y: auto;
-    background-color: var(--color-background-hover); 
+    background-color: var(--color-background-hover);
 }
 
-/* --- DASHBOARD GRID --- */
+.admin-header {
+    margin-bottom: 30px;
+}
+.admin-header h2 { margin: 0; font-size: 24px; }
+.admin-header p { margin: 5px 0 0 0; opacity: 0.7; }
+
+/* =========================================
+   2. DASHBOARD GRID (3-Column)
+   ========================================= */
 .admin-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr); /* Fixed 3 columns */
+    grid-template-columns: repeat(3, 1fr); /* FORCE 3 COLUMNS */
     gap: 30px;
     width: 100%;
-    /* Removed max-width */
 }
 
-/* Card Styling */
 .admin-card {
     background: var(--color-main-background);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius-large);
     overflow: hidden;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s ease-in-out;
     display: flex;
     flex-direction: column;
+    height: 100%;
 }
+
 .admin-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
     border-color: var(--color-primary-element);
 }
 
-.card-details { padding: 20px; text-align: center; }
+.card-details {
+    padding: 20px;
+    text-align: center;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-main-background);
+}
 .card-details h3 { margin: 0 0 5px 0; font-size: 18px; font-weight: bold; }
 .card-details p { margin: 0; font-size: 13px; opacity: 0.7; }
 
-
-/* --- NEW SKELETAL THUMBNAILS (CSS Wireframes) --- */
+/* =========================================
+   3. SKELETAL THUMBNAILS (CSS DRAWINGS)
+   ========================================= */
 .card-thumbnail {
     height: 160px;
-    background-color: #f0f2f5;
-    border-bottom: 1px solid var(--color-border);
+    background-color: #f8f9fa;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 20px;
+    position: relative;
 }
 
+/* The Paper Sheet */
 .skeletal-form {
     background: white;
     border: 1px solid #e0e0e0;
     border-radius: 4px;
     padding: 12px;
-    width: 100%; max-width: 180px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    display: flex; flex-direction: column; gap: 8px;
+    width: 100%; 
+    max-width: 180px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px;
 }
 
-/* Skeletal Elements */
-.sk-label { height: 6px; background: #e0e0e0; border-radius: 2px; width: 60%; }
+/* Drawing Elements */
+.sk-label { height: 5px; background: #ddd; border-radius: 2px; width: 60%; }
 .sk-label.sm { width: 40%; }
-.sk-input { height: 12px; background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 2px; display: flex; align-items: center; padding-left: 5px; }
-.sk-input.search { border-radius: 12px; }
-.sk-input.textarea { height: 30px; }
-.sk-input.date-icon:after { content: ''; display: block; width: 8px; height: 8px; background: #ccc; margin-left: auto; margin-right: 5px; border-radius: 1px; }
-.sk-btn { height: 16px; background: var(--color-primary-element); opacity: 0.3; border-radius: 3px; margin-top: auto; }
-.sk-btn.success { background: var(--color-success); opacity: 0.5; }
-.sk-row { display: flex; gap: 8px; }
-.sk-input.half { flex: 1; }
+
+.sk-input { 
+    height: 10px; width: 100%; background: #f4f4f4; 
+    border: 1px solid #e0e0e0; border-radius: 2px; 
+    display: flex; align-items: center; padding-left: 5px; box-sizing: border-box;
+}
+.sk-input.search { border-radius: 10px; } /* Rounded for search */
+.sk-input.textarea { height: 35px; }
+.sk-input.half { width: 48%; }
+
+.sk-row { display: flex; justify-content: space-between; gap: 5px; }
 .sk-spacer { height: 10px; }
 
-/* Split View Skeletal */
-.skeletal-form.split { flex-direction: row; gap: 0; padding: 0; overflow: hidden; background: #fafafa; }
-.sk-col { flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
-.sk-list-item { display: flex; align-items: center; gap: 8px; }
-.sk-bar { height: 6px; background: #e0e0e0; flex: 1; border-radius: 2px; }
-.sk-bar.short { width: 60%; flex: none; }
-.sk-toggle { width: 16px; height: 10px; border-radius: 10px; position: relative; }
-.sk-toggle.on { background: var(--color-success); opacity: 0.5; }
-.sk-toggle.on:after { content:''; position:absolute; right:1px; top:1px; width:8px; height:8px; background:white; border-radius:50%; }
+.sk-btn { 
+    height: 14px; width: 100%; 
+    background: var(--color-primary-element); 
+    opacity: 0.3; border-radius: 3px; 
+    margin-top: auto; 
+}
+.sk-btn.success { background: var(--color-success); opacity: 0.5; }
+
+/* Split View Variation */
+.skeletal-form.split { 
+    flex-direction: row; gap: 0; padding: 0; 
+    overflow: hidden; background: #fafafa; 
+}
+.sk-col { 
+    flex: 1; padding: 8px; 
+    display: flex; flex-direction: column; gap: 6px; 
+}
+.sk-list-item { display: flex; align-items: center; gap: 6px; }
+.sk-bar { height: 5px; background: #e0e0e0; flex: 1; border-radius: 2px; }
+.sk-bar.short { width: 50%; flex: none; }
+
+.sk-toggle { 
+    width: 14px; height: 8px; border-radius: 8px; position: relative; 
+}
+.sk-toggle.on { background: var(--color-success); opacity: 0.6; }
+.sk-toggle.on:after { 
+    content:''; position:absolute; right:1px; top:1px; 
+    width:6px; height:6px; background:white; border-radius:50%; 
+}
 .sk-toggle.off { background: #ccc; }
-.sk-toggle.off:after { content:''; position:absolute; left:1px; top:1px; width:8px; height:8px; background:white; border-radius:50%; }
-
-
-/* --- ADMIN MODAL SIZING & LAYOUT --- */
-/* Standard width for single column forms (like User Select) */
-.admin-modal-standard {
-    width: 500px; 
-    max-width: 90vw;
+.sk-toggle.off:after { 
+    content:''; position:absolute; left:1px; top:1px; 
+    width:6px; height:6px; background:white; border-radius:50%; 
 }
-/* Wider width for Split View forms (Holidays, Jobs, Locations) */
-.admin-modal-split {
-    width: 800px; /* Fixed width to accommodate side-by-side */
-    max-width: 95vw;
-    height: 600px; /* Fixed height for scrolling lists */
-    max-height: 90vh;
+
+/* =========================================
+   4. MODALS (Hidden by Inline Style)
+   ========================================= */
+.modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(2px);
+}
+/* Note: 'display: none' is handled inline in HTML to prevent flash */
+
+.modal-card {
+    background: var(--color-main-background);
+    border-radius: var(--border-radius-large);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
     display: flex; flex-direction: column;
+    overflow: hidden;
+    max-height: 90vh; /* Prevent overflow on small screens */
 }
 
+.admin-modal-standard { width: 500px; max-width: 90vw; }
+.admin-modal-split { width: 850px; max-width: 95vw; height: 600px; }
+
+.modal-header {
+    padding: 15px 20px;
+    background: var(--color-background-hover);
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--color-border);
+}
+.modal-header h2 { margin: 0; font-size: 18px; font-weight: bold; }
+
+.modal-footer {
+    padding: 15px 20px;
+    background: var(--color-background-hover);
+    border-top: 1px solid var(--color-border);
+    display: flex; justify-content: flex-end; gap: 10px;
+}
+
+/* =========================================
+   5. SPLIT VIEW & LISTS
+   ========================================= */
 .split-view-body {
-    display: flex;
-    flex: 1;
-    overflow: hidden; /* Container doesn't scroll, inner elements do */
-    padding: 20px;
-    gap: 20px;
+    display: flex; flex: 1; 
+    overflow: hidden; 
+    padding: 20px; gap: 20px;
 }
 
 .split-left { 
-    width: 40%; 
+    width: 35%; min-width: 250px;
     border-right: 1px solid var(--color-border); 
     padding-right: 20px; 
     display: flex; flex-direction: column; 
     overflow-y: auto;
 }
+
 .split-right { 
     flex: 1; 
     display: flex; flex-direction: column; 
-    overflow-y: hidden; /* Header stays, list scrolls */
+    overflow-y: hidden; 
 }
 
-.scroll-list { 
-    flex: 1; 
-    overflow-y: auto; 
-    border: 1px solid var(--color-border); 
+.scroll-list {
+    flex: 1; overflow-y: auto;
+    border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     background: var(--color-main-background);
 }
 
-/* --- RE-APPLYING TOGGLE SWITCH STYLES (Crucial for JS rendering) --- */
+.list-item {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--color-border);
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 13px;
+}
+.list-item:last-child { border-bottom: none; }
+.list-item:hover { background-color: var(--color-background-hover); }
+
+/* =========================================
+   6. CONTROLS (Toggles, Inputs, Filters)
+   ========================================= */
+/* Filter Bar */
+.filter-bar {
+    display: flex; gap: 10px; 
+    margin-bottom: 10px; padding-bottom: 10px; 
+    border-bottom: 1px solid var(--color-border);
+}
+.filter-input { 
+    flex: 1; padding: 6px 10px; 
+    border: 1px solid var(--color-border); border-radius: 4px; 
+}
+.filter-select { 
+    padding: 6px; border: 1px solid var(--color-border); border-radius: 4px;
+    background: var(--color-main-background); color: var(--color-main-text);
+}
+
+/* Admin Toggle Switch */
 .admin-switch { position: relative; display: inline-block; width: 34px; height: 20px; }
 .admin-switch input { opacity: 0; width: 0; height: 0; }
-.admin-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-.admin-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+.admin-slider { 
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; 
+    background-color: #ccc; transition: .4s; border-radius: 34px; 
+}
+.admin-slider:before { 
+    position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; 
+    background-color: white; transition: .4s; border-radius: 50%; 
+}
 input:checked + .admin-slider { background-color: var(--color-primary-element); }
 input:checked + .admin-slider:before { transform: translateX(14px); }
 
-/* --- FILTER BARS & SEARCHABLE SELECT --- */
-.filter-bar { display: flex; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--color-border); }
-.filter-input { flex: 1; }
+/* Searchable Select Dropdown */
 .searchable-select-wrapper { position: relative; }
-.custom-dropdown-list { position: absolute; top: 100%; left: 0; width: 100%; max-height: 200px; overflow-y: auto; background: var(--color-main-background); border: 1px solid var(--color-primary-element); border-top: none; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.custom-dropdown-list {
+    position: absolute; top: 100%; left: 0; width: 100%;
+    max-height: 200px; overflow-y: auto;
+    background: var(--color-main-background);
+    border: 1px solid var(--color-primary-element);
+    z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
 .custom-dropdown-list.hidden { display: none; }
-.dropdown-item { padding: 10px; cursor: pointer; border-bottom: 1px solid var(--color-border); transition: background 0.1s; }
-.dropdown-item:hover { background-color: var(--color-background-hover); }
+.dropdown-item { 
+    padding: 10px; cursor: pointer; border-bottom: 1px solid var(--color-border); 
+}
+.dropdown-item:hover { background-color: var(--color-primary-light); }
 
-/* Reuse main app styles for inputs/buttons where possible */
-.form-control { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 4px; box-sizing: border-box; }
+/* Reuse General */
+.form-control { width: 100%; padding: 8px; border: 1px solid var(--color-border); border-radius: 4px; box-sizing: border-box; }
 .input-group { margin-bottom: 15px; }
 .input-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
 .subsection-title { margin: 0 0 15px 0; font-size: 1.1em; border-bottom: 2px solid var(--color-border); padding-bottom: 5px; }
