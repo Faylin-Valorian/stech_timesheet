@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const cards = ['users', 'holidays', 'jobs', 'locations'];
     const descriptionCache = {};
 
-    // --- HELPER: Fetch Wrapper ---
+    // --- HELPER: Fetch with Headers ---
     function apiFetch(url, options = {}) {
         if (!options.headers) options.headers = {};
         options.headers['requesttoken'] = OC.requestToken;
@@ -18,12 +18,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- 1. INITIALIZATION & IMAGE ERROR HANDLING ---
     document.querySelectorAll('.card-thumbnail-img').forEach(img => {
-        // If broken on load
+        // If image failed before JS loaded
         if (img.complete && img.naturalWidth === 0 && img.dataset.fallbackSrc) {
             img.src = img.dataset.fallbackSrc;
         }
-        // If broken dynamically
+        
+        // Dynamic error handler
         img.addEventListener('error', function() {
+            // Prevent infinite loop if fallback also fails
             if (this.dataset.fallbackSrc && this.src !== this.dataset.fallbackSrc) {
                 this.src = this.dataset.fallbackSrc;
             }
@@ -42,7 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }).catch(console.error);
 
-    // --- 2. EDIT MODE & UPLOADS ---
+    // --- 2. EDIT MODE & UPLOAD LOGIC ---
     document.getElementById('admin-edit-mode').addEventListener('change', function() {
         editMode = this.checked;
         editMode ? (document.body.classList.add('admin-edit-mode-active'), enableEditUi()) : (document.body.classList.remove('admin-edit-mode-active'), saveAndDisableEditUi());
@@ -82,15 +84,23 @@ document.addEventListener('DOMContentLoaded', function() {
             if(input && input.files.length > 0) {
                 const fd = new FormData(); fd.append('image', input.files[0]);
                 
+                // Show visual indicator
+                const uploadBtn = input.previousElementSibling;
+                const originalText = uploadBtn.innerText;
+                uploadBtn.innerText = "Uploading...";
+
                 const uploadPromise = apiFetch(OC.generateUrl(`/apps/stech_timesheet/api/admin/thumbnail/${cardId}`), {
                     method: 'POST', body: fd
                 }).then(r => {
                     if(r.ok) {
                         const img = document.getElementById(`thumb-img-${cardId}`);
-                        if(img) img.src = img.src.split('?')[0] + '?t=' + new Date().getTime();
-                    } else {
-                        console.error('Upload failed', r.statusText);
+                        if(img) {
+                            // CRITICAL FIX: Use data-orig-src to get the real URL, ignoring current fallback state
+                            const originalUrl = img.dataset.origSrc; 
+                            img.src = originalUrl + '?t=' + new Date().getTime();
+                        }
                     }
+                    uploadBtn.innerText = originalText;
                 });
                 promises.push(uploadPromise);
                 input.value = '';
@@ -99,8 +109,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if(promises.length) {
             Promise.all(promises)
-                .then(() => OC.Notification.showTemporary('Settings saved successfully'))
-                .catch(err => OC.Notification.showTemporary('Error saving settings'));
+                .then(() => OC.Notification.showTemporary('Saved successfully'))
+                .catch(() => OC.Notification.showTemporary('Error saving changes'));
         }
     }
 
@@ -135,7 +145,9 @@ document.addEventListener('DOMContentLoaded', function() {
     setupFilter('state-filter-btn', 'state-filter-menu', 'state-status', renderStates);
     setupFilter('county-filter-btn', 'county-filter-menu', 'county-status', renderCounties);
 
-    // --- 5. LOGIC: USERS ---
+    // --- 5. LOGIC SECTIONS ---
+    
+    // USERS
     function loadUsers() {
         const i = document.getElementById('user-search'); i.value=''; i.focus();
         const l = document.getElementById('user-dropdown-list'); l.innerHTML='<div style="padding:10px;">Loading...</div>'; l.classList.remove('hidden');
@@ -163,11 +175,11 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + document.getElementById('selected-user-uid').value;
     });
 
-    // --- 6. LOGIC: HOLIDAYS ---
+    // HOLIDAYS
     function loadHolidays() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays')).then(r => r.json()).then(data => {
             const list = document.getElementById('holiday-list'); list.innerHTML = '';
-            data.forEach(h => { list.innerHTML += `<div class="list-item"><div><strong>${h.holiday_name}</strong><br><span style="font-size:11px">${h.holiday_start_date}</span></div><button class="icon-delete" onclick="deleteHoliday(${h.holiday_id})" title="Delete">&times;</button></div>`; });
+            data.forEach(h => { list.innerHTML += `<div class="list-item"><div><strong>${h.holiday_name}</strong><br><span style="font-size:11px">${h.holiday_start_date}</span></div><button class="icon-delete" onclick="deleteHoliday(${h.holiday_id})">&times;</button></div>`; });
         });
     }
     document.getElementById('form-holiday').addEventListener('submit', (e) => {
@@ -176,7 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     window.deleteHoliday = function(id) { if(confirm('Delete?')) apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays/'+id), { method:'DELETE' }).then(loadHolidays); };
 
-    // --- 7. LOGIC: JOBS ---
+    // JOBS
     function loadJobs() { apiFetch(OC.generateUrl('/apps/stech_timesheet/api/attributes')).then(r => r.json()).then(d => { allJobs = d.jobs || []; renderJobs(); }); }
     function renderJobs() {
         const term = document.getElementById('job-search-input').value.toLowerCase();
@@ -184,8 +196,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const list = document.getElementById('job-list'); list.innerHTML = '';
         allJobs.filter(j => {
             const active = j.job_archive == 0;
-            if(status === 'active' && !active) return false;
-            if(status === 'archived' && active) return false;
+            if(status==='active' && !active) return false;
+            if(status==='archived' && active) return false;
             return j.job_name.toLowerCase().includes(term);
         }).forEach(j => {
             const active = j.job_archive == 0;
@@ -199,7 +211,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     window.toggleJob = function(id) { apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs/'+id+'/toggle'), { method:'POST' }).then(loadJobs); };
 
-    // --- 8. LOGIC: LOCATIONS ---
+    // LOCATIONS
     function loadStates() { apiFetch(OC.generateUrl('/apps/stech_timesheet/api/attributes')).then(r => r.json()).then(d => { allStates = d.states || []; renderStates(); }); }
     function renderStates() {
         const term = document.getElementById('state-search-input').value.toLowerCase();
@@ -207,17 +219,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const list = document.getElementById('state-list'); list.innerHTML = '';
         allStates.filter(s => {
             const en = s.is_enabled == 1;
-            if(status === 'enabled' && !en) return false;
-            if(status === 'disabled' && en) return false;
+            if(status==='enabled' && !en) return false;
+            if(status==='disabled' && en) return false;
             return s.state_name.toLowerCase().includes(term);
         }).forEach(s => {
             const div = document.createElement('div'); div.className = 'list-item';
             div.innerHTML = `<span style="cursor:pointer;flex:1">${s.state_name}</span><label class="admin-switch"><input type="checkbox" ${s.is_enabled==1?'checked':''}><span class="admin-slider"></span></label>`;
-            div.querySelector('span').addEventListener('click', () => { 
-                document.querySelectorAll('#state-list .list-item').forEach(el => el.classList.remove('active-selection'));
-                div.classList.add('active-selection');
-                loadCounties(s.state_abbr, s.state_name);
-            });
+            div.querySelector('span').addEventListener('click', () => { document.querySelectorAll('#state-list .list-item').forEach(el => el.classList.remove('active-selection')); div.classList.add('active-selection'); loadCounties(s.state_abbr, s.state_name); });
             div.querySelector('input').addEventListener('change', () => toggleState(s.id));
             list.appendChild(div);
         });
@@ -227,7 +235,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function loadCounties(abbr, name) {
         document.getElementById('county-header').innerText = name;
-        document.getElementById('county-search-input').disabled = false;
+        const s = document.getElementById('county-search-input'); s.disabled=false; s.value='';
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/counties/'+abbr)).then(r => r.json()).then(c => { currentCounties = c; renderCounties(); });
     }
     function renderCounties() {
@@ -236,8 +244,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const list = document.getElementById('county-list'); list.innerHTML = '';
         currentCounties.filter(c => {
             const en = c.is_enabled == 1;
-            if(status === 'enabled' && !en) return false;
-            if(status === 'disabled' && en) return false;
+            if(status==='enabled' && !en) return false;
+            if(status==='disabled' && en) return false;
             return c.county_name.toLowerCase().includes(term);
         }).forEach(c => {
             list.innerHTML += `<div class="list-item"><span>${c.county_name}</span><label class="admin-switch"><input type="checkbox" ${c.is_enabled==1?'checked':''} onchange="toggleCounty(${c.id})"><span class="admin-slider"></span></label></div>`;

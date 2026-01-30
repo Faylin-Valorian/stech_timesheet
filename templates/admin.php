@@ -3,7 +3,14 @@ use OCP\Util;
 Util::addScript('stech_timesheet', 'admin');
 Util::addStyle('stech_timesheet', 'style'); 
 Util::addStyle('stech_timesheet', 'admin'); 
+// Fallback image
 $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/picture.svg'); 
+
+// Pre-generate routes for cleaner HTML
+$urlUsers = \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-users.png']);
+$urlHolidays = \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-holidays.png']);
+$urlJobs = \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-jobs.png']);
+$urlLocations = \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-locations.png']);
 ?>
 
 <div id="app">
@@ -38,7 +45,8 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
                 
                 <div class="admin-card" id="card-users" data-card-id="users">
                     <div class="card-thumbnail-wrapper">
-                        <img src="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-users.png'])); ?>" 
+                        <img src="<?php p($urlUsers); ?>" 
+                             data-orig-src="<?php p($urlUsers); ?>"
                              data-fallback-src="<?php p($fallbackImg); ?>"
                              class="card-thumbnail-img" id="thumb-img-users">
                         <div class="thumbnail-edit-overlay">
@@ -54,7 +62,8 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
 
                 <div class="admin-card" id="card-holidays" data-card-id="holidays">
                     <div class="card-thumbnail-wrapper">
-                        <img src="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-holidays.png'])); ?>" 
+                        <img src="<?php p($urlHolidays); ?>" 
+                             data-orig-src="<?php p($urlHolidays); ?>"
                              data-fallback-src="<?php p($fallbackImg); ?>"
                              class="card-thumbnail-img" id="thumb-img-holidays">
                         <div class="thumbnail-edit-overlay">
@@ -70,7 +79,8 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
 
                 <div class="admin-card" id="card-jobs" data-card-id="jobs">
                     <div class="card-thumbnail-wrapper">
-                        <img src="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-jobs.png'])); ?>" 
+                        <img src="<?php p($urlJobs); ?>" 
+                             data-orig-src="<?php p($urlJobs); ?>"
                              data-fallback-src="<?php p($fallbackImg); ?>"
                              class="card-thumbnail-img" id="thumb-img-jobs">
                         <div class="thumbnail-edit-overlay">
@@ -86,7 +96,8 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
 
                 <div class="admin-card" id="card-locations" data-card-id="locations">
                     <div class="card-thumbnail-wrapper">
-                        <img src="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-locations.png'])); ?>" 
+                        <img src="<?php p($urlLocations); ?>" 
+                             data-orig-src="<?php p($urlLocations); ?>"
                              data-fallback-src="<?php p($fallbackImg); ?>"
                              class="card-thumbnail-img" id="thumb-img-locations">
                         <div class="thumbnail-edit-overlay">
