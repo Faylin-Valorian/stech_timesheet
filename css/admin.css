@@ -1,19 +1,118 @@
-#app-content { padding: 20px; background-color: var(--color-background-hover); }
-.admin-tab-content.hidden { display: none; }
-.admin-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.admin-card { background: var(--color-main-background); padding: 20px; border-radius: var(--border-radius-large); box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+/* Dashboard Layout */
+.admin-dashboard-container {
+    padding: 40px;
+    background-color: var(--color-background-hover);
+    height: 100%;
+    overflow-y: auto;
+}
 
-.admin-table { width: 100%; border-collapse: collapse; }
-.admin-table th { text-align: left; opacity: 0.7; padding: 10px; border-bottom: 1px solid var(--color-border); }
-.admin-table td { padding: 10px; border-bottom: 1px solid var(--color-border); }
+.dashboard-header { margin-bottom: 30px; }
+.dashboard-header h2 { font-size: 24px; margin-bottom: 5px; }
 
-.grid-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
-.grid-layout-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+/* Grid Cards */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 25px;
+}
 
-.scroll-list { max-height: 400px; overflow-y: auto; border: 1px solid var(--color-border); border-radius: 5px; }
-.list-item { padding: 10px; border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; cursor: pointer; }
+.dash-card {
+    background: var(--color-main-background);
+    padding: 30px;
+    border-radius: var(--border-radius-large);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.dash-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    border-color: var(--color-primary-element);
+}
+
+.card-icon span {
+    font-size: 40px;
+    color: var(--color-primary-element);
+    margin-bottom: 15px;
+    display: block;
+}
+
+.dash-card h3 { margin: 10px 0; font-size: 18px; }
+.dash-card p { opacity: 0.7; font-size: 13px; line-height: 1.5; }
+
+/* Modal Styles */
+.admin-modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(2px);
+}
+.admin-modal.hidden { display: none; }
+
+.admin-modal-card {
+    background: var(--color-main-background);
+    padding: 0;
+    border-radius: var(--border-radius-large);
+    width: 400px; max-width: 90%;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    overflow: hidden; display: flex; flex-direction: column;
+}
+
+.large-card { width: 800px; height: 600px; }
+.xlarge-card { width: 900px; height: 700px; }
+
+.modal-header {
+    padding: 15px 20px; background: var(--color-background-hover);
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--color-border);
+}
+.modal-header h3 { margin: 0; }
+.close-modal { border: none; background: none; font-size: 24px; cursor: pointer; }
+
+.modal-body { padding: 20px; flex: 1; overflow: hidden; }
+
+/* Split View (Left Form, Right List) */
+.split-view { display: flex; gap: 20px; height: 100%; }
+.split-left { width: 35%; border-right: 1px solid var(--color-border); padding-right: 20px; display: flex; flex-direction: column; }
+.split-right { width: 65%; display: flex; flex-direction: column; }
+
+.form-group { margin-bottom: 15px; }
+.form-group label { display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px; }
+.form-control { width: 100%; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--border-radius); box-sizing: border-box; }
+.full-width { width: 100%; }
+
+/* Lists */
+.list-container {
+    flex: 1; overflow-y: auto; 
+    border: 1px solid var(--color-border); border-radius: var(--border-radius);
+}
+
+.list-item {
+    padding: 10px; border-bottom: 1px solid var(--color-border);
+    display: flex; justify-content: space-between; align-items: center;
+}
 .list-item:hover { background-color: var(--color-background-hover); }
 .list-item.active { background-color: var(--color-primary-light); font-weight: bold; }
+.item-meta { font-size: 11px; opacity: 0.6; }
 
-.user-selector-wrapper { display: flex; gap: 10px; max-width: 500px; }
-.full-width { width: 100%; margin-top: 10px; }
+/* Toggle Switch (Small) */
+.toggle-switch {
+    position: relative; display: inline-block; width: 30px; height: 16px;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.ts-slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc; transition: .4s; border-radius: 16px;
+}
+.ts-slider:before {
+    position: absolute; content: ""; height: 12px; width: 12px; left: 2px; bottom: 2px;
+    background-color: white; transition: .4s; border-radius: 50%;
+}
+input:checked + .ts-slider { background-color: var(--color-primary-element); }
+input:checked + .ts-slider:before { transform: translateX(14px); }

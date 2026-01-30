@@ -71,6 +71,7 @@ class Version20260129100001 implements IMigrationStep {
             $table->addColumn('time_out', 'time', ['notnull' => false]);
             $table->addColumn('time_break', 'decimal', ['precision' => 5, 'scale' => 2, 'default' => 0]);
             $table->addColumn('time_total', 'decimal', ['precision' => 5, 'scale' => 2, 'default' => 0]);
+            $table->addColumn('travel', 'integer', ['default' => 0]);
             $table->addColumn('travel_road_scanning', 'integer', ['default' => 0]);
             $table->addColumn('travel_time', 'decimal', ['precision' => 5, 'scale' => 2, 'default' => 0]);
             $table->addColumn('travel_per_diem', 'decimal', ['precision' => 10, 'scale' => 2, 'default' => 0]);
