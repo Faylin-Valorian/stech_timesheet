@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const cards = ['users', 'holidays', 'jobs', 'locations'];
     const descriptionCache = {};
 
-    // --- HELPER: Fetch with Headers ---
+    // --- HELPER: Fetch Wrapper ---
     function apiFetch(url, options = {}) {
         if (!options.headers) options.headers = {};
         options.headers['requesttoken'] = OC.requestToken;
@@ -22,10 +22,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (img.complete && img.naturalWidth === 0 && img.dataset.fallbackSrc) {
             img.src = img.dataset.fallbackSrc;
         }
-        
         // Dynamic error handler
         img.addEventListener('error', function() {
-            // Prevent infinite loop if fallback also fails
             if (this.dataset.fallbackSrc && this.src !== this.dataset.fallbackSrc) {
                 this.src = this.dataset.fallbackSrc;
             }
@@ -44,7 +42,55 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }).catch(console.error);
 
-    // --- 2. EDIT MODE & UPLOAD LOGIC ---
+    // --- 2. IMMEDIATE UPLOAD LOGIC (NEW) ---
+    cards.forEach(cardId => {
+        const fileInput = document.getElementById(`file-upload-${cardId}`);
+        if(fileInput) {
+            fileInput.addEventListener('change', function() {
+                if(this.files && this.files.length > 0) {
+                    performImmediateUpload(cardId, this.files[0]);
+                    // Clear value so the same file can be selected again if needed
+                    this.value = ''; 
+                }
+            });
+        }
+    });
+
+    function performImmediateUpload(cardId, file) {
+        const fd = new FormData(); 
+        fd.append('image', file);
+        
+        // Visual Feedback
+        const labelBtn = document.querySelector(`label[for="file-upload-${cardId}"]`);
+        const originalText = labelBtn ? labelBtn.innerText : 'Change Image';
+        if(labelBtn) labelBtn.innerText = 'Uploading...';
+
+        apiFetch(OC.generateUrl(`/apps/stech_timesheet/api/admin/thumbnail/${cardId}`), {
+            method: 'POST', body: fd
+        })
+        .then(r => {
+            if(r.ok) {
+                const img = document.getElementById(`thumb-img-${cardId}`);
+                if(img) {
+                    // Use data-orig-src to ensure we reload the custom URL, not the fallback
+                    const base = img.dataset.origSrc || img.src.split('?')[0];
+                    img.src = base + '?t=' + new Date().getTime();
+                }
+                OC.Notification.showTemporary('Image updated successfully');
+            } else {
+                OC.Notification.showTemporary('Upload failed');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            OC.Notification.showTemporary('Upload error');
+        })
+        .finally(() => {
+            if(labelBtn) labelBtn.innerText = originalText;
+        });
+    }
+
+    // --- 3. EDIT MODE TOGGLE ---
     document.getElementById('admin-edit-mode').addEventListener('change', function() {
         editMode = this.checked;
         editMode ? (document.body.classList.add('admin-edit-mode-active'), enableEditUi()) : (document.body.classList.remove('admin-edit-mode-active'), saveAndDisableEditUi());
@@ -63,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function saveAndDisableEditUi() {
         const promises = [];
         cards.forEach(cardId => {
-            // Text Save
+            // Text Save Logic Only (Image is now immediate)
             const t = document.getElementById(`desc-textarea-${cardId}`);
             if(t) {
                 const txt = t.value.trim();
@@ -78,43 +124,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     }));
                 }
             }
-
-            // Image Upload
-            const input = document.getElementById(`file-upload-${cardId}`);
-            if(input && input.files.length > 0) {
-                const fd = new FormData(); fd.append('image', input.files[0]);
-                
-                // Show visual indicator
-                const uploadBtn = input.previousElementSibling;
-                const originalText = uploadBtn.innerText;
-                uploadBtn.innerText = "Uploading...";
-
-                const uploadPromise = apiFetch(OC.generateUrl(`/apps/stech_timesheet/api/admin/thumbnail/${cardId}`), {
-                    method: 'POST', body: fd
-                }).then(r => {
-                    if(r.ok) {
-                        const img = document.getElementById(`thumb-img-${cardId}`);
-                        if(img) {
-                            // CRITICAL FIX: Use data-orig-src to get the real URL, ignoring current fallback state
-                            const originalUrl = img.dataset.origSrc; 
-                            img.src = originalUrl + '?t=' + new Date().getTime();
-                        }
-                    }
-                    uploadBtn.innerText = originalText;
-                });
-                promises.push(uploadPromise);
-                input.value = '';
-            }
         });
 
         if(promises.length) {
             Promise.all(promises)
-                .then(() => OC.Notification.showTemporary('Saved successfully'))
-                .catch(() => OC.Notification.showTemporary('Error saving changes'));
+                .then(() => OC.Notification.showTemporary('Descriptions saved'))
+                .catch(() => OC.Notification.showTemporary('Error saving descriptions'));
         }
     }
 
-    // --- 3. MODALS ---
+    // --- 4. MODALS ---
     function openModal(id) { document.getElementById(id).style.display = 'flex'; }
     function closeModal(modal) { modal.style.display = 'none'; }
     document.querySelectorAll('.close-modal').forEach(b => b.addEventListener('click', function() { closeModal(this.closest('.modal-overlay')); }));
@@ -122,6 +141,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function attachCard(id, modal, fn) {
         document.getElementById(id).addEventListener('click', (e) => {
+            // Prevent opening if in edit mode OR if clicking the upload overlay components
             if(!editMode && !e.target.closest('.thumbnail-edit-overlay')) { openModal(modal); fn(); }
         });
     }
@@ -130,7 +150,7 @@ document.addEventListener('DOMContentLoaded', function() {
     attachCard('card-jobs', 'modal-jobs', loadJobs);
     attachCard('card-locations', 'modal-locations', loadStates);
 
-    // --- 4. FILTER MENUS ---
+    // --- 5. FILTERS ---
     function setupFilter(btnId, menuId, inputName, renderFn) {
         const btn = document.getElementById(btnId);
         const menu = document.getElementById(menuId);
@@ -145,7 +165,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupFilter('state-filter-btn', 'state-filter-menu', 'state-status', renderStates);
     setupFilter('county-filter-btn', 'county-filter-menu', 'county-status', renderCounties);
 
-    // --- 5. LOGIC SECTIONS ---
+    // --- 6. LOGIC SECTIONS ---
     
     // USERS
     function loadUsers() {
@@ -179,7 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadHolidays() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays')).then(r => r.json()).then(data => {
             const list = document.getElementById('holiday-list'); list.innerHTML = '';
-            data.forEach(h => { list.innerHTML += `<div class="list-item"><div><strong>${h.holiday_name}</strong><br><span style="font-size:11px">${h.holiday_start_date}</span></div><button class="icon-delete" onclick="deleteHoliday(${h.holiday_id})">&times;</button></div>`; });
+            data.forEach(h => { list.innerHTML += `<div class="list-item"><div><strong>${h.holiday_name}</strong><br><span style="font-size:11px">${h.holiday_start_date}</span></div><button class="icon-delete" onclick="deleteHoliday(${h.holiday_id})" title="Delete">&times;</button></div>`; });
         });
     }
     document.getElementById('form-holiday').addEventListener('submit', (e) => {
