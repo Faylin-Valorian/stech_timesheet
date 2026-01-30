@@ -1,150 +1,293 @@
 document.addEventListener('DOMContentLoaded', function() {
     
-    // --- MODAL HANDLERS ---
+    // --- STATE MANAGEMENT ---
+    let allUsers = [];
+    let allJobs = [];
+    let allStates = [];
+    let currentCounties = [];
+
+    // --- MODAL CONTROLS ---
     function openModal(id) {
         document.getElementById(id).classList.remove('hidden');
     }
+
+    function closeModal(modal) {
+        modal.classList.add('hidden');
+        // Optional: clear forms on close if desired
+    }
     
-    document.querySelectorAll('.close-modal').forEach(b => {
-        b.addEventListener('click', function() {
-            this.closest('.admin-modal').classList.add('hidden');
+    // Close buttons
+    document.querySelectorAll('.close-modal').forEach(btn => {
+        btn.addEventListener('click', function() {
+            closeModal(this.closest('.modal-overlay'));
         });
     });
 
-    // Close on click outside
-    document.querySelectorAll('.admin-modal').forEach(m => {
-        m.addEventListener('click', function(e) {
-            if (e.target === this) this.classList.add('hidden');
+    // Close on background click
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === this) closeModal(this);
         });
     });
 
-    // --- DASHBOARD CLICK EVENTS ---
-
-    // 1. Users
+    // --- DASHBOARD CARD CLICK LISTENERS ---
     document.getElementById('card-users').addEventListener('click', () => {
         openModal('modal-users');
         loadUsers();
     });
 
-    // 2. Holidays
     document.getElementById('card-holidays').addEventListener('click', () => {
         openModal('modal-holidays');
         loadHolidays();
     });
 
-    // 3. Jobs
     document.getElementById('card-jobs').addEventListener('click', () => {
         openModal('modal-jobs');
         loadJobs();
     });
 
-    // 4. Locations
     document.getElementById('card-locations').addEventListener('click', () => {
         openModal('modal-locations');
         loadStates();
     });
 
-    // ================= LOGIC =================
 
-    // --- USERS LOGIC ---
+    // =================================================================================
+    // 1. USER MANAGEMENT (Searchable Dropdown)
+    // =================================================================================
+    
     function loadUsers() {
-        const select = document.getElementById('user-select');
-        select.innerHTML = '<option>Loading...</option>';
+        const input = document.getElementById('user-search');
+        input.value = ''; // Reset
+        input.focus();
+        
+        const list = document.getElementById('user-dropdown-list');
+        list.innerHTML = '<div class="dropdown-item" style="cursor:default">Loading...</div>';
+        list.classList.remove('hidden');
+
         fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users'))
-            .then(r => r.json())
+            .then(response => response.json())
             .then(users => {
-                select.innerHTML = '';
-                users.forEach(u => {
-                    select.innerHTML += `<option value="${u.uid}">${u.displayname}</option>`;
-                });
-            });
+                allUsers = users;
+                renderUserList(allUsers);
+            })
+            .catch(console.error);
     }
 
-    document.getElementById('btn-view-user').addEventListener('click', () => {
-        const uid = document.getElementById('user-select').value;
-        if(uid) window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + uid;
+    function renderUserList(users) {
+        const list = document.getElementById('user-dropdown-list');
+        list.innerHTML = '';
+
+        if (users.length === 0) {
+            list.innerHTML = '<div style="padding:10px; opacity:0.6">No users found</div>';
+            return;
+        }
+
+        users.forEach(u => {
+            const div = document.createElement('div');
+            div.className = 'dropdown-item';
+            div.innerText = u.displayname + (u.uid !== u.displayname ? ` (${u.uid})` : '');
+            
+            div.addEventListener('click', () => {
+                selectUser(u);
+            });
+            
+            list.appendChild(div);
+        });
+    }
+
+    function selectUser(user) {
+        document.getElementById('user-search').value = user.displayname;
+        document.getElementById('selected-user-uid').value = user.uid;
+        document.getElementById('user-dropdown-list').classList.add('hidden');
+        document.getElementById('btn-view-user').disabled = false;
+    }
+
+    // Search Input Listener
+    const userSearchInput = document.getElementById('user-search');
+    
+    userSearchInput.addEventListener('input', function() {
+        const term = this.value.toLowerCase();
+        const filtered = allUsers.filter(u => 
+            u.displayname.toLowerCase().includes(term) || 
+            u.uid.toLowerCase().includes(term)
+        );
+        renderUserList(filtered);
+        document.getElementById('user-dropdown-list').classList.remove('hidden');
     });
 
-    // --- HOLIDAY LOGIC ---
+    // Show list on focus
+    userSearchInput.addEventListener('focus', () => {
+        if(allUsers.length > 0) {
+            document.getElementById('user-dropdown-list').classList.remove('hidden');
+        }
+    });
+
+    // Hide list when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.searchable-select-wrapper')) {
+            document.getElementById('user-dropdown-list').classList.add('hidden');
+        }
+    });
+
+    // "Open Calendar" Button
+    document.getElementById('btn-view-user').addEventListener('click', () => {
+        const uid = document.getElementById('selected-user-uid').value;
+        if (uid) {
+            // Redirect to main page with target_user param
+            window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + uid;
+        }
+    });
+
+
+    // =================================================================================
+    // 2. HOLIDAYS
+    // =================================================================================
+
     function loadHolidays() {
         fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays'))
             .then(r => r.json())
             .then(data => {
                 const list = document.getElementById('holiday-list');
                 list.innerHTML = '';
+                
+                if (data.length === 0) {
+                    list.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.6">No holidays found.</div>';
+                    return;
+                }
+
                 data.forEach(h => {
-                    list.innerHTML += `
-                        <div class="list-item">
-                            <div>
-                                <strong>${h.holiday_name}</strong><br>
-                                <span class="item-meta">${h.holiday_start_date} to ${h.holiday_end_date}</span>
-                            </div>
-                            <button class="icon-delete" onclick="deleteHoliday(${h.holiday_id})"></button>
-                        </div>`;
+                    // Create Item
+                    const div = document.createElement('div');
+                    div.className = 'list-item';
+                    div.innerHTML = `
+                        <div>
+                            <strong>${h.holiday_name}</strong><br>
+                            <span style="font-size:11px; opacity:0.6">${h.holiday_start_date} to ${h.holiday_end_date}</span>
+                        </div>
+                        <button class="icon-delete" title="Delete Holiday"></button>
+                    `;
+                    
+                    // Delete Action
+                    div.querySelector('.icon-delete').addEventListener('click', () => deleteHoliday(h.holiday_id));
+                    
+                    list.appendChild(div);
                 });
             });
     }
 
     document.getElementById('form-holiday').addEventListener('submit', (e) => {
         e.preventDefault();
+        
         const payload = {
             name: document.getElementById('holiday-name').value,
             start: document.getElementById('holiday-start').value,
             end: document.getElementById('holiday-end').value
         };
+
         fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays'), {
             method: 'POST',
-            headers: {'requesttoken': OC.requestToken, 'Content-Type': 'application/json'},
+            headers: {
+                'requesttoken': OC.requestToken,
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify(payload)
-        }).then(() => {
+        })
+        .then(response => response.json())
+        .then(() => {
             document.getElementById('form-holiday').reset();
-            loadHolidays();
-        });
+            loadHolidays(); // Refresh list
+        })
+        .catch(err => alert('Error saving holiday'));
     });
 
-    window.deleteHoliday = function(id) {
-        if(confirm('Delete holiday?')) {
-            fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays/' + id), { 
-                method: 'DELETE', headers: {'requesttoken': OC.requestToken} 
-            }).then(loadHolidays);
-        }
-    };
+    function deleteHoliday(id) {
+        if (!confirm('Are you sure you want to delete this holiday?')) return;
 
-    // --- JOBS LOGIC ---
+        fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays/' + id), {
+            method: 'DELETE',
+            headers: { 'requesttoken': OC.requestToken }
+        })
+        .then(() => loadHolidays());
+    }
+
+
+    // =================================================================================
+    // 3. JOB CODES (With Filtering)
+    // =================================================================================
+
     function loadJobs() {
-        // We reuse attributes API or create specific admin one. Assuming getAttributes fetches all for now
-        // OR we use the admin specific API I defined in routes
-        // For this example, let's assume we created /api/admin/jobs (GET) or reuse attributes
+        // We reuse the public attributes API for now
         fetch(OC.generateUrl('/apps/stech_timesheet/api/attributes'))
             .then(r => r.json())
             .then(data => {
-                const list = document.getElementById('job-list');
-                list.innerHTML = '';
-                if(data.jobs) {
-                    data.jobs.forEach(j => {
-                        const isArchived = j.job_archive == 1;
-                        list.innerHTML += `
-                            <div class="list-item ${isArchived ? 'opacity-50' : ''}">
-                                <span>${j.job_name}</span>
-                                <label class="toggle-switch" title="Toggle Archive">
-                                    <input type="checkbox" ${!isArchived ? 'checked' : ''} onchange="toggleJob(${j.job_id})">
-                                    <span class="ts-slider"></span>
-                                </label>
-                            </div>`;
-                    });
-                }
+                allJobs = data.jobs || [];
+                renderJobs();
             });
     }
 
+    function renderJobs() {
+        const searchTerm = document.getElementById('job-search-input').value.toLowerCase();
+        const filterStatus = document.getElementById('job-filter-status').value; // 'all', 'active', 'archived'
+        const list = document.getElementById('job-list');
+        list.innerHTML = '';
+
+        const filtered = allJobs.filter(j => {
+            const isActive = (j.job_archive == 0); // Assuming 0 is active
+            const matchesSearch = j.job_name.toLowerCase().includes(searchTerm);
+            
+            let matchesStatus = true;
+            if (filterStatus === 'active') matchesStatus = isActive;
+            if (filterStatus === 'archived') matchesStatus = !isActive;
+
+            return matchesSearch && matchesStatus;
+        });
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.6">No jobs match your filter.</div>';
+            return;
+        }
+
+        filtered.forEach(j => {
+            const isActive = (j.job_archive == 0);
+            
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.style.opacity = isActive ? '1' : '0.6';
+            
+            div.innerHTML = `
+                <span>${j.job_name}</span>
+                <label class="admin-switch" title="${isActive ? 'Active' : 'Archived'}">
+                    <input type="checkbox" ${isActive ? 'checked' : ''}>
+                    <span class="admin-slider"></span>
+                </label>
+            `;
+
+            // Toggle Logic
+            div.querySelector('input').addEventListener('change', () => toggleJob(j.job_id));
+            
+            list.appendChild(div);
+        });
+    }
+
+    // Filter Listeners
+    document.getElementById('job-search-input').addEventListener('input', renderJobs);
+    document.getElementById('job-filter-status').addEventListener('change', renderJobs);
+
+    // Create Job
     document.getElementById('form-job').addEventListener('submit', (e) => {
         e.preventDefault();
         const payload = {
             name: document.getElementById('job-name').value,
             description: document.getElementById('job-desc').value
         };
+
         fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs'), {
             method: 'POST',
-            headers: {'requesttoken': OC.requestToken, 'Content-Type': 'application/json'},
+            headers: {
+                'requesttoken': OC.requestToken,
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify(payload)
         }).then(() => {
             document.getElementById('form-job').reset();
@@ -152,69 +295,130 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    window.toggleJob = function(id) {
+    function toggleJob(id) {
         fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs/' + id + '/toggle'), {
-            method: 'POST', headers: {'requesttoken': OC.requestToken}
-        });
-        // Visual update handled by toggle, or reload list
-    };
+            method: 'POST',
+            headers: { 'requesttoken': OC.requestToken }
+        })
+        .then(loadJobs); // Reload to ensure server state consistency
+    }
 
-    // --- LOCATIONS LOGIC ---
+
+    // =================================================================================
+    // 4. LOCATIONS (States & Counties with Split Filter)
+    // =================================================================================
+
     function loadStates() {
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/attributes')) // Should allow admin to see disabled states too
+        fetch(OC.generateUrl('/apps/stech_timesheet/api/attributes'))
             .then(r => r.json())
             .then(data => {
-                const list = document.getElementById('state-list');
-                list.innerHTML = '';
-                data.states.forEach(s => {
-                    const isEnabled = s.is_enabled == 1;
-                    const div = document.createElement('div');
-                    div.className = 'list-item';
-                    div.innerHTML = `
-                        <span>${s.state_name}</span>
-                        <label class="toggle-switch">
-                            <input type="checkbox" ${isEnabled ? 'checked' : ''}>
-                            <span class="ts-slider"></span>
-                        </label>`;
-                    
-                    // Click text to load counties
-                    div.querySelector('span').addEventListener('click', () => loadCounties(s.state_abbr, s.state_name));
-                    // Toggle switch logic
-                    div.querySelector('input').addEventListener('change', () => toggleState(s.id));
-                    
-                    list.appendChild(div);
-                });
+                allStates = data.states || [];
+                renderStates();
             });
     }
+
+    function renderStates() {
+        const term = document.getElementById('state-search-input').value.toLowerCase();
+        const list = document.getElementById('state-list');
+        list.innerHTML = '';
+
+        const filtered = allStates.filter(s => s.state_name.toLowerCase().includes(term));
+
+        filtered.forEach(s => {
+            const isEnabled = (s.is_enabled == 1);
+            
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.innerHTML = `
+                <span style="cursor:pointer; flex-grow:1;">${s.state_name}</span>
+                <label class="admin-switch" title="Enable/Disable State">
+                    <input type="checkbox" ${isEnabled ? 'checked' : ''}>
+                    <span class="admin-slider"></span>
+                </label>
+            `;
+
+            // Text Click -> Load Counties
+            div.querySelector('span').addEventListener('click', () => {
+                // Highlight active state
+                document.querySelectorAll('#state-list .list-item').forEach(el => el.classList.remove('active'));
+                div.classList.add('active');
+                
+                loadCounties(s.state_abbr, s.state_name);
+            });
+
+            // Toggle Click
+            div.querySelector('input').addEventListener('change', () => toggleState(s.id));
+
+            list.appendChild(div);
+        });
+    }
+
+    document.getElementById('state-search-input').addEventListener('input', renderStates);
+
+    function toggleState(id) {
+        fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states/' + id + '/toggle'), {
+            method: 'POST', headers: { 'requesttoken': OC.requestToken }
+        });
+    }
+
+    // --- COUNTY LOGIC ---
 
     function loadCounties(abbr, name) {
         document.getElementById('county-header').innerText = 'Counties: ' + name;
-        const list = document.getElementById('county-list');
-        list.innerHTML = 'Loading...';
         
+        // Enable search input
+        const searchInput = document.getElementById('county-search-input');
+        searchInput.disabled = false;
+        searchInput.value = '';
+        searchInput.focus();
+
+        const list = document.getElementById('county-list');
+        list.innerHTML = '<div style="padding:20px; text-align:center;">Loading...</div>';
+
         fetch(OC.generateUrl('/apps/stech_timesheet/api/counties/' + abbr))
             .then(r => r.json())
             .then(counties => {
-                list.innerHTML = '';
-                counties.forEach(c => {
-                    const isEnabled = c.is_enabled == 1;
-                    list.innerHTML += `
-                        <div class="list-item">
-                            <span>${c.county_name}</span>
-                            <label class="toggle-switch">
-                                <input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="toggleCounty(${c.id})">
-                                <span class="ts-slider"></span>
-                            </label>
-                        </div>`;
-                });
+                currentCounties = counties;
+                renderCounties();
             });
     }
 
-    window.toggleState = function(id) {
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states/' + id + '/toggle'), { method: 'POST', headers: {'requesttoken': OC.requestToken}});
-    };
-    window.toggleCounty = function(id) {
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/counties/' + id + '/toggle'), { method: 'POST', headers: {'requesttoken': OC.requestToken}});
-    };
+    function renderCounties() {
+        const term = document.getElementById('county-search-input').value.toLowerCase();
+        const list = document.getElementById('county-list');
+        list.innerHTML = '';
+
+        const filtered = currentCounties.filter(c => c.county_name.toLowerCase().includes(term));
+
+        if (filtered.length === 0) {
+            list.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.6">No counties found.</div>';
+            return;
+        }
+
+        filtered.forEach(c => {
+            const isEnabled = (c.is_enabled == 1);
+            
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.innerHTML = `
+                <span>${c.county_name}</span>
+                <label class="admin-switch">
+                    <input type="checkbox" ${isEnabled ? 'checked' : ''}>
+                    <span class="admin-slider"></span>
+                </label>
+            `;
+
+            div.querySelector('input').addEventListener('change', () => toggleCounty(c.id));
+            list.appendChild(div);
+        });
+    }
+
+    document.getElementById('county-search-input').addEventListener('input', renderCounties);
+
+    function toggleCounty(id) {
+        fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/counties/' + id + '/toggle'), {
+            method: 'POST', headers: { 'requesttoken': OC.requestToken }
+        });
+    }
 
 });

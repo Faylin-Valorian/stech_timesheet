@@ -1,118 +1,160 @@
-/* Dashboard Layout */
-.admin-dashboard-container {
-    padding: 40px;
-    background-color: var(--color-background-hover);
-    height: 100%;
+/* --- LAYOUT UPDATES --- */
+.admin-page-title {
+    padding: 20px 40px 0 40px;
+    margin: 0;
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--color-main-text);
+}
+
+.admin-wrapper {
+    padding: 20px 40px 40px 40px;
+    height: calc(100vh - 50px); /* Adjust based on header height */
     overflow-y: auto;
+    background-color: var(--color-background-hover); 
 }
 
-.dashboard-header { margin-bottom: 30px; }
-.dashboard-header h2 { font-size: 24px; margin-bottom: 5px; }
-
-/* Grid Cards */
-.dashboard-grid {
+/* --- DASHBOARD GRID --- */
+.admin-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 25px;
+    grid-template-columns: repeat(3, 1fr); /* Fixed 3 columns */
+    gap: 30px;
+    width: 100%;
+    /* Removed max-width */
 }
 
-.dash-card {
+/* Card Styling */
+.admin-card {
     background: var(--color-main-background);
-    padding: 30px;
-    border-radius: var(--border-radius-large);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
     border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-large);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    text-align: center;
 }
-
-.dash-card:hover {
+.admin-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
     border-color: var(--color-primary-element);
 }
 
-.card-icon span {
-    font-size: 40px;
-    color: var(--color-primary-element);
-    margin-bottom: 15px;
-    display: block;
-}
+.card-details { padding: 20px; text-align: center; }
+.card-details h3 { margin: 0 0 5px 0; font-size: 18px; font-weight: bold; }
+.card-details p { margin: 0; font-size: 13px; opacity: 0.7; }
 
-.dash-card h3 { margin: 10px 0; font-size: 18px; }
-.dash-card p { opacity: 0.7; font-size: 13px; line-height: 1.5; }
 
-/* Modal Styles */
-.admin-modal {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6); z-index: 2000;
-    display: flex; align-items: center; justify-content: center;
-    backdrop-filter: blur(2px);
-}
-.admin-modal.hidden { display: none; }
-
-.admin-modal-card {
-    background: var(--color-main-background);
-    padding: 0;
-    border-radius: var(--border-radius-large);
-    width: 400px; max-width: 90%;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-    overflow: hidden; display: flex; flex-direction: column;
-}
-
-.large-card { width: 800px; height: 600px; }
-.xlarge-card { width: 900px; height: 700px; }
-
-.modal-header {
-    padding: 15px 20px; background: var(--color-background-hover);
-    display: flex; justify-content: space-between; align-items: center;
+/* --- NEW SKELETAL THUMBNAILS (CSS Wireframes) --- */
+.card-thumbnail {
+    height: 160px;
+    background-color: #f0f2f5;
     border-bottom: 1px solid var(--color-border);
-}
-.modal-header h3 { margin: 0; }
-.close-modal { border: none; background: none; font-size: 24px; cursor: pointer; }
-
-.modal-body { padding: 20px; flex: 1; overflow: hidden; }
-
-/* Split View (Left Form, Right List) */
-.split-view { display: flex; gap: 20px; height: 100%; }
-.split-left { width: 35%; border-right: 1px solid var(--color-border); padding-right: 20px; display: flex; flex-direction: column; }
-.split-right { width: 65%; display: flex; flex-direction: column; }
-
-.form-group { margin-bottom: 15px; }
-.form-group label { display: block; font-weight: bold; font-size: 12px; margin-bottom: 5px; }
-.form-control { width: 100%; padding: 8px; border: 1px solid var(--color-border); border-radius: var(--border-radius); box-sizing: border-box; }
-.full-width { width: 100%; }
-
-/* Lists */
-.list-container {
-    flex: 1; overflow-y: auto; 
-    border: 1px solid var(--color-border); border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
 }
 
-.list-item {
-    padding: 10px; border-bottom: 1px solid var(--color-border);
-    display: flex; justify-content: space-between; align-items: center;
+.skeletal-form {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 12px;
+    width: 100%; max-width: 180px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex; flex-direction: column; gap: 8px;
 }
-.list-item:hover { background-color: var(--color-background-hover); }
-.list-item.active { background-color: var(--color-primary-light); font-weight: bold; }
-.item-meta { font-size: 11px; opacity: 0.6; }
 
-/* Toggle Switch (Small) */
-.toggle-switch {
-    position: relative; display: inline-block; width: 30px; height: 16px;
+/* Skeletal Elements */
+.sk-label { height: 6px; background: #e0e0e0; border-radius: 2px; width: 60%; }
+.sk-label.sm { width: 40%; }
+.sk-input { height: 12px; background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 2px; display: flex; align-items: center; padding-left: 5px; }
+.sk-input.search { border-radius: 12px; }
+.sk-input.textarea { height: 30px; }
+.sk-input.date-icon:after { content: ''; display: block; width: 8px; height: 8px; background: #ccc; margin-left: auto; margin-right: 5px; border-radius: 1px; }
+.sk-btn { height: 16px; background: var(--color-primary-element); opacity: 0.3; border-radius: 3px; margin-top: auto; }
+.sk-btn.success { background: var(--color-success); opacity: 0.5; }
+.sk-row { display: flex; gap: 8px; }
+.sk-input.half { flex: 1; }
+.sk-spacer { height: 10px; }
+
+/* Split View Skeletal */
+.skeletal-form.split { flex-direction: row; gap: 0; padding: 0; overflow: hidden; background: #fafafa; }
+.sk-col { flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+.sk-list-item { display: flex; align-items: center; gap: 8px; }
+.sk-bar { height: 6px; background: #e0e0e0; flex: 1; border-radius: 2px; }
+.sk-bar.short { width: 60%; flex: none; }
+.sk-toggle { width: 16px; height: 10px; border-radius: 10px; position: relative; }
+.sk-toggle.on { background: var(--color-success); opacity: 0.5; }
+.sk-toggle.on:after { content:''; position:absolute; right:1px; top:1px; width:8px; height:8px; background:white; border-radius:50%; }
+.sk-toggle.off { background: #ccc; }
+.sk-toggle.off:after { content:''; position:absolute; left:1px; top:1px; width:8px; height:8px; background:white; border-radius:50%; }
+
+
+/* --- ADMIN MODAL SIZING & LAYOUT --- */
+/* Standard width for single column forms (like User Select) */
+.admin-modal-standard {
+    width: 500px; 
+    max-width: 90vw;
 }
-.toggle-switch input { opacity: 0; width: 0; height: 0; }
-.ts-slider {
-    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-    background-color: #ccc; transition: .4s; border-radius: 16px;
+/* Wider width for Split View forms (Holidays, Jobs, Locations) */
+.admin-modal-split {
+    width: 800px; /* Fixed width to accommodate side-by-side */
+    max-width: 95vw;
+    height: 600px; /* Fixed height for scrolling lists */
+    max-height: 90vh;
+    display: flex; flex-direction: column;
 }
-.ts-slider:before {
-    position: absolute; content: ""; height: 12px; width: 12px; left: 2px; bottom: 2px;
-    background-color: white; transition: .4s; border-radius: 50%;
+
+.split-view-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden; /* Container doesn't scroll, inner elements do */
+    padding: 20px;
+    gap: 20px;
 }
-input:checked + .ts-slider { background-color: var(--color-primary-element); }
-input:checked + .ts-slider:before { transform: translateX(14px); }
+
+.split-left { 
+    width: 40%; 
+    border-right: 1px solid var(--color-border); 
+    padding-right: 20px; 
+    display: flex; flex-direction: column; 
+    overflow-y: auto;
+}
+.split-right { 
+    flex: 1; 
+    display: flex; flex-direction: column; 
+    overflow-y: hidden; /* Header stays, list scrolls */
+}
+
+.scroll-list { 
+    flex: 1; 
+    overflow-y: auto; 
+    border: 1px solid var(--color-border); 
+    border-radius: var(--border-radius);
+    background: var(--color-main-background);
+}
+
+/* --- RE-APPLYING TOGGLE SWITCH STYLES (Crucial for JS rendering) --- */
+.admin-switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+.admin-switch input { opacity: 0; width: 0; height: 0; }
+.admin-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+.admin-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .admin-slider { background-color: var(--color-primary-element); }
+input:checked + .admin-slider:before { transform: translateX(14px); }
+
+/* --- FILTER BARS & SEARCHABLE SELECT --- */
+.filter-bar { display: flex; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--color-border); }
+.filter-input { flex: 1; }
+.searchable-select-wrapper { position: relative; }
+.custom-dropdown-list { position: absolute; top: 100%; left: 0; width: 100%; max-height: 200px; overflow-y: auto; background: var(--color-main-background); border: 1px solid var(--color-primary-element); border-top: none; z-index: 100; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+.custom-dropdown-list.hidden { display: none; }
+.dropdown-item { padding: 10px; cursor: pointer; border-bottom: 1px solid var(--color-border); transition: background 0.1s; }
+.dropdown-item:hover { background-color: var(--color-background-hover); }
+
+/* Reuse main app styles for inputs/buttons where possible */
+.form-control { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 4px; box-sizing: border-box; }
+.input-group { margin-bottom: 15px; }
+.input-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+.subsection-title { margin: 0 0 15px 0; font-size: 1.1em; border-bottom: 2px solid var(--color-border); padding-bottom: 5px; }
