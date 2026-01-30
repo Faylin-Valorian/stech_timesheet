@@ -35,39 +35,57 @@ class AdminController extends Controller {
         return $this->groupManager->isAdmin($this->userSession->getUser()->getUID());
     }
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @NoAdminRequired
+     */
     public function index(): TemplateResponse {
-        if (!$this->isAdmin()) return new TemplateResponse('core', '403', [], '403');
+        // We check Admin manually to return 403 (Forbidden) instead of 412/Login Redirect
+        if (!$this->isAdmin()) {
+            return new TemplateResponse('core', '403', [], '403');
+        }
         return new TemplateResponse('stech_timesheet', 'admin');
     }
 
-    // --- SETTINGS & THUMBNAILS (NEW) ---
+    // --- SETTINGS & THUMBNAILS ---
 
     /** @NoCSRFRequired */
     public function getSettings(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
-        $qb = $this->db->getQueryBuilder();
-        $rows = $qb->select('*')->from('stech_admin_settings')->executeQuery()->fetchAll();
-        $settings = [];
-        foreach ($rows as $row) $settings[$row['setting_key']] = $row['setting_value'];
-        return new DataResponse($settings);
+        try {
+            $qb = $this->db->getQueryBuilder();
+            $rows = $qb->select('*')->from('stech_admin_settings')->executeQuery()->fetchAll();
+            $settings = [];
+            foreach ($rows as $row) $settings[$row['setting_key']] = $row['setting_value'];
+            return new DataResponse($settings);
+        } catch (\Exception $e) {
+            // Table might not exist yet
+            return new DataResponse([]);
+        }
     }
 
     /** @NoCSRFRequired */
     public function saveSetting(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         $data = $this->request->getParams();
-        $key = $data['key'] ?? null; $value = $data['value'] ?? '';
+        $key = $data['key'] ?? null;
+        $value = $data['value'] ?? '';
         if (!$key) return new DataResponse(['error' => 'Missing key'], 400);
 
         $qb = $this->db->getQueryBuilder();
-        $exists = $qb->select('setting_key')->from('stech_admin_settings')->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))->executeQuery()->fetch();
+        $exists = $qb->select('setting_key')->from('stech_admin_settings')
+                     ->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))
+                     ->executeQuery()->fetch();
 
         $qb = $this->db->getQueryBuilder();
         if ($exists) {
-            $qb->update('stech_admin_settings')->set('setting_value', $qb->createNamedParameter($value))->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))->execute();
+            $qb->update('stech_admin_settings')->set('setting_value', $qb->createNamedParameter($value))
+               ->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))->execute();
         } else {
-            $qb->insert('stech_admin_settings')->values(['setting_key' => $qb->createNamedParameter($key), 'setting_value' => $qb->createNamedParameter($value)])->execute();
+            $qb->insert('stech_admin_settings')->values([
+                'setting_key' => $qb->createNamedParameter($key),
+                'setting_value' => $qb->createNamedParameter($value)
+            ])->execute();
         }
         return new DataResponse(['status' => 'success']);
     }
@@ -78,12 +96,12 @@ class AdminController extends Controller {
      */
     public function getThumbnail(string $filename): FileDisplayResponse {
         try {
-            // Serve from AppData folder
             $folder = $this->appData->getFolder('thumbnails');
             $file = $folder->getFile($filename);
             return new FileDisplayResponse($file);
         } catch (NotFoundException $e) {
-            // 404 will trigger client-side fallback
+            return new DataResponse(['error' => 'Not found'], 404);
+        } catch (\Exception $e) {
             return new DataResponse(['error' => 'Not found'], 404);
         }
     }
@@ -91,27 +109,32 @@ class AdminController extends Controller {
     /** @NoCSRFRequired */
     public function uploadThumbnail(string $cardId): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
+        
         $uploadedFile = $this->request->getUploadedFile('image');
         if (!$uploadedFile) return new DataResponse(['error' => 'No file'], 400);
-        if (!in_array($cardId, ['users', 'holidays', 'jobs', 'locations'])) return new DataResponse(['error' => 'Invalid card'], 400);
-
+        
         $fileName = 'thumb-' . $cardId . '.png';
         try {
             try { $folder = $this->appData->getFolder('thumbnails'); } catch (NotFoundException $e) { $folder = $this->appData->newFolder('thumbnails'); }
             
-            $file = $folder->newFile($fileName); // This overwrites existing
+            // Delete existing if any
+            try { $folder->getFile($fileName)->delete(); } catch(NotFoundException $e) {}
+
+            $file = $folder->newFile($fileName);
             $file->putContent($uploadedFile->getStream());
             return new DataResponse(['status' => 'success']);
         } catch (\Exception $e) { return new DataResponse(['error' => $e->getMessage()], 500); }
     }
 
 
-    // --- EXISTING ADMIN METHODS ---
+    // --- USERS, HOLIDAYS, JOBS, LOCATIONS ---
+
     /** @NoCSRFRequired */
     public function getUsers(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         $users = $this->userManager->search('');
-        $result = []; foreach ($users as $u) $result[] = ['uid' => $u->getUID(), 'displayname' => $u->getDisplayName()];
+        $result = []; 
+        foreach ($users as $u) $result[] = ['uid' => $u->getUID(), 'displayname' => $u->getDisplayName()];
         return new DataResponse($result);
     }
 
@@ -125,7 +148,11 @@ class AdminController extends Controller {
     public function saveHoliday(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         $data = $this->request->getParams();
-        $this->db->getQueryBuilder()->insert('stech_holidays')->values(['holiday_name' => $this->db->getQueryBuilder()->createNamedParameter($data['name']), 'holiday_start_date' => $this->db->getQueryBuilder()->createNamedParameter($data['start']), 'holiday_end_date' => $this->db->getQueryBuilder()->createNamedParameter($data['end'])])->execute();
+        $this->db->getQueryBuilder()->insert('stech_holidays')->values([
+            'holiday_name' => $this->db->getQueryBuilder()->createNamedParameter($data['name']), 
+            'holiday_start_date' => $this->db->getQueryBuilder()->createNamedParameter($data['start']), 
+            'holiday_end_date' => $this->db->getQueryBuilder()->createNamedParameter($data['end'])
+        ])->execute();
         return new DataResponse(['status' => 'success']);
     }
 
@@ -140,7 +167,11 @@ class AdminController extends Controller {
     public function saveJob(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         $data = $this->request->getParams();
-        $this->db->getQueryBuilder()->insert('stech_jobs')->values(['job_name' => $this->db->getQueryBuilder()->createNamedParameter($data['name']), 'job_description' => $this->db->getQueryBuilder()->createNamedParameter($data['description'] ?? ''), 'job_archive' => 0])->execute();
+        $this->db->getQueryBuilder()->insert('stech_jobs')->values([
+            'job_name' => $this->db->getQueryBuilder()->createNamedParameter($data['name']), 
+            'job_description' => $this->db->getQueryBuilder()->createNamedParameter($data['description'] ?? ''), 
+            'job_archive' => 0
+        ])->execute();
         return new DataResponse(['status' => 'success']);
     }
 

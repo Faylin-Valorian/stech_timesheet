@@ -3,8 +3,8 @@ use OCP\Util;
 Util::addScript('stech_timesheet', 'admin');
 Util::addStyle('stech_timesheet', 'style'); 
 Util::addStyle('stech_timesheet', 'admin'); 
-// Generate fallback image URL once
-$fallbackImg = image_path('stech_timesheet', 'default-thumb.png');
+// Fallback image (ensure you have something in img/ or it will just be blank)
+$fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/picture.svg'); 
 ?>
 
 <div id="app">
@@ -35,7 +35,6 @@ $fallbackImg = image_path('stech_timesheet', 'default-thumb.png');
         </div>
 
         <div id="app-content-wrapper" class="admin-wrapper">
-            
             <div class="admin-grid">
                 
                 <div class="admin-card" id="card-users" data-card-id="users">
@@ -121,9 +120,6 @@ $fallbackImg = image_path('stech_timesheet', 'default-thumb.png');
                     <div id="user-dropdown-list" class="custom-dropdown-list hidden"></div>
                     <input type="hidden" id="selected-user-uid">
                 </div>
-                <p class="hint-text" style="margin-top:15px; font-size:13px; opacity:0.7;">
-                    Clicking "Open Calendar" will redirect you to the timesheet interface acting as this user.
-                </p>
             </div>
         </div>
         <div class="modal-footer">

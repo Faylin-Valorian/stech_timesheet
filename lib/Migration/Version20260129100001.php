@@ -111,6 +111,14 @@ class Version20260129100001 implements IMigrationStep {
             $table->setPrimaryKey(['holiday_id']);
         }
 
+        // 7. PATCH: oc_stech_admin_settings
+        if (!$schema->hasTable('stech_admin_settings')) {
+            $table = $schema->createTable('stech_admin_settings');
+            $table->addColumn('setting_key', 'string', ['notnull' => true, 'length' => 64]);
+            $table->addColumn('setting_value', 'text', ['notnull' => false]);
+            $table->setPrimaryKey(['setting_key']);
+        }
+
         return $schema;
     }
 

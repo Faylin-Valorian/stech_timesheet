@@ -1,11 +1,32 @@
 /* =========================================
-   1. LAYOUT & HEADER
+   1. LAYOUT & SCROLL FIX
    ========================================= */
+#app-content {
+    /* Critical: Make the main content area a flex column */
+    display: flex;
+    flex-direction: column;
+    height: 100vh; /* Fill screen */
+    overflow: hidden; /* Prevent double scrollbars */
+}
+
 .admin-page-header {
+    /* Header stays fixed size */
+    flex: 0 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 40px 0 40px;
+    padding: 20px 40px;
+    background-color: var(--color-main-background); /* Ensure bg covers scrolling content */
+    border-bottom: 1px solid var(--color-border);
+    z-index: 10;
+}
+
+.admin-wrapper {
+    /* Wrapper takes remaining space and scrolls */
+    flex: 1 1 auto;
+    padding: 30px 40px 100px 40px; /* Extra bottom padding for scroll space */
+    overflow-y: auto; /* Scrollbar appears here */
+    background-color: var(--color-background-hover);
 }
 
 .admin-page-title {
@@ -31,13 +52,6 @@
     font-size: 13px;
     opacity: 0.8;
     cursor: pointer;
-}
-
-.admin-wrapper {
-    padding: 20px 40px 40px 40px;
-    height: calc(100vh - 80px);
-    overflow-y: auto;
-    background-color: var(--color-background-hover);
 }
 
 /* =========================================
