@@ -1,8 +1,10 @@
 <?php
 use OCP\Util;
 Util::addScript('stech_timesheet', 'admin');
-Util::addStyle('stech_timesheet', 'style'); // Sidebar styles
-Util::addStyle('stech_timesheet', 'admin'); // Admin specific styles
+Util::addStyle('stech_timesheet', 'style'); 
+Util::addStyle('stech_timesheet', 'admin'); 
+// Generate fallback image URL once
+$fallbackImg = image_path('stech_timesheet', 'default-thumb.png');
 ?>
 
 <div id="app">
@@ -21,80 +23,82 @@ Util::addStyle('stech_timesheet', 'admin'); // Admin specific styles
     </div>
 
     <div id="app-content">
-        <h2 class="admin-page-title">Administration Panel</h2>
+        <div class="admin-page-header">
+             <h2 class="admin-page-title">Administration Panel</h2>
+             <div class="edit-mode-toggle-wrapper">
+                 <label for="admin-edit-mode" class="toggle-label">Edit Mode</label>
+                 <label class="admin-switch">
+                     <input type="checkbox" id="admin-edit-mode">
+                     <span class="admin-slider"></span>
+                 </label>
+             </div>
+        </div>
 
         <div id="app-content-wrapper" class="admin-wrapper">
             
             <div class="admin-grid">
                 
-                <div class="admin-card" id="card-users">
-                    <div class="card-thumbnail">
-                        <div class="skeletal-form">
-                            <div class="sk-label sm"></div>
-                            <div class="sk-input search">
-                                <span class="icon-search" style="opacity:0.3; margin-right:5px;"></span>
-                            </div>
-                            <div class="sk-spacer"></div>
-                            <div class="sk-btn"></div>
+                <div class="admin-card" id="card-users" data-card-id="users">
+                    <div class="card-thumbnail-wrapper">
+                        <img src="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-users.png'])); ?>" 
+                             onerror="this.src='<?php p($fallbackImg); ?>'"
+                             class="card-thumbnail-img" id="thumb-img-users">
+                        <div class="thumbnail-edit-overlay">
+                            <label for="file-upload-users" class="btn-upload">Change Image (PNG)</label>
+                            <input type="file" id="file-upload-users" class="hidden-file-input" accept="image/png">
                         </div>
                     </div>
                     <div class="card-details">
                         <h3>User Management</h3>
-                        <p>Search and impersonate employees.</p>
+                        <p id="desc-users" class="editable-desc">Search and impersonate employees.</p>
                     </div>
                 </div>
 
-                <div class="admin-card" id="card-holidays">
-                    <div class="card-thumbnail">
-                        <div class="skeletal-form">
-                            <div class="sk-label sm"></div>
-                            <div class="sk-input"></div>
-                            <div class="sk-row">
-                                <div class="sk-input half date-icon"></div>
-                                <div class="sk-input half date-icon"></div>
-                            </div>
-                            <div class="sk-btn success"></div>
+                <div class="admin-card" id="card-holidays" data-card-id="holidays">
+                    <div class="card-thumbnail-wrapper">
+                        <img src="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-holidays.png'])); ?>" 
+                             onerror="this.src='<?php p($fallbackImg); ?>'"
+                             class="card-thumbnail-img" id="thumb-img-holidays">
+                        <div class="thumbnail-edit-overlay">
+                            <label for="file-upload-holidays" class="btn-upload">Change Image (PNG)</label>
+                            <input type="file" id="file-upload-holidays" class="hidden-file-input" accept="image/png">
                         </div>
                     </div>
                     <div class="card-details">
                         <h3>Holidays</h3>
-                        <p>Manage company holidays.</p>
+                        <p id="desc-holidays" class="editable-desc">Manage company holidays.</p>
                     </div>
                 </div>
 
-                <div class="admin-card" id="card-jobs">
-                    <div class="card-thumbnail">
-                        <div class="skeletal-form">
-                            <div class="sk-label sm"></div>
-                            <div class="sk-input"></div>
-                            <div class="sk-label sm" style="margin-top:5px;"></div>
-                            <div class="sk-input textarea"></div>
-                            <div class="sk-btn success"></div>
+                <div class="admin-card" id="card-jobs" data-card-id="jobs">
+                    <div class="card-thumbnail-wrapper">
+                        <img src="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-jobs.png'])); ?>" 
+                             onerror="this.src='<?php p($fallbackImg); ?>'"
+                             class="card-thumbnail-img" id="thumb-img-jobs">
+                        <div class="thumbnail-edit-overlay">
+                            <label for="file-upload-jobs" class="btn-upload">Change Image (PNG)</label>
+                            <input type="file" id="file-upload-jobs" class="hidden-file-input" accept="image/png">
                         </div>
                     </div>
                     <div class="card-details">
                         <h3>Job Codes</h3>
-                        <p>Create and archive job codes.</p>
+                        <p id="desc-jobs" class="editable-desc">Create and archive job codes.</p>
                     </div>
                 </div>
 
-                <div class="admin-card" id="card-locations">
-                    <div class="card-thumbnail">
-                        <div class="skeletal-form split">
-                            <div class="sk-col">
-                                <div class="sk-list-item"><div class="sk-toggle on"></div><div class="sk-bar"></div></div>
-                                <div class="sk-list-item"><div class="sk-toggle off"></div><div class="sk-bar"></div></div>
-                                <div class="sk-list-item"><div class="sk-toggle on"></div><div class="sk-bar"></div></div>
-                            </div>
-                            <div class="sk-col" style="border-left:1px solid #eee; padding-left:5px;">
-                                <div class="sk-list-item"><div class="sk-toggle on"></div><div class="sk-bar short"></div></div>
-                                <div class="sk-list-item"><div class="sk-toggle on"></div><div class="sk-bar short"></div></div>
-                            </div>
+                <div class="admin-card" id="card-locations" data-card-id="locations">
+                    <div class="card-thumbnail-wrapper">
+                        <img src="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-locations.png'])); ?>" 
+                             onerror="this.src='<?php p($fallbackImg); ?>'"
+                             class="card-thumbnail-img" id="thumb-img-locations">
+                        <div class="thumbnail-edit-overlay">
+                            <label for="file-upload-locations" class="btn-upload">Change Image (PNG)</label>
+                            <input type="file" id="file-upload-locations" class="hidden-file-input" accept="image/png">
                         </div>
                     </div>
                     <div class="card-details">
                         <h3>Locations</h3>
-                        <p>Enable States and Counties.</p>
+                        <p id="desc-locations" class="editable-desc">Enable States and Counties.</p>
                     </div>
                 </div>
 
@@ -117,7 +121,6 @@ Util::addStyle('stech_timesheet', 'admin'); // Admin specific styles
                     <div id="user-dropdown-list" class="custom-dropdown-list hidden"></div>
                     <input type="hidden" id="selected-user-uid">
                 </div>
-                
                 <p class="hint-text" style="margin-top:15px; font-size:13px; opacity:0.7;">
                     Clicking "Open Calendar" will redirect you to the timesheet interface acting as this user.
                 </p>
@@ -186,7 +189,6 @@ Util::addStyle('stech_timesheet', 'admin'); // Admin specific styles
             </div>
             <div class="split-right">
                 <h4 class="subsection-title">Active Jobs</h4>
-                
                 <div class="filter-bar">
                     <input type="text" id="job-search-input" class="filter-input" placeholder="Search jobs...">
                     <select id="job-filter-status" class="filter-select">
@@ -195,7 +197,6 @@ Util::addStyle('stech_timesheet', 'admin'); // Admin specific styles
                         <option value="archived">Archived</option>
                     </select>
                 </div>
-
                 <div class="scroll-list" id="job-list"></div>
             </div>
         </div>
