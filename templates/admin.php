@@ -3,8 +3,7 @@ use OCP\Util;
 Util::addScript('stech_timesheet', 'admin');
 Util::addStyle('stech_timesheet', 'style'); 
 Util::addStyle('stech_timesheet', 'admin'); 
-
-// Fallback image URL
+// Fallback image
 $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/picture.svg'); 
 ?>
 
@@ -189,13 +188,14 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
             </div>
             <div class="split-right">
                 <h4 class="subsection-title">Active Jobs</h4>
-                <div class="filter-bar">
-                    <input type="text" id="job-search-input" class="filter-input" placeholder="Search jobs...">
-                    <select id="job-filter-status" class="filter-select">
-                        <option value="all">All</option>
-                        <option value="active" selected>Active</option>
-                        <option value="archived">Archived</option>
-                    </select>
+                <div class="search-filter-wrapper">
+                    <input type="text" id="job-search-input" class="filter-input-with-icon" placeholder="Search jobs...">
+                    <button class="btn-filter-icon" id="job-filter-btn" title="Filter"><span class="icon-filter"></span></button>
+                    <div class="filter-menu hidden" id="job-filter-menu">
+                        <label><input type="radio" name="job-status" value="active" checked> Active Only</label>
+                        <label><input type="radio" name="job-status" value="archived"> Archived</label>
+                        <label><input type="radio" name="job-status" value="all"> Show All</label>
+                    </div>
                 </div>
                 <div class="scroll-list" id="job-list"></div>
             </div>
@@ -212,15 +212,27 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
         <div class="modal-body split-view-body">
             <div class="split-left">
                 <h4 class="subsection-title">States</h4>
-                <div class="filter-bar">
-                    <input type="text" id="state-search-input" class="filter-input full-width" placeholder="Filter states...">
+                <div class="search-filter-wrapper">
+                    <input type="text" id="state-search-input" class="filter-input-with-icon" placeholder="Filter states...">
+                    <button class="btn-filter-icon" id="state-filter-btn"><span class="icon-filter"></span></button>
+                    <div class="filter-menu hidden" id="state-filter-menu">
+                        <label><input type="radio" name="state-status" value="all" checked> Show All</label>
+                        <label><input type="radio" name="state-status" value="enabled"> Enabled Only</label>
+                        <label><input type="radio" name="state-status" value="disabled"> Disabled</label>
+                    </div>
                 </div>
                 <div class="scroll-list" id="state-list"></div>
             </div>
             <div class="split-right">
                 <h4 class="subsection-title" id="county-header">Counties</h4>
-                <div class="filter-bar">
-                    <input type="text" id="county-search-input" class="filter-input full-width" placeholder="Filter counties..." disabled>
+                <div class="search-filter-wrapper">
+                    <input type="text" id="county-search-input" class="filter-input-with-icon" placeholder="Filter counties..." disabled>
+                    <button class="btn-filter-icon" id="county-filter-btn"><span class="icon-filter"></span></button>
+                    <div class="filter-menu hidden" id="county-filter-menu">
+                        <label><input type="radio" name="county-status" value="all" checked> Show All</label>
+                        <label><input type="radio" name="county-status" value="enabled"> Enabled Only</label>
+                        <label><input type="radio" name="county-status" value="disabled"> Disabled</label>
+                    </div>
                 </div>
                 <div class="scroll-list" id="county-list">
                     <div style="padding:20px; text-align:center; opacity:0.6;">Select a state to view counties.</div>

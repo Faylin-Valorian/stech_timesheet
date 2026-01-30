@@ -1,21 +1,56 @@
 document.addEventListener('DOMContentLoaded', function() {
     
-    // --- STATE ---
+    // --- GLOBAL DATA STORES ---
     let allUsers = [];
     let allJobs = [];
     let allStates = [];
     let currentCounties = [];
     
+    // --- STATE FLAGS ---
     let editMode = false;
     const cards = ['users', 'holidays', 'jobs', 'locations'];
     const descriptionCache = {};
 
     // =========================================================
-    // 1. INITIALIZATION & CSP FIX
+    // 1. HELPER FUNCTIONS
     // =========================================================
     
-    // Handle image errors via JS (Fixes Refused to execute inline event handler)
+    // Wrapper for Fetch to always include Nextcloud CSRF Token (Fixes 412)
+    function apiFetch(url, options = {}) {
+        if (!options.headers) {
+            options.headers = {};
+        }
+        options.headers['requesttoken'] = OC.requestToken;
+        // If sending JSON, ensure Content-Type is set (but not for FormData!)
+        if (options.body && typeof options.body === 'string') {
+            options.headers['Content-Type'] = 'application/json';
+        }
+        return fetch(url, options);
+    }
+
+    // Modal Control (Using inline styles to be robust against CSS conflicts)
+    function openModal(id) {
+        const modal = document.getElementById(id);
+        if(modal) modal.style.display = 'flex';
+    }
+
+    function closeModal(modal) {
+        if(modal) modal.style.display = 'none';
+    }
+
+    // =========================================================
+    // 2. INITIALIZATION & IMAGE HANDLING
+    // =========================================================
+    
+    // Image Error Handler (Fixes CSP "inline event handler" error)
+    // Runs on load to catch images that failed before JS ran
     document.querySelectorAll('.card-thumbnail-img').forEach(img => {
+        // If image is already broken (naturalWidth is 0 and it's complete)
+        if (img.complete && img.naturalWidth === 0) {
+            if (img.dataset.fallbackSrc) img.src = img.dataset.fallbackSrc;
+        }
+        
+        // Listen for future errors
         img.addEventListener('error', function() {
             if (this.dataset.fallbackSrc) {
                 this.src = this.dataset.fallbackSrc;
@@ -23,8 +58,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Load saved settings
-    fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/settings'))
+    // Load Saved Settings (Descriptions)
+    apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/settings'))
         .then(r => r.json())
         .then(settings => {
             cards.forEach(cardId => {
@@ -36,10 +71,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (p) descriptionCache[cardId] = p.innerText;
             });
         })
-        .catch(console.error);
+        .catch(err => console.error('Failed to load settings:', err));
 
     // =========================================================
-    // 2. EDIT MODE TOGGLE LOGIC
+    // 3. EDIT MODE LOGIC
     // =========================================================
     const editToggle = document.getElementById('admin-edit-mode');
     if (editToggle) {
@@ -71,43 +106,40 @@ document.addEventListener('DOMContentLoaded', function() {
         const savePromises = [];
 
         cards.forEach(cardId => {
-            // 1. Text Description
+            // 1. Save Description
             const textarea = document.getElementById(`desc-textarea-${cardId}`);
-            if (!textarea) return; 
+            if (textarea) {
+                const newText = textarea.value.trim();
+                const p = document.createElement('p');
+                p.id = `desc-${cardId}`;
+                p.className = 'editable-desc';
+                p.innerText = newText;
+                textarea.replaceWith(p);
 
-            const newText = textarea.value.trim();
-            const p = document.createElement('p');
-            p.id = `desc-${cardId}`;
-            p.className = 'editable-desc';
-            p.innerText = newText;
-            textarea.replaceWith(p);
-
-            // Save if changed
-            if (newText !== descriptionCache[cardId]) {
-                descriptionCache[cardId] = newText;
-                savePromises.push(
-                    fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/settings'), {
-                        method: 'POST',
-                        headers: {'requesttoken': OC.requestToken, 'Content-Type': 'application/json'},
-                        body: JSON.stringify({ key: `desc_${cardId}`, value: newText })
-                    })
-                );
+                if (newText !== descriptionCache[cardId]) {
+                    descriptionCache[cardId] = newText;
+                    savePromises.push(
+                        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/settings'), {
+                            method: 'POST',
+                            body: JSON.stringify({ key: `desc_${cardId}`, value: newText })
+                        })
+                    );
+                }
             }
 
-            // 2. Image Upload
+            // 2. Save Image
             const fileInput = document.getElementById(`file-upload-${cardId}`);
             if (fileInput && fileInput.files.length > 0) {
                 const formData = new FormData();
                 formData.append('image', fileInput.files[0]);
                 
                 savePromises.push(
-                    fetch(OC.generateUrl(`/apps/stech_timesheet/api/admin/thumbnail/${cardId}`), {
+                    apiFetch(OC.generateUrl(`/apps/stech_timesheet/api/admin/thumbnail/${cardId}`), {
                         method: 'POST',
-                        headers: {'requesttoken': OC.requestToken}, // Content-Type handled by browser
-                        body: formData
+                        body: formData // No Content-Type header; browser sets multipart/form-data
                     }).then(r => {
-                        if(r.ok) {
-                            // Force refresh image by appending timestamp
+                        if (r.ok) {
+                            // Force refresh image
                             const img = document.getElementById(`thumb-img-${cardId}`);
                             if(img) {
                                 const srcBase = img.src.split('?')[0];
@@ -116,44 +148,44 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     })
                 );
-                fileInput.value = ''; // Reset
+                fileInput.value = ''; // Reset input
             }
         });
 
-        if(savePromises.length > 0) {
+        if (savePromises.length > 0) {
             Promise.all(savePromises)
-                .then(() => OC.dialogs.toast('Changes saved.', {type: 'success'}))
-                .catch(() => OC.dialogs.toast('Error saving changes.', {type: 'error'}));
+                .then(() => OC.dialogs.toast('Settings saved successfully.', { type: 'success' }))
+                .catch(() => OC.dialogs.toast('Error saving settings.', { type: 'error' }));
         }
     }
 
-
     // =========================================================
-    // 3. MODAL & CLICK HANDLERS
+    // 4. GENERAL UI HANDLERS (Modals, Filters)
     // =========================================================
-    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
-    function closeModal(modal) { modal.style.display = 'none'; }
     
+    // Close Buttons
     document.querySelectorAll('.close-modal').forEach(btn => {
         btn.addEventListener('click', function() {
             closeModal(this.closest('.modal-overlay'));
         });
     });
 
+    // Outside Click Close
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', function(e) {
             if (e.target === this) closeModal(this);
         });
     });
 
+    // Card Click Listeners
     function attachCardClick(cardId, modalId, loadFn) {
         const card = document.getElementById(cardId);
         if (card) {
             card.addEventListener('click', (e) => {
-                // Ignore clicks if in edit mode OR if clicking edit controls
+                // Do not open if in Edit Mode OR if clicking upload elements
                 if (editMode || e.target.closest('.thumbnail-edit-overlay')) return;
                 openModal(modalId);
-                loadFn();
+                if (loadFn) loadFn();
             });
         }
     }
@@ -163,24 +195,68 @@ document.addEventListener('DOMContentLoaded', function() {
     attachCardClick('card-jobs', 'modal-jobs', loadJobs);
     attachCardClick('card-locations', 'modal-locations', loadStates);
 
+    // Filter Menu Setup (Click icon to show dropdown)
+    function setupFilter(btnId, menuId, inputName, renderFn) {
+        const btn = document.getElementById(btnId);
+        const menu = document.getElementById(menuId);
+        if (!btn || !menu) return;
+
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menu.classList.toggle('hidden');
+        });
+
+        // Radio Button Change
+        menu.querySelectorAll(`input[name="${inputName}"]`).forEach(radio => {
+            radio.addEventListener('change', () => {
+                renderFn();
+                menu.classList.add('hidden');
+            });
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!menu.contains(e.target) && e.target !== btn) {
+                menu.classList.add('hidden');
+            }
+        });
+    }
+
+    setupFilter('job-filter-btn', 'job-filter-menu', 'job-status', renderJobs);
+    setupFilter('state-filter-btn', 'state-filter-menu', 'state-status', renderStates);
+    setupFilter('county-filter-btn', 'county-filter-menu', 'county-status', renderCounties);
+
 
     // =========================================================
-    // 4. USER MANAGEMENT (Searchable)
+    // 5. USER MANAGEMENT
     // =========================================================
     function loadUsers() {
-        const input = document.getElementById('user-search'); input.value = ''; input.focus();
-        const list = document.getElementById('user-dropdown-list'); list.innerHTML = '<div class="dropdown-item">Loading...</div>'; list.classList.remove('hidden');
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users'))
+        const input = document.getElementById('user-search');
+        if(input) { input.value = ''; input.focus(); }
+        
+        const list = document.getElementById('user-dropdown-list');
+        list.innerHTML = '<div class="dropdown-item" style="cursor:default">Loading...</div>';
+        list.classList.remove('hidden');
+
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users'))
             .then(r => r.json())
-            .then(users => { allUsers = users; renderUserList(allUsers); })
-            .catch(console.error);
+            .then(users => {
+                allUsers = users;
+                renderUserList(allUsers);
+            });
     }
 
     function renderUserList(users) {
-        const list = document.getElementById('user-dropdown-list'); list.innerHTML = '';
-        if (users.length === 0) { list.innerHTML = '<div class="dropdown-item" style="opacity:0.6;">No users found</div>'; return; }
+        const list = document.getElementById('user-dropdown-list');
+        list.innerHTML = '';
+        if (users.length === 0) {
+            list.innerHTML = '<div class="dropdown-item" style="opacity:0.6; cursor:default">No users found</div>';
+            return;
+        }
         users.forEach(u => {
-            const div = document.createElement('div'); div.className = 'dropdown-item'; div.innerText = u.displayname;
+            const div = document.createElement('div');
+            div.className = 'dropdown-item';
+            div.innerText = u.displayname;
             div.addEventListener('click', () => {
                 document.getElementById('user-search').value = u.displayname;
                 document.getElementById('selected-user-uid').value = u.uid;
@@ -191,32 +267,40 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    document.getElementById('user-search').addEventListener('input', function() {
-        const term = this.value.toLowerCase();
-        renderUserList(allUsers.filter(u => u.displayname.toLowerCase().includes(term)));
-        document.getElementById('user-dropdown-list').classList.remove('hidden');
-    });
-    
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.searchable-select-wrapper')) {
-            document.getElementById('user-dropdown-list').classList.add('hidden');
-        }
-    });
+    const userSearch = document.getElementById('user-search');
+    if (userSearch) {
+        userSearch.addEventListener('input', function() {
+            const term = this.value.toLowerCase();
+            renderUserList(allUsers.filter(u => u.displayname.toLowerCase().includes(term)));
+            document.getElementById('user-dropdown-list').classList.remove('hidden');
+        });
+        
+        // Hide dropdown on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.searchable-select-wrapper')) {
+                document.getElementById('user-dropdown-list').classList.add('hidden');
+            }
+        });
+    }
 
-    document.getElementById('btn-view-user').addEventListener('click', () => {
-        const uid = document.getElementById('selected-user-uid').value;
-        if (uid) window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + uid;
-    });
+    const viewUserBtn = document.getElementById('btn-view-user');
+    if (viewUserBtn) {
+        viewUserBtn.addEventListener('click', () => {
+            const uid = document.getElementById('selected-user-uid').value;
+            if (uid) window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + uid;
+        });
+    }
 
 
     // =========================================================
-    // 5. HOLIDAYS
+    // 6. HOLIDAYS
     // =========================================================
     function loadHolidays() {
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays'))
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays'))
             .then(r => r.json())
             .then(data => {
-                const list = document.getElementById('holiday-list'); list.innerHTML = '';
+                const list = document.getElementById('holiday-list');
+                list.innerHTML = '';
                 data.forEach(h => {
                     list.innerHTML += `
                         <div class="list-item">
@@ -224,111 +308,207 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <strong>${h.holiday_name}</strong><br>
                                 <span style="font-size:11px; opacity:0.6">${h.holiday_start_date} to ${h.holiday_end_date}</span>
                             </div>
-                            <button class="icon-delete" onclick="deleteHoliday(${h.holiday_id})" title="Delete"></button>
+                            <button class="icon-delete" onclick="deleteHoliday(${h.holiday_id})" title="Delete">&times;</button>
                         </div>`;
                 });
             });
     }
 
-    document.getElementById('form-holiday').addEventListener('submit', (e) => {
-        e.preventDefault();
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays'), {
-            method: 'POST', headers: {'requesttoken': OC.requestToken, 'Content-Type': 'application/json'},
-            body: JSON.stringify({ name: document.getElementById('holiday-name').value, start: document.getElementById('holiday-start').value, end: document.getElementById('holiday-end').value })
-        }).then(() => { document.getElementById('form-holiday').reset(); loadHolidays(); });
-    });
+    const holidayForm = document.getElementById('form-holiday');
+    if (holidayForm) {
+        holidayForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('holiday-name').value,
+                start: document.getElementById('holiday-start').value,
+                end: document.getElementById('holiday-end').value
+            };
+            apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays'), {
+                method: 'POST', body: JSON.stringify(payload)
+            }).then(() => {
+                holidayForm.reset();
+                loadHolidays();
+            });
+        });
+    }
 
+    // Expose global for onclick
     window.deleteHoliday = function(id) {
-        if(confirm('Delete?')) fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays/'+id), { method:'DELETE', headers:{'requesttoken':OC.requestToken} }).then(loadHolidays);
+        if(confirm('Delete?')) {
+            apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays/'+id), { method:'DELETE' })
+            .then(loadHolidays);
+        }
     };
 
 
     // =========================================================
-    // 6. JOBS
+    // 7. JOBS
     // =========================================================
     function loadJobs() {
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/attributes'))
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/attributes'))
             .then(r => r.json())
-            .then(data => { allJobs = data.jobs || []; renderJobs(); });
+            .then(data => {
+                allJobs = data.jobs || [];
+                renderJobs();
+            });
     }
 
     function renderJobs() {
         const term = document.getElementById('job-search-input').value.toLowerCase();
-        const status = document.getElementById('job-filter-status').value;
-        const list = document.getElementById('job-list'); list.innerHTML = '';
+        // Get checked radio value
+        const statusRadio = document.querySelector('input[name="job-status"]:checked');
+        const status = statusRadio ? statusRadio.value : 'active';
+        
+        const list = document.getElementById('job-list');
+        list.innerHTML = '';
 
         allJobs.filter(j => {
-            const isActive = j.job_archive==0;
-            if(status==='active' && !isActive) return false;
-            if(status==='archived' && isActive) return false;
+            const isActive = j.job_archive == 0;
+            // Filter Logic
+            if (status === 'active' && !isActive) return false;
+            if (status === 'archived' && isActive) return false;
             return j.job_name.toLowerCase().includes(term);
         }).forEach(j => {
-            const isActive = j.job_archive==0;
+            const isActive = j.job_archive == 0;
             list.innerHTML += `
-                <div class="list-item" style="${!isActive?'opacity:0.6':''}">
+                <div class="list-item" style="${!isActive ? 'opacity:0.6' : ''}">
                     <span>${j.job_name}</span>
-                    <label class="admin-switch">
-                        <input type="checkbox" ${isActive?'checked':''} onchange="toggleJob(${j.job_id})">
+                    <label class="admin-switch" title="Toggle Active">
+                        <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleJob(${j.job_id})">
                         <span class="admin-slider"></span>
                     </label>
                 </div>`;
         });
     }
 
-    document.getElementById('job-search-input').addEventListener('input', renderJobs);
-    document.getElementById('job-filter-status').addEventListener('change', renderJobs);
+    const jobSearch = document.getElementById('job-search-input');
+    if (jobSearch) jobSearch.addEventListener('input', renderJobs);
 
-    document.getElementById('form-job').addEventListener('submit', (e) => {
-        e.preventDefault();
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs'), {
-            method: 'POST', headers: {'requesttoken': OC.requestToken, 'Content-Type': 'application/json'},
-            body: JSON.stringify({name:document.getElementById('job-name').value, description:document.getElementById('job-desc').value})
-        }).then(() => { document.getElementById('form-job').reset(); loadJobs(); });
-    });
+    const jobForm = document.getElementById('form-job');
+    if (jobForm) {
+        jobForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const payload = {
+                name: document.getElementById('job-name').value,
+                description: document.getElementById('job-desc').value
+            };
+            apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs'), {
+                method: 'POST', body: JSON.stringify(payload)
+            }).then(() => {
+                jobForm.reset();
+                loadJobs();
+            });
+        });
+    }
 
     window.toggleJob = function(id) {
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs/'+id+'/toggle'), { method:'POST', headers:{'requesttoken':OC.requestToken} }).then(loadJobs);
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs/'+id+'/toggle'), { method:'POST' })
+        .then(loadJobs);
     };
 
 
     // =========================================================
-    // 7. LOCATIONS
+    // 8. LOCATIONS
     // =========================================================
     function loadStates() {
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/attributes'))
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/attributes'))
             .then(r => r.json())
-            .then(data => { allStates = data.states || []; renderStates(); });
+            .then(data => {
+                allStates = data.states || [];
+                renderStates();
+            });
     }
 
     function renderStates() {
         const term = document.getElementById('state-search-input').value.toLowerCase();
-        const list = document.getElementById('state-list'); list.innerHTML = '';
-        allStates.filter(s => s.state_name.toLowerCase().includes(term)).forEach(s => {
-            const div = document.createElement('div'); div.className = 'list-item';
-            div.innerHTML = `<span style="cursor:pointer; flex-grow:1;">${s.state_name}</span><label class="admin-switch"><input type="checkbox" ${s.is_enabled==1?'checked':''}><span class="admin-slider"></span></label>`;
-            div.querySelector('span').addEventListener('click', () => { document.querySelectorAll('#state-list .list-item').forEach(el => el.classList.remove('active-selection')); div.classList.add('active-selection'); loadCounties(s.state_abbr, s.state_name); });
-            div.querySelector('input').addEventListener('change', () => toggleState(s.id)); list.appendChild(div);
+        const statusRadio = document.querySelector('input[name="state-status"]:checked');
+        const status = statusRadio ? statusRadio.value : 'all';
+        
+        const list = document.getElementById('state-list');
+        list.innerHTML = '';
+
+        allStates.filter(s => {
+            const isEnabled = s.is_enabled == 1;
+            if (status === 'enabled' && !isEnabled) return false;
+            if (status === 'disabled' && isEnabled) return false;
+            return s.state_name.toLowerCase().includes(term);
+        }).forEach(s => {
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.innerHTML = `
+                <span style="cursor:pointer; flex:1;">${s.state_name}</span>
+                <label class="admin-switch">
+                    <input type="checkbox" ${s.is_enabled == 1 ? 'checked' : ''}>
+                    <span class="admin-slider"></span>
+                </label>`;
+            
+            // Text click
+            div.querySelector('span').addEventListener('click', () => {
+                // Highlight
+                document.querySelectorAll('#state-list .list-item').forEach(el => el.classList.remove('active-selection'));
+                div.classList.add('active-selection');
+                loadCounties(s.state_abbr, s.state_name);
+            });
+
+            // Toggle
+            div.querySelector('input').addEventListener('change', () => toggleState(s.id));
+            list.appendChild(div);
         });
     }
-    document.getElementById('state-search-input').addEventListener('input', renderStates);
 
+    const stateSearch = document.getElementById('state-search-input');
+    if (stateSearch) stateSearch.addEventListener('input', renderStates);
+
+    window.toggleState = function(id) {
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states/'+id+'/toggle'), { method:'POST' });
+    };
+
+    // --- COUNTIES ---
     function loadCounties(abbr, name) {
-        document.getElementById('county-header').innerText = 'Counties: '+name;
-        const s = document.getElementById('county-search-input'); s.disabled=false; s.value='';
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/counties/'+abbr))
+        document.getElementById('county-header').innerText = 'Counties: ' + name;
+        const input = document.getElementById('county-search-input');
+        input.disabled = false; input.value = '';
+        
+        document.getElementById('county-list').innerHTML = '<div style="padding:10px;">Loading...</div>';
+
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/counties/'+abbr))
             .then(r => r.json())
-            .then(c => { currentCounties = c; renderCounties(); });
+            .then(c => {
+                currentCounties = c;
+                renderCounties();
+            });
     }
 
     function renderCounties() {
         const term = document.getElementById('county-search-input').value.toLowerCase();
-        const list = document.getElementById('county-list'); list.innerHTML = '';
-        currentCounties.filter(c => c.county_name.toLowerCase().includes(term)).forEach(c => {
-            list.innerHTML += `<div class="list-item"><span>${c.county_name}</span><label class="admin-switch"><input type="checkbox" ${c.is_enabled==1?'checked':''} onchange="toggleCounty(${c.id})"><span class="admin-slider"></span></label></div>`;
+        const statusRadio = document.querySelector('input[name="county-status"]:checked');
+        const status = statusRadio ? statusRadio.value : 'all';
+        
+        const list = document.getElementById('county-list');
+        list.innerHTML = '';
+
+        currentCounties.filter(c => {
+            const isEnabled = c.is_enabled == 1;
+            if (status === 'enabled' && !isEnabled) return false;
+            if (status === 'disabled' && isEnabled) return false;
+            return c.county_name.toLowerCase().includes(term);
+        }).forEach(c => {
+            list.innerHTML += `
+                <div class="list-item">
+                    <span>${c.county_name}</span>
+                    <label class="admin-switch">
+                        <input type="checkbox" ${c.is_enabled == 1 ? 'checked' : ''} onchange="toggleCounty(${c.id})">
+                        <span class="admin-slider"></span>
+                    </label>
+                </div>`;
         });
     }
-    document.getElementById('county-search-input').addEventListener('input', renderCounties);
 
-    window.toggleState = function(id) { fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states/'+id+'/toggle'), { method:'POST', headers:{'requesttoken':OC.requestToken} }); };
-    window.toggleCounty = function(id) { fetch(OC.generateUrl('/apps/stech_timesheet/api/admin/counties/'+id+'/toggle'), { method:'POST', headers:{'requesttoken':OC.requestToken} }); };
+    const countySearch = document.getElementById('county-search-input');
+    if (countySearch) countySearch.addEventListener('input', renderCounties);
+
+    window.toggleCounty = function(id) {
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/counties/'+id+'/toggle'), { method:'POST' });
+    };
+
 });

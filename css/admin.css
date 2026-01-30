@@ -2,15 +2,13 @@
    1. LAYOUT & SCROLL FIX
    ========================================= */
 #app-content {
-    /* Critical: Make the main content area a flex column */
     display: flex;
     flex-direction: column;
-    height: 100vh; /* Fill screen */
-    overflow: hidden; /* Prevent double scrollbars on the window */
+    height: 100vh;
+    overflow: hidden;
 }
 
 .admin-page-header {
-    /* Header stays fixed size */
     flex: 0 0 auto;
     display: flex;
     justify-content: space-between;
@@ -22,10 +20,9 @@
 }
 
 .admin-wrapper {
-    /* Wrapper takes remaining space and scrolls */
     flex: 1 1 auto;
-    padding: 30px 40px 100px 40px; /* Extra bottom padding */
-    overflow-y: auto; /* Scrollbar appears here */
+    padding: 30px 40px 100px 40px;
+    overflow-y: auto;
     background-color: var(--color-background-hover);
 }
 
@@ -55,11 +52,11 @@
 }
 
 /* =========================================
-   2. DASHBOARD GRID
+   2. DASHBOARD GRID (3-Columns)
    ========================================= */
 .admin-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr); /* Force 3 columns */
+    grid-template-columns: repeat(3, 1fr);
     gap: 30px;
     width: 100%;
 }
@@ -74,16 +71,15 @@
     transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
     cursor: pointer;
     position: relative;
+    height: 100%;
 }
 
-/* Hover Effect (Disabled in Edit Mode) */
 body:not(.admin-edit-mode-active) .admin-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
     border-color: var(--color-primary-element);
 }
 
-/* Edit Mode Visuals */
 body.admin-edit-mode-active .admin-card {
     border-style: dashed;
     border-color: var(--color-primary-element);
@@ -91,7 +87,7 @@ body.admin-edit-mode-active .admin-card {
 }
 
 /* =========================================
-   3. THUMBNAILS & EDITING
+   3. THUMBNAILS & IMAGES
    ========================================= */
 .card-thumbnail-wrapper {
     height: 180px;
@@ -100,6 +96,9 @@ body.admin-edit-mode-active .admin-card {
     position: relative;
     overflow: hidden;
     border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .card-thumbnail-img {
@@ -120,7 +119,7 @@ body.admin-edit-mode-active .admin-card {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease-in-out;
-    z-index: 10;
+    z-index: 20;
 }
 
 body.admin-edit-mode-active .thumbnail-edit-overlay {
@@ -179,7 +178,41 @@ body.admin-edit-mode-active .thumbnail-edit-overlay {
 }
 
 /* =========================================
-   4. MODALS (80% WIDTH FIX)
+   4. RESTORED SKELETAL CSS (Fallback Drawings)
+   ========================================= */
+/* Even if using images now, keep these classes in case we revert or use them as backgrounds */
+.skeletal-form {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 12px;
+    width: 140px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    display: flex; flex-direction: column; gap: 8px;
+}
+.sk-label { height: 5px; background: #ddd; border-radius: 2px; width: 60%; }
+.sk-label.sm { width: 40%; }
+.sk-input { height: 10px; width: 100%; background: #f4f4f4; border: 1px solid #e0e0e0; border-radius: 2px; display: flex; align-items: center; padding-left: 5px; }
+.sk-input.search { border-radius: 10px; }
+.sk-input.textarea { height: 35px; }
+.sk-input.half { width: 48%; }
+.sk-row { display: flex; justify-content: space-between; gap: 5px; }
+.sk-spacer { height: 10px; }
+.sk-btn { height: 14px; width: 100%; background: var(--color-primary-element); opacity: 0.3; border-radius: 3px; margin-top: auto; }
+.sk-btn.success { background: var(--color-success); opacity: 0.5; }
+.skeletal-form.split { flex-direction: row; gap: 0; padding: 0; overflow: hidden; background: #fafafa; }
+.sk-col { flex: 1; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.sk-list-item { display: flex; align-items: center; gap: 6px; }
+.sk-bar { height: 5px; background: #e0e0e0; flex: 1; border-radius: 2px; }
+.sk-bar.short { width: 50%; flex: none; }
+.sk-toggle { width: 14px; height: 8px; border-radius: 8px; position: relative; }
+.sk-toggle.on { background: var(--color-success); opacity: 0.6; }
+.sk-toggle.on:after { content:''; position:absolute; right:1px; top:1px; width:6px; height:6px; background:white; border-radius:50%; }
+.sk-toggle.off { background: #ccc; }
+.sk-toggle.off:after { content:''; position:absolute; left:1px; top:1px; width:6px; height:6px; background:white; border-radius:50%; }
+
+/* =========================================
+   5. MODALS (80% WIDTH)
    ========================================= */
 .modal-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -197,7 +230,6 @@ body.admin-edit-mode-active .thumbnail-edit-overlay {
     max-height: 90vh;
 }
 
-/* FORCE 80% WIDTH */
 .admin-modal-standard, 
 .admin-modal-split {
     width: 80% !important;
@@ -215,8 +247,6 @@ body.admin-edit-mode-active .thumbnail-edit-overlay {
     display: flex; justify-content: space-between; align-items: center;
     border-bottom: 1px solid var(--color-border);
 }
-.modal-header h2 { margin: 0; font-size: 20px; font-weight: bold; }
-
 .modal-footer {
     padding: 20px 30px;
     background: var(--color-background-hover);
@@ -224,39 +254,17 @@ body.admin-edit-mode-active .thumbnail-edit-overlay {
     display: flex; justify-content: flex-end; gap: 10px;
 }
 
-/* Split View Layout */
-.split-view-body {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-    padding: 30px;
-    gap: 30px;
-}
-
-.split-left {
-    width: 35%;
-    min-width: 300px;
-    border-right: 1px solid var(--color-border);
-    padding-right: 30px;
-    display: flex; flex-direction: column;
-    overflow-y: auto;
-}
-
-.split-right {
-    flex: 1;
-    display: flex; flex-direction: column;
-    overflow-y: hidden;
-}
+.split-view-body { display: flex; flex: 1; overflow: hidden; padding: 30px; gap: 30px; }
+.split-left { width: 35%; min-width: 300px; border-right: 1px solid var(--color-border); padding-right: 30px; display: flex; flex-direction: column; overflow-y: auto; }
+.split-right { flex: 1; display: flex; flex-direction: column; overflow-y: hidden; }
 
 /* Lists */
 .scroll-list {
-    flex: 1;
-    overflow-y: auto;
+    flex: 1; overflow-y: auto;
     border: 1px solid var(--color-border);
     border-radius: 4px;
     background: var(--color-main-background);
 }
-
 .list-item {
     padding: 12px 15px;
     border-bottom: 1px solid var(--color-border);
@@ -265,50 +273,75 @@ body.admin-edit-mode-active .thumbnail-edit-overlay {
     transition: background 0.1s;
 }
 .list-item:hover { background-color: var(--color-background-hover); }
-
 .list-item.active-selection {
     background-color: var(--color-primary-light);
     border-left: 4px solid var(--color-primary-element);
 }
 
 /* =========================================
-   5. CONTROLS
+   6. CONTROLS, FILTERS, TOGGLES
    ========================================= */
-.form-control {
-    width: 100%; padding: 10px;
-    border: 1px solid var(--color-border);
-    border-radius: 4px; box-sizing: border-box;
-    font-size: 14px;
-}
+.form-control { width: 100%; padding: 10px; border: 1px solid var(--color-border); border-radius: 4px; box-sizing: border-box; font-size: 14px; }
 .input-group { margin-bottom: 20px; }
-.input-group label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 0.9em; }
+.subsection-title { margin: 0 0 15px 0; font-size: 1.1em; font-weight: bold; border-bottom: 2px solid var(--color-border); padding-bottom: 8px; }
 
-.subsection-title {
-    margin: 0 0 15px 0;
-    font-size: 1.1em; font-weight: bold;
-    border-bottom: 2px solid var(--color-border);
-    padding-bottom: 8px;
+/* Search + Filter Icon Combo */
+.search-filter-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-main-background);
+    margin-bottom: 15px;
 }
 
-/* Filters */
-.filter-bar { display: flex; gap: 10px; margin-bottom: 15px; }
-.filter-input { flex: 1; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 4px; }
-.filter-select { padding: 8px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-main-background); }
+.filter-input-with-icon {
+    flex: 1; border: none; background: transparent; padding: 10px; font-size: 14px;
+}
+.filter-input-with-icon:focus { outline: none; }
+
+.btn-filter-icon {
+    padding: 10px 15px;
+    background: transparent;
+    border: none;
+    border-left: 1px solid var(--color-border);
+    cursor: pointer;
+    opacity: 0.6;
+    display: flex; align-items: center;
+}
+.btn-filter-icon:hover { opacity: 1; background-color: var(--color-background-hover); }
+
+/* Popup Menu */
+.filter-menu {
+    position: absolute;
+    top: 100%; right: 0;
+    width: 160px;
+    background: var(--color-main-background);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    z-index: 100;
+    padding: 8px 0;
+    margin-top: 5px;
+}
+.filter-menu.hidden { display: none; }
+.filter-menu label { display: block; padding: 8px 15px; font-size: 13px; cursor: pointer; }
+.filter-menu label:hover { background-color: var(--color-background-hover); }
+.filter-menu input { margin-right: 8px; }
 
 /* Dropdown */
 .searchable-select-wrapper { position: relative; }
 .custom-dropdown-list {
-    position: absolute; top: 100%; left: 0; width: 100%;
-    max-height: 250px; overflow-y: auto;
-    background: var(--color-main-background);
-    border: 1px solid var(--color-primary-element);
+    position: absolute; top: 100%; left: 0; width: 100%; max-height: 250px; overflow-y: auto;
+    background: var(--color-main-background); border: 1px solid var(--color-primary-element);
     z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.15);
 }
 .custom-dropdown-list.hidden { display: none; }
 .dropdown-item { padding: 12px; cursor: pointer; border-bottom: 1px solid var(--color-border); }
 .dropdown-item:hover { background-color: var(--color-primary-light); }
 
-/* Toggles */
+/* Admin Toggle Switch */
 .admin-switch { position: relative; display: inline-block; width: 40px; height: 24px; }
 .admin-switch input { opacity: 0; width: 0; height: 0; }
 .admin-slider {
