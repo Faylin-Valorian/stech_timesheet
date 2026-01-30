@@ -3,7 +3,8 @@ use OCP\Util;
 Util::addScript('stech_timesheet', 'admin');
 Util::addStyle('stech_timesheet', 'style'); 
 Util::addStyle('stech_timesheet', 'admin'); 
-// Fallback image (ensure you have something in img/ or it will just be blank)
+
+// Fallback image URL
 $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/picture.svg'); 
 ?>
 
@@ -40,11 +41,11 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
                 <div class="admin-card" id="card-users" data-card-id="users">
                     <div class="card-thumbnail-wrapper">
                         <img src="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-users.png'])); ?>" 
-                             onerror="this.src='<?php p($fallbackImg); ?>'"
+                             data-fallback-src="<?php p($fallbackImg); ?>"
                              class="card-thumbnail-img" id="thumb-img-users">
                         <div class="thumbnail-edit-overlay">
-                            <label for="file-upload-users" class="btn-upload">Change Image (PNG)</label>
-                            <input type="file" id="file-upload-users" class="hidden-file-input" accept="image/png">
+                            <label for="file-upload-users" class="btn-upload">Change Image</label>
+                            <input type="file" id="file-upload-users" class="hidden-file-input" accept="image/png, image/jpeg">
                         </div>
                     </div>
                     <div class="card-details">
@@ -56,11 +57,11 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
                 <div class="admin-card" id="card-holidays" data-card-id="holidays">
                     <div class="card-thumbnail-wrapper">
                         <img src="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-holidays.png'])); ?>" 
-                             onerror="this.src='<?php p($fallbackImg); ?>'"
+                             data-fallback-src="<?php p($fallbackImg); ?>"
                              class="card-thumbnail-img" id="thumb-img-holidays">
                         <div class="thumbnail-edit-overlay">
-                            <label for="file-upload-holidays" class="btn-upload">Change Image (PNG)</label>
-                            <input type="file" id="file-upload-holidays" class="hidden-file-input" accept="image/png">
+                            <label for="file-upload-holidays" class="btn-upload">Change Image</label>
+                            <input type="file" id="file-upload-holidays" class="hidden-file-input" accept="image/png, image/jpeg">
                         </div>
                     </div>
                     <div class="card-details">
@@ -72,11 +73,11 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
                 <div class="admin-card" id="card-jobs" data-card-id="jobs">
                     <div class="card-thumbnail-wrapper">
                         <img src="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-jobs.png'])); ?>" 
-                             onerror="this.src='<?php p($fallbackImg); ?>'"
+                             data-fallback-src="<?php p($fallbackImg); ?>"
                              class="card-thumbnail-img" id="thumb-img-jobs">
                         <div class="thumbnail-edit-overlay">
-                            <label for="file-upload-jobs" class="btn-upload">Change Image (PNG)</label>
-                            <input type="file" id="file-upload-jobs" class="hidden-file-input" accept="image/png">
+                            <label for="file-upload-jobs" class="btn-upload">Change Image</label>
+                            <input type="file" id="file-upload-jobs" class="hidden-file-input" accept="image/png, image/jpeg">
                         </div>
                     </div>
                     <div class="card-details">
@@ -88,11 +89,11 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
                 <div class="admin-card" id="card-locations" data-card-id="locations">
                     <div class="card-thumbnail-wrapper">
                         <img src="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-locations.png'])); ?>" 
-                             onerror="this.src='<?php p($fallbackImg); ?>'"
+                             data-fallback-src="<?php p($fallbackImg); ?>"
                              class="card-thumbnail-img" id="thumb-img-locations">
                         <div class="thumbnail-edit-overlay">
-                            <label for="file-upload-locations" class="btn-upload">Change Image (PNG)</label>
-                            <input type="file" id="file-upload-locations" class="hidden-file-input" accept="image/png">
+                            <label for="file-upload-locations" class="btn-upload">Change Image</label>
+                            <input type="file" id="file-upload-locations" class="hidden-file-input" accept="image/png, image/jpeg">
                         </div>
                     </div>
                     <div class="card-details">
@@ -120,6 +121,9 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
                     <div id="user-dropdown-list" class="custom-dropdown-list hidden"></div>
                     <input type="hidden" id="selected-user-uid">
                 </div>
+                <p class="hint-text" style="margin-top:15px; font-size:13px; opacity:0.7;">
+                    Clicking "Open Calendar" will redirect you to the timesheet interface acting as this user.
+                </p>
             </div>
         </div>
         <div class="modal-footer">
