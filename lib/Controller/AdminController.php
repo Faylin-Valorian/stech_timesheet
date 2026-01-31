@@ -8,7 +8,7 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\FileDisplayResponse;
-use OCP\AppFramework\Http\StreamResponse; 
+use OCP\AppFramework\Http\StreamResponse;
 use OCP\IDBConnection;
 use OCP\IUserSession;
 use OCP\IGroupManager;
@@ -47,13 +47,12 @@ class AdminController extends Controller {
         return new TemplateResponse('stech_timesheet', 'admin');
     }
 
-    // --- SETTINGS & THUMBNAILS ---
-
     /** @NoCSRFRequired */
     public function getSettings(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         
         try {
+            // Check if table exists (Fix for fresh installs)
             $schema = \OC::$server->getDatabaseConnection()->getSchemaManager();
             if (!$schema->tablesExist(['stech_admin_settings'])) {
                 return new DataResponse([]);
@@ -68,7 +67,6 @@ class AdminController extends Controller {
             }
             return new DataResponse($settings);
         } catch (\Exception $e) {
-            // Return empty if table missing to prevent crash
             return new DataResponse([]);
         }
     }
@@ -76,11 +74,9 @@ class AdminController extends Controller {
     /** @NoCSRFRequired */
     public function saveSetting(): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
-        
         $data = $this->request->getParams();
         $key = $data['key'] ?? null;
         $value = $data['value'] ?? '';
-        
         if (!$key) return new DataResponse(['error' => 'Missing key'], 400);
 
         try {
@@ -114,18 +110,17 @@ class AdminController extends Controller {
      * @NoCSRFRequired
      */
     public function getThumbnail(string $filename) {
-        $filename = basename($filename); // Security sanitization
+        $filename = basename($filename);
         
-        // 1. Try APP img/ folder (Manual/Local images)
+        // 1. Try App img/ folder
         $appPath = \OC::$server->getAppManager()->getAppPath('stech_timesheet');
         $localPath = $appPath . '/img/' . $filename;
 
         if (file_exists($localPath)) {
-            // Serve local file
             return new StreamResponse(fopen($localPath, 'rb'));
         }
 
-        // 2. Try AppData folder (Uploaded fallback)
+        // 2. Try AppData folder
         try {
             $folder = $this->appData->getFolder('thumbnails');
             $file = $folder->getFile($filename);
@@ -139,26 +134,22 @@ class AdminController extends Controller {
     public function uploadThumbnail(string $cardId): DataResponse {
         if (!$this->isAdmin()) return new DataResponse([], 403);
         
-        $validCards = ['users', 'holidays', 'jobs', 'locations'];
-        if (!in_array($cardId, $validCards)) return new DataResponse(['error' => 'Invalid card ID'], 400);
-
-        // --- 1. GET FILE CONTENT ---
+        // --- 1. HANDLE UPLOAD ---
         $uploadedFile = $this->request->getUploadedFile('image');
         $sourceStream = null;
 
         if ($uploadedFile) {
-            // Handle array wrapper quirk
             if (is_array($uploadedFile)) $uploadedFile = $uploadedFile[0] ?? null;
             if ($uploadedFile) $sourceStream = $uploadedFile->getStream();
         } 
         
-        // Fallback: Check raw $_FILES if OCP helper failed (Fixes 400 error in some configs)
+        // Fallback: Check raw $_FILES if OCP helper failed (Fixes 400 Bad Request)
         if (!$sourceStream && isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
             $sourceStream = fopen($_FILES['image']['tmp_name'], 'rb');
         }
 
         if (!$sourceStream) {
-            return new DataResponse(['error' => 'No file received or upload failed'], 400);
+            return new DataResponse(['error' => 'No valid file received'], 400);
         }
 
         $fileName = 'thumb-' . $cardId . '.png';
@@ -169,39 +160,34 @@ class AdminController extends Controller {
         $localFile = $localImgDir . $fileName;
         $savedToLocal = false;
 
+        // Only try writing if directory is writable (prevents permissions errors)
         if (is_writable($localImgDir)) {
             $content = stream_get_contents($sourceStream);
             if (file_put_contents($localFile, $content) !== false) {
                 $savedToLocal = true;
             }
-            rewind($sourceStream); // Reset if needed for fallback (though stream_get_contents reads it all)
+            rewind($sourceStream); // Reset for fallback check
         }
 
-        // --- 3. FALLBACK TO APPDATA (If img/ is locked) ---
+        // --- 3. FALLBACK TO APPDATA (If img/ locked) ---
         if (!$savedToLocal) {
             try {
                 try { $folder = $this->appData->getFolder('thumbnails'); } 
                 catch (NotFoundException $e) { $folder = $this->appData->newFolder('thumbnails'); }
                 
-                // Delete old
                 try { $folder->getFile($fileName)->delete(); } catch(NotFoundException $e) {}
 
-                // Save new
                 $file = $folder->newFile($fileName);
                 
-                // If stream was read, we need to write the content we grabbed
-                if (isset($content)) {
-                    $file->putContent($content);
-                } else {
-                    $file->putContent($sourceStream);
-                }
+                if (isset($content)) $file->putContent($content);
+                else $file->putContent($sourceStream);
+                
             } catch (\Exception $e) { 
                 return new DataResponse(['error' => 'Storage failed: ' . $e->getMessage()], 500); 
             }
         }
 
-        // --- 4. RECORD PATH IN DB ---
-        // We just save the filename. getThumbnail will check locations.
+        // --- 4. RECORD IN DB ---
         $this->saveSettingValue('thumb_path_' . $cardId, $fileName);
 
         return new DataResponse(['status' => 'success']);
