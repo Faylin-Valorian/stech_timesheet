@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let allJobs = [];
     let allStates = [];
     let currentCounties = [];
+    let allHolidays = [];
     let selectedStateAbbr = null;
     let selectedStateName = null;
 
@@ -32,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     loadUsers();
 
-    // --- FILTER HELPERS ---
+    // --- FILTERS ---
     function setupFilter(btnId, menuId, inputName, renderFn) {
         const btn = document.getElementById(btnId);
         const menu = document.getElementById(menuId);
@@ -46,11 +47,11 @@ document.addEventListener('DOMContentLoaded', function() {
     setupFilter('job-filter-btn', 'job-filter-menu', 'job-status', renderJobs);
     setupFilter('state-filter-btn', 'state-filter-menu', 'state-status', renderStates);
     setupFilter('county-filter-btn', 'county-filter-menu', 'county-status', renderCounties);
+    setupFilter('holiday-filter-btn', 'holiday-filter-menu', 'holiday-status', renderHolidays);
 
     // --- 1. USERS ---
     function loadUsers() {
-        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users'))
-            .then(r => r.json()).then(u => { allUsers = u; });
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users')).then(r => r.json()).then(u => { allUsers = u; });
     }
     const userSearch = document.getElementById('user-search');
     const userDropdown = document.getElementById('user-dropdown-list');
@@ -59,22 +60,15 @@ document.addEventListener('DOMContentLoaded', function() {
         userDropdown.innerHTML = '';
         if(term.length < 1) { userDropdown.classList.add('hidden'); return; }
         const filtered = allUsers.filter(u => (u.displayname || '').toLowerCase().includes(term));
-        if (filtered.length === 0) {
-            userDropdown.innerHTML = '<div style="padding:10px; opacity:0.6;">No users found</div>';
-        } else {
-            filtered.forEach(u => {
-                const div = document.createElement('div');
-                div.className = 'dropdown-item';
-                div.innerText = u.displayname;
-                div.addEventListener('click', () => {
-                    userSearch.value = u.displayname;
-                    document.getElementById('selected-user-uid').value = u.uid;
-                    userDropdown.classList.add('hidden');
-                    document.getElementById('btn-view-user').disabled = false;
-                });
-                userDropdown.appendChild(div);
+        if (filtered.length === 0) userDropdown.innerHTML = '<div style="padding:10px; opacity:0.6;">No users found</div>';
+        else filtered.forEach(u => {
+            const div = document.createElement('div'); div.className = 'dropdown-item'; div.innerText = u.displayname;
+            div.addEventListener('click', () => {
+                userSearch.value = u.displayname; document.getElementById('selected-user-uid').value = u.uid;
+                userDropdown.classList.add('hidden'); document.getElementById('btn-view-user').disabled = false;
             });
-        }
+            userDropdown.appendChild(div);
+        });
         userDropdown.classList.remove('hidden');
     });
     document.addEventListener('click', (e) => { if (!e.target.closest('.searchable-select-wrapper')) userDropdown.classList.add('hidden'); });
@@ -84,38 +78,50 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- 2. HOLIDAYS ---
     function loadHolidays() {
-        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays')).then(r => r.json()).then(data => {
-            const list = document.getElementById('holiday-list');
-            list.innerHTML = '';
-            data.forEach(h => {
-                const item = document.createElement('div');
-                item.className = 'list-item';
-                const info = document.createElement('div');
-                info.style.flex = "1";
-                info.innerHTML = `<strong>${h.holiday_name}</strong><br><span style="font-size:11px; opacity:0.6">${h.holiday_start_date} to ${h.holiday_end_date}</span>`;
-                const actions = document.createElement('div');
-                actions.className = 'action-buttons';
-                
-                const btnEdit = document.createElement('button');
-                btnEdit.className = 'icon-action';
-                btnEdit.innerHTML = '<span class="icon-rename"></span>';
-                btnEdit.title = 'Edit';
-                btnEdit.addEventListener('click', () => editHoliday(h));
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays'))
+            .then(r => r.json())
+            .then(data => { allHolidays = data; renderHolidays(); });
+    }
 
-                const btnDel = document.createElement('button');
-                btnDel.className = 'icon-action delete';
-                btnDel.innerHTML = '<span class="icon-delete"></span>';
-                btnDel.title = 'Delete';
-                btnDel.addEventListener('click', () => deleteHoliday(h.holiday_id));
-                
-                actions.appendChild(btnEdit);
-                actions.appendChild(btnDel);
-                item.appendChild(info);
-                item.appendChild(actions);
-                list.appendChild(item);
-            });
+    function renderHolidays() {
+        const term = (document.getElementById('holiday-search-input').value || '').toLowerCase();
+        const status = document.querySelector('input[name="holiday-status"]:checked').value;
+        const list = document.getElementById('holiday-list');
+        list.innerHTML = '';
+
+        allHolidays.filter(h => {
+            const active = (h.holiday_archive == 0 || h.holiday_archive == null);
+            if(status === 'active' && !active) return false;
+            if(status === 'archived' && active) return false;
+            return (h.holiday_name || '').toLowerCase().includes(term);
+        }).forEach(h => {
+            const active = (h.holiday_archive == 0 || h.holiday_archive == null);
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            if(!active) item.style.opacity = '0.6';
+
+            const info = document.createElement('span');
+            info.style.flex = '1';
+            info.style.cursor = 'pointer';
+            info.innerHTML = `<strong>${h.holiday_name}</strong><br><span style="font-size:11px">${h.holiday_start_date}</span>`;
+            info.addEventListener('click', () => editHoliday(h));
+
+            const label = document.createElement('label');
+            label.className = 'admin-switch';
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.checked = active;
+            input.addEventListener('change', () => toggleHoliday(h.holiday_id));
+            
+            const slider = document.createElement('span');
+            slider.className = 'admin-slider';
+            label.appendChild(input); label.appendChild(slider);
+            item.appendChild(info); item.appendChild(label);
+            list.appendChild(item);
         });
     }
+    document.getElementById('holiday-search-input').addEventListener('input', renderHolidays);
+
     function editHoliday(h) {
         document.getElementById('holiday-id').value = h.holiday_id;
         document.getElementById('holiday-name').value = h.holiday_name;
@@ -125,6 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('holiday-form-title').innerText = "Edit Holiday";
         document.getElementById('btn-cancel-holiday').classList.remove('hidden');
     }
+
     function resetHolidayForm() {
         document.getElementById('form-holiday').reset();
         document.getElementById('holiday-id').value = '';
@@ -133,6 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('btn-cancel-holiday').classList.add('hidden');
     }
     document.getElementById('btn-cancel-holiday').addEventListener('click', resetHolidayForm);
+
     document.getElementById('form-holiday').addEventListener('submit', (e) => {
         e.preventDefault();
         const payload = {
@@ -146,18 +154,16 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify(payload)
         }).then(() => { resetHolidayForm(); loadHolidays(); });
     });
-    function deleteHoliday(id) {
-        if(confirm('Delete holiday?')) {
-            apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays/'+id), { method:'DELETE' }).then(loadHolidays);
-        }
+
+    function toggleHoliday(id) {
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays/'+id+'/toggle'), { method:'POST' })
+        .then(loadHolidays);
     }
 
     // --- 3. JOBS ---
     function loadJobs() {
-        // USE NEW ADMIN ROUTE (All jobs)
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs'))
-            .then(r => r.json())
-            .then(d => { allJobs = d || []; renderJobs(); });
+            .then(r => r.json()).then(d => { allJobs = d || []; renderJobs(); });
     }
     function renderJobs() {
         const term = (document.getElementById('job-search-input').value || '').toLowerCase();
@@ -175,24 +181,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const item = document.createElement('div');
             item.className = 'list-item';
             if(!active) item.style.opacity = '0.6';
-
-            const span = document.createElement('span');
-            span.innerText = j.job_name;
-            
-            const label = document.createElement('label');
-            label.className = 'admin-switch';
-            const input = document.createElement('input');
-            input.type = 'checkbox';
-            input.checked = active;
+            const span = document.createElement('span'); span.innerText = j.job_name;
+            const label = document.createElement('label'); label.className = 'admin-switch';
+            const input = document.createElement('input'); input.type = 'checkbox'; input.checked = active;
             input.addEventListener('change', () => toggleJob(j.job_id));
-            
-            const slider = document.createElement('span');
-            slider.className = 'admin-slider';
-            
-            label.appendChild(input);
-            label.appendChild(slider);
-            item.appendChild(span);
-            item.appendChild(label);
+            const slider = document.createElement('span'); slider.className = 'admin-slider';
+            label.appendChild(input); label.appendChild(slider);
+            item.appendChild(span); item.appendChild(label);
             list.appendChild(item);
         });
     }
@@ -204,15 +199,12 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify({ name: document.getElementById('job-name').value, description: document.getElementById('job-desc').value })
         }).then(() => { document.getElementById('form-job').reset(); loadJobs(); });
     });
-    function toggleJob(id) {
-        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs/'+id+'/toggle'), { method:'POST' }).then(loadJobs);
-    }
+    function toggleJob(id) { apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs/'+id+'/toggle'), { method:'POST' }).then(loadJobs); }
 
     // --- 4. LOCATIONS ---
     function loadStates() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states'))
-            .then(r => r.json())
-            .then(d => { allStates = d || []; renderStates(); });
+            .then(r => r.json()).then(d => { allStates = d || []; renderStates(); });
     }
     function renderStates() {
         const term = (document.getElementById('state-search-input').value || '').toLowerCase();
@@ -226,53 +218,32 @@ document.addEventListener('DOMContentLoaded', function() {
             if(status === 'disabled' && en) return false;
             return (s.state_name || '').toLowerCase().includes(term);
         }).forEach(s => {
-            const item = document.createElement('div');
-            item.className = 'list-item';
-            
-            const span = document.createElement('span');
-            span.innerText = s.state_name;
-            span.style.cursor = 'pointer';
-            span.style.flex = '1';
-            
+            const item = document.createElement('div'); item.className = 'list-item';
+            const span = document.createElement('span'); span.innerText = s.state_name; span.style.cursor='pointer'; span.style.flex='1';
             if(s.state_abbr === selectedStateAbbr) item.classList.add('active-selection');
-
             span.addEventListener('click', () => {
                 document.querySelectorAll('#state-list .list-item').forEach(el => el.classList.remove('active-selection'));
                 item.classList.add('active-selection');
-                selectedStateAbbr = s.state_abbr;
-                selectedStateName = s.state_name;
+                selectedStateAbbr = s.state_abbr; selectedStateName = s.state_name;
                 loadCounties(s.state_abbr, s.state_name);
             });
-
-            const label = document.createElement('label');
-            label.className = 'admin-switch';
-            const input = document.createElement('input');
-            input.type = 'checkbox';
-            input.checked = (s.is_enabled == 1);
+            const label = document.createElement('label'); label.className = 'admin-switch';
+            const input = document.createElement('input'); input.type = 'checkbox'; input.checked = (s.is_enabled == 1);
             input.addEventListener('change', () => toggleState(s.id));
-            
-            const slider = document.createElement('span');
-            slider.className = 'admin-slider';
-            
-            label.appendChild(input);
-            label.appendChild(slider);
-            item.appendChild(span);
-            item.appendChild(label);
+            const slider = document.createElement('span'); slider.className = 'admin-slider';
+            label.appendChild(input); label.appendChild(slider);
+            item.appendChild(span); item.appendChild(label);
             list.appendChild(item);
         });
     }
     document.getElementById('state-search-input').addEventListener('input', renderStates);
-
-    function toggleState(id) {
-        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states/'+id+'/toggle'), { method:'POST' }).then(loadStates);
-    }
+    function toggleState(id) { apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states/'+id+'/toggle'), { method:'POST' }).then(loadStates); }
 
     function loadCounties(abbr, name) {
         document.getElementById('county-header').innerText = 'Counties: ' + name;
         document.getElementById('county-search-input').disabled = false;
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/counties/'+abbr))
-            .then(r => r.json())
-            .then(c => { currentCounties = c; renderCounties(); });
+            .then(r => r.json()).then(c => { currentCounties = c; renderCounties(); });
     }
     function renderCounties() {
         const term = (document.getElementById('county-search-input').value || '').toLowerCase();
@@ -286,29 +257,17 @@ document.addEventListener('DOMContentLoaded', function() {
             if(status === 'disabled' && en) return false;
             return (c.county_name || '').toLowerCase().includes(term);
         }).forEach(c => {
-            const item = document.createElement('div');
-            item.className = 'list-item';
-            const span = document.createElement('span');
-            span.innerText = c.county_name;
-            const label = document.createElement('label');
-            label.className = 'admin-switch';
-            const input = document.createElement('input');
-            input.type = 'checkbox';
-            input.checked = (c.is_enabled == 1);
+            const item = document.createElement('div'); item.className = 'list-item';
+            const span = document.createElement('span'); span.innerText = c.county_name;
+            const label = document.createElement('label'); label.className = 'admin-switch';
+            const input = document.createElement('input'); input.type = 'checkbox'; input.checked = (c.is_enabled == 1);
             input.addEventListener('change', () => toggleCounty(c.id));
-            const slider = document.createElement('span');
-            slider.className = 'admin-slider';
-            label.appendChild(input);
-            label.appendChild(slider);
-            item.appendChild(span);
-            item.appendChild(label);
+            const slider = document.createElement('span'); slider.className = 'admin-slider';
+            label.appendChild(input); label.appendChild(slider);
+            item.appendChild(span); item.appendChild(label);
             list.appendChild(item);
         });
     }
     document.getElementById('county-search-input').addEventListener('input', renderCounties);
-
-    function toggleCounty(id) {
-        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/counties/'+id+'/toggle'), { method:'POST' })
-        .then(() => { if(selectedStateAbbr) loadCounties(selectedStateAbbr, selectedStateName); });
-    }
+    function toggleCounty(id) { apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/counties/'+id+'/toggle'), { method:'POST' }).then(() => { if(selectedStateAbbr) loadCounties(selectedStateAbbr, selectedStateName); }); }
 });

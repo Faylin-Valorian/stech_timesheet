@@ -22,9 +22,10 @@ return [
         // Holidays
         ['name' => 'admin#getHolidays', 'url' => '/api/admin/holidays', 'verb' => 'GET'],
         ['name' => 'admin#saveHoliday', 'url' => '/api/admin/holidays', 'verb' => 'POST'],
+        ['name' => 'admin#toggleHoliday', 'url' => '/api/admin/holidays/{id}/toggle', 'verb' => 'POST'], // Added this
         ['name' => 'admin#deleteHoliday', 'url' => '/api/admin/holidays/{id}', 'verb' => 'DELETE'],
 
-        // Jobs (NEW GET ROUTE)
+        // Jobs
         ['name' => 'admin#getJobs', 'url' => '/api/admin/jobs', 'verb' => 'GET'],
         ['name' => 'admin#saveJob', 'url' => '/api/admin/jobs', 'verb' => 'POST'],
         ['name' => 'admin#toggleJob', 'url' => '/api/admin/jobs/{id}/toggle', 'verb' => 'POST'],

@@ -2,24 +2,20 @@
    1. MAIN LAYOUT
    ========================================= */
 #app-content {
-    /* Standard Nextcloud content area setup */
     background-color: var(--color-main-background);
     padding: 0;
-    /* Prevent double scrollbars; scrolling happens inside .view-body */
     overflow: hidden; 
     display: flex;
     flex-direction: column;
     height: 100%;
 }
 
-/* Individual Views (Users, Holidays, etc.) */
 .admin-view {
     height: 100%;
     display: flex;
     flex-direction: column;
     padding: 20px 40px;
     box-sizing: border-box;
-    /* Ensure it takes full width/height of #app-content */
     width: 100%;
 }
 
@@ -27,9 +23,8 @@
     display: none !important;
 }
 
-/* Headers within views */
 .view-header {
-    flex: 0 0 auto; /* Don't shrink */
+    flex: 0 0 auto;
     margin-bottom: 20px;
     border-bottom: 1px solid var(--color-border);
     padding-bottom: 15px;
@@ -48,16 +43,15 @@
     font-size: 14px;
 }
 
-/* Scrollable Body Area */
 .view-body {
-    flex: 1 1 auto; /* Grow to fill space */
-    overflow-y: auto; /* Internal scrolling */
+    flex: 1 1 auto;
+    overflow-y: auto;
     position: relative;
-    padding-bottom: 50px; /* Space at bottom */
+    padding-bottom: 50px;
 }
 
 /* =========================================
-   2. SPLIT LAYOUT (Forms + Lists)
+   2. SPLIT LAYOUT
    ========================================= */
 .split-layout {
     display: flex;
@@ -75,14 +69,13 @@
     flex-shrink: 0;
     border-right: 1px solid var(--color-border);
     padding-right: 30px;
-    /* Allow left panel to scroll independently if needed */
     overflow-y: auto; 
 }
 
 .split-panel.right {
     flex: 1;
-    min-width: 0; /* Prevents flex overflow issues */
-    overflow-y: hidden; /* Contains the scroll list */
+    min-width: 0;
+    overflow-y: hidden;
     display: flex;
     flex-direction: column;
 }
@@ -130,34 +123,75 @@
 
 .full-width { width: 100%; }
 
-/* Filter Controls (Search + Radios) */
-.filter-controls {
+/* --- SEARCH FILTER UI --- */
+.search-filter-wrapper {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 15px;
-}
-
-.filter-input {
-    padding: 6px 10px;
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
-    min-width: 200px;
+    background: var(--color-main-background);
+    margin-bottom: 0;
+    height: 34px;
 }
 
-.radio-group {
-    display: flex;
-    gap: 12px;
-    font-size: 13px;
+.filter-input-with-icon {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 0 10px;
+    font-size: 14px;
+    height: 100%;
 }
+.filter-input-with-icon:focus { outline: none; }
 
-.radio-group label {
+.btn-filter-icon {
+    height: 100%;
+    padding: 0 10px;
+    background: transparent;
+    border: none;
     cursor: pointer;
+    opacity: 0.5;
     display: flex;
     align-items: center;
-    gap: 4px;
-    opacity: 0.9;
+    justify-content: center;
+    border-left: 1px solid transparent;
 }
-.radio-group label:hover { opacity: 1; }
+
+.btn-filter-icon:hover {
+    opacity: 1;
+    background-color: var(--color-background-hover);
+    border-left-color: var(--color-border);
+}
+
+.filter-menu {
+    position: absolute;
+    top: calc(100% + 5px);
+    right: 0;
+    width: 180px;
+    background: var(--color-main-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+    z-index: 1000;
+    padding: 8px 0;
+}
+
+.filter-menu.hidden { display: none; }
+
+.filter-menu label {
+    display: flex;
+    padding: 8px 15px;
+    font-size: 13px;
+    cursor: pointer;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-text-maxcontrast);
+}
+
+.filter-menu label:hover {
+    background-color: var(--color-background-hover);
+}
 
 /* =========================================
    4. DATA LISTS & ACTIONS
@@ -196,10 +230,11 @@
     font-style: italic;
 }
 
-/* Action Buttons (Edit/Delete) */
+/* Action Buttons */
 .action-buttons {
     display: flex;
     gap: 8px;
+    align-items: center;
 }
 
 .icon-action {
@@ -208,7 +243,7 @@
     cursor: pointer;
     width: 32px;
     height: 32px;
-    border-radius: 50%; /* Circle shape */
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -223,13 +258,11 @@
     border-color: var(--color-border);
 }
 
-/* Specific Delete Hover color */
 .icon-action.delete:hover {
     background-color: rgba(255, 0, 0, 0.1);
     border-color: rgba(255, 0, 0, 0.2);
 }
 
-/* Icon Span Sizing within buttons */
 .icon-action span[class^="icon-"] {
     width: 16px;
     height: 16px;
@@ -240,90 +273,41 @@
     opacity: 0.8;
 }
 
-/* =========================================
-   5. USER SEARCH DROPDOWN
-   ========================================= */
-.searchable-select-wrapper {
-    position: relative;
-}
+/* Ensure Icons Load */
+.icon-rename { background-image: var(--icon-rename-000); }
+.icon-delete { background-image: var(--icon-delete-000); }
 
+/* =========================================
+   5. DROPDOWN & TOGGLES
+   ========================================= */
+.searchable-select-wrapper { position: relative; }
 .custom-dropdown-list {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    width: 100%;
-    max-height: 250px;
-    overflow-y: auto;
+    position: absolute; top: 100%; left: 0; width: 100%;
+    max-height: 250px; overflow-y: auto;
     background: var(--color-main-background);
     border: 1px solid var(--color-primary-element);
     z-index: 1000;
     box-shadow: 0 4px 6px rgba(0,0,0,0.15);
     border-radius: 0 0 4px 4px;
 }
+.custom-dropdown-list.hidden { display: none; }
+.dropdown-item { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--color-border); }
+.dropdown-item:hover { background-color: var(--color-primary-light); }
 
-.custom-dropdown-list.hidden {
-    display: none;
-}
-
-.dropdown-item {
-    padding: 10px 12px;
-    cursor: pointer;
-    border-bottom: 1px solid var(--color-border);
-}
-
-.dropdown-item:hover {
-    background-color: var(--color-primary-light);
-}
-
-/* =========================================
-   6. TOGGLE SWITCHES
-   ========================================= */
 .admin-switch {
     position: relative;
     display: inline-block;
     width: 34px;
     height: 20px;
 }
-
-.admin-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
+.admin-switch input { opacity: 0; width: 0; height: 0; }
 .admin-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: .4s;
-    border-radius: 34px;
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #ccc; transition: .4s; border-radius: 34px;
 }
-
 .admin-slider:before {
-    position: absolute;
-    content: "";
-    height: 16px;
-    width: 16px;
-    left: 2px;
-    bottom: 2px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
+    position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px;
+    background-color: white; transition: .4s; border-radius: 50%;
 }
-
-input:checked + .admin-slider {
-    background-color: var(--color-primary-element);
-}
-
-input:checked + .admin-slider:before {
-    transform: translateX(14px);
-}
-
-/* Focus styles for accessibility */
-input:focus + .admin-slider {
-    box-shadow: 0 0 1px var(--color-primary-element);
-}
+input:checked + .admin-slider { background-color: var(--color-primary-element); }
+input:checked + .admin-slider:before { transform: translateX(14px); }

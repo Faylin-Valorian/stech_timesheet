@@ -63,7 +63,18 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
                     </form>
                 </div>
                 <div class="split-panel right">
-                    <h3 class="panel-title">Upcoming Holidays</h3>
+                    <div class="panel-header-row">
+                        <h3 class="panel-title">Upcoming Holidays</h3>
+                        <div class="search-filter-wrapper">
+                            <input type="text" id="holiday-search-input" class="filter-input-with-icon" placeholder="Search holidays...">
+                            <button class="btn-filter-icon" id="holiday-filter-btn" title="Filter Options"><span class="icon-filter"></span></button>
+                            <div class="filter-menu hidden" id="holiday-filter-menu">
+                                <label><input type="radio" name="holiday-status" value="active" checked> Active Only</label>
+                                <label><input type="radio" name="holiday-status" value="archived"> Archived</label>
+                                <label><input type="radio" name="holiday-status" value="all"> Show All</label>
+                            </div>
+                        </div>
+                    </div>
                     <div class="scroll-list" id="holiday-list"></div>
                 </div>
             </div>
