@@ -1,14 +1,11 @@
-/* =========================================
-   1. LAYOUT
-   ========================================= */
+/* --- LAYOUT --- */
 #app-content {
-    /* Standard Nextcloud content area */
     background-color: var(--color-main-background);
     padding: 0;
-    overflow: hidden; /* Manage scroll inside views */
+    overflow: hidden; /* Scroll is handled inside views */
 }
 
-/* Individual View Container */
+/* Views */
 .admin-view {
     height: 100%;
     display: flex;
@@ -16,10 +13,7 @@
     padding: 20px 40px;
     box-sizing: border-box;
 }
-
-.admin-view.hidden {
-    display: none;
-}
+.admin-view.hidden { display: none; }
 
 .view-header {
     flex: 0 0 auto;
@@ -27,162 +21,54 @@
     border-bottom: 1px solid var(--color-border);
     padding-bottom: 15px;
 }
-
-.view-header h2 {
-    margin: 0;
-    font-size: 24px;
-    font-weight: bold;
-}
-
-.view-header p {
-    margin: 5px 0 0 0;
-    opacity: 0.7;
-}
+.view-header h2 { margin: 0; font-size: 24px; font-weight: bold; }
+.view-header p { margin: 5px 0 0 0; opacity: 0.7; }
 
 .view-body {
     flex: 1 1 auto;
-    overflow-y: auto; /* Internal scrolling */
+    overflow-y: auto; /* Internal Scrolling */
     position: relative;
 }
 
-/* =========================================
-   2. SPLIT LAYOUTS (Holidays, Jobs, Locations)
-   ========================================= */
-.split-layout {
-    display: flex;
-    gap: 30px;
-    height: 100%;
-}
+/* --- SPLIT LAYOUT --- */
+.split-layout { display: flex; gap: 30px; height: 100%; }
+.split-panel { display: flex; flex-direction: column; }
+.split-panel.left { width: 350px; flex-shrink: 0; border-right: 1px solid var(--color-border); padding-right: 30px; }
+.split-panel.right { flex: 1; min-width: 0; }
 
-.split-panel {
-    display: flex;
-    flex-direction: column;
-}
+.panel-title { margin: 0 0 15px 0; font-size: 16px; font-weight: bold; color: var(--color-text-maxcontrast); }
+.panel-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
 
-.split-panel.left {
-    width: 350px;
-    flex-shrink: 0;
-    border-right: 1px solid var(--color-border);
-    padding-right: 30px;
-}
-
-.split-panel.right {
-    flex: 1;
-    min-width: 0; /* Prevents flex overflow */
-}
-
-.panel-title {
-    margin: 0 0 15px 0;
-    font-size: 16px;
-    font-weight: bold;
-    color: var(--color-text-maxcontrast);
-}
-
-.panel-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-/* =========================================
-   3. FORM ELEMENTS
-   ========================================= */
+/* --- CONTROLS --- */
 .max-width-600 { max-width: 600px; }
-
 .input-group { margin-bottom: 15px; }
 .input-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-.form-control { 
-    width: 100%; 
-    padding: 8px 10px; 
-    border: 1px solid var(--color-border); 
-    border-radius: var(--border-radius); 
-    box-sizing: border-box; 
-}
-
+.form-control { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--border-radius); box-sizing: border-box; }
 .full-width { width: 100%; }
 
-/* Filter Controls */
-.filter-controls {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.filter-input {
-    padding: 6px 10px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius);
-}
-
-.radio-group {
-    display: flex;
-    gap: 10px;
-    font-size: 13px;
-}
+.filter-controls { display: flex; align-items: center; gap: 15px; }
+.filter-input { padding: 6px 10px; border: 1px solid var(--color-border); border-radius: var(--border-radius); }
+.radio-group { display: flex; gap: 10px; font-size: 13px; }
 .radio-group label { cursor: pointer; display: flex; align-items: center; gap: 4px; }
 
-/* =========================================
-   4. LISTS
-   ========================================= */
-.scroll-list {
-    flex: 1;
-    overflow-y: auto;
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius);
-    background-color: var(--color-background-light);
-}
-
-.list-item {
-    padding: 10px 15px;
-    border-bottom: 1px solid var(--color-border);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
+/* --- LISTS --- */
+.scroll-list { flex: 1; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--border-radius); background-color: var(--color-background-light); }
+.list-item { padding: 10px 15px; border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; }
 .list-item:hover { background-color: var(--color-background-hover); }
+.list-item.active-selection { background-color: var(--color-primary-light); border-left: 3px solid var(--color-primary-element); }
+.empty-msg { padding: 20px; text-align: center; opacity: 0.6; }
 
-.list-item.active-selection {
-    background-color: var(--color-primary-light);
-    border-left: 3px solid var(--color-primary-element);
-}
-
-.empty-msg {
-    padding: 20px;
-    text-align: center;
-    opacity: 0.6;
-}
-
-/* =========================================
-   5. DROPDOWN (User Search)
-   ========================================= */
+/* --- DROPDOWN --- */
 .searchable-select-wrapper { position: relative; }
-.custom-dropdown-list {
-    position: absolute; top: 100%; left: 0; width: 100%;
-    max-height: 250px; overflow-y: auto;
-    background: var(--color-main-background);
-    border: 1px solid var(--color-primary-element);
-    z-index: 1000;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
+.custom-dropdown-list { position: absolute; top: 100%; left: 0; width: 100%; max-height: 250px; overflow-y: auto; background: var(--color-main-background); border: 1px solid var(--color-primary-element); z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 .custom-dropdown-list.hidden { display: none; }
 .dropdown-item { padding: 10px; cursor: pointer; border-bottom: 1px solid var(--color-border); }
 .dropdown-item:hover { background-color: var(--color-primary-light); }
 
-/* =========================================
-   6. TOGGLES
-   ========================================= */
+/* --- TOGGLES --- */
 .admin-switch { position: relative; display: inline-block; width: 34px; height: 20px; }
 .admin-switch input { opacity: 0; width: 0; height: 0; }
-.admin-slider {
-    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-    background-color: #ccc; transition: .4s; border-radius: 34px;
-}
-.admin-slider:before {
-    position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px;
-    background-color: white; transition: .4s; border-radius: 50%;
-}
+.admin-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+.admin-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
 input:checked + .admin-slider { background-color: var(--color-primary-element); }
 input:checked + .admin-slider:before { transform: translateX(14px); }

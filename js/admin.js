@@ -1,12 +1,11 @@
 document.addEventListener('DOMContentLoaded', function() {
     
-    // --- STATE ---
     let allUsers = [];
     let allJobs = [];
     let allStates = [];
     let currentCounties = [];
 
-    // --- HELPER: Fetch with Headers ---
+    // HELPER: Fetch with Headers
     function apiFetch(url, options = {}) {
         if (!options.headers) options.headers = {};
         options.headers['requesttoken'] = OC.requestToken;
@@ -16,12 +15,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- NAVIGATION ---
     function switchView(viewId) {
         document.querySelectorAll('.admin-view').forEach(el => el.classList.add('hidden'));
-        const target = document.getElementById('view-' + viewId);
-        if(target) target.classList.remove('hidden');
-        
+        document.getElementById('view-' + viewId).classList.remove('hidden');
         document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
-        const nav = document.getElementById('nav-' + viewId);
-        if(nav) nav.classList.add('active');
+        document.getElementById('nav-' + viewId).classList.add('active');
 
         if(viewId === 'users') loadUsers();
         if(viewId === 'holidays') loadHolidays();
@@ -43,14 +39,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function loadUsers() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users'))
             .then(r => r.json())
-            .then(u => { allUsers = u; }); 
+            .then(u => { allUsers = u; });
     }
 
     const userSearch = document.getElementById('user-search');
     const userDropdown = document.getElementById('user-dropdown-list');
 
     userSearch.addEventListener('input', function() {
-        const term = this.value.toLowerCase();
+        const term = String(this.value || '').toLowerCase();
         userDropdown.innerHTML = '';
         
         if(term.length < 1) {
@@ -58,7 +54,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        const filtered = allUsers.filter(u => u.displayname.toLowerCase().includes(term));
+        const filtered = allUsers.filter(u => String(u.displayname || '').toLowerCase().includes(term));
         
         if (filtered.length === 0) {
             userDropdown.innerHTML = '<div style="padding:10px; opacity:0.6;">No users found</div>';
@@ -88,7 +84,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if(uid) window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + uid;
     });
 
-
     // =========================================================
     // 2. HOLIDAYS
     // =========================================================
@@ -107,6 +102,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 const btn = document.createElement('button');
                 btn.className = 'icon-delete';
                 btn.title = 'Delete';
+                btn.innerText = 'X'; // Or use icon
+                btn.style.color = 'red';
                 btn.addEventListener('click', () => deleteHoliday(h.holiday_id));
                 
                 item.appendChild(info);
@@ -138,7 +135,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-
     // =========================================================
     // 3. JOBS
     // =========================================================
@@ -149,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderJobs() {
-        const term = document.getElementById('job-search-input').value.toLowerCase();
+        const term = String(document.getElementById('job-search-input').value || '').toLowerCase();
         const status = document.querySelector('input[name="job-status"]:checked').value;
         const list = document.getElementById('job-list');
         list.innerHTML = '';
@@ -158,21 +154,18 @@ document.addEventListener('DOMContentLoaded', function() {
             const active = j.job_archive == 0;
             if(status === 'active' && !active) return false;
             if(status === 'archived' && active) return false;
-            return j.job_name.toLowerCase().includes(term);
+            return String(j.job_name || '').toLowerCase().includes(term);
         }).forEach(j => {
             const active = j.job_archive == 0;
             const item = document.createElement('div');
             item.className = 'list-item';
             if(!active) item.style.opacity = '0.6';
 
-            // Text
             const span = document.createElement('span');
             span.innerText = j.job_name;
             
-            // Toggle
             const label = document.createElement('label');
             label.className = 'admin-switch';
-            
             const input = document.createElement('input');
             input.type = 'checkbox';
             input.checked = active;
@@ -183,7 +176,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             label.appendChild(input);
             label.appendChild(slider);
-            
             item.appendChild(span);
             item.appendChild(label);
             list.appendChild(item);
@@ -212,7 +204,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(loadJobs);
     }
 
-
     // =========================================================
     // 4. LOCATIONS
     // =========================================================
@@ -223,16 +214,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderStates() {
-        const term = document.getElementById('state-search-input').value.toLowerCase();
+        const term = String(document.getElementById('state-search-input').value || '').toLowerCase();
         const list = document.getElementById('state-list');
         list.innerHTML = '';
 
-        allStates.filter(s => s.state_name.toLowerCase().includes(term))
+        allStates.filter(s => String(s.state_name || '').toLowerCase().includes(term))
         .forEach(s => {
             const item = document.createElement('div');
             item.className = 'list-item';
             
-            // Clickable Text
             const span = document.createElement('span');
             span.innerText = s.state_name;
             span.style.cursor = 'pointer';
@@ -243,10 +233,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadCounties(s.state_abbr, s.state_name);
             });
 
-            // Toggle
             const label = document.createElement('label');
             label.className = 'admin-switch';
-            
             const input = document.createElement('input');
             input.type = 'checkbox';
             input.checked = (s.is_enabled == 1);
@@ -257,7 +245,6 @@ document.addEventListener('DOMContentLoaded', function() {
             
             label.appendChild(input);
             label.appendChild(slider);
-            
             item.appendChild(span);
             item.appendChild(label);
             list.appendChild(item);
@@ -278,11 +265,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderCounties() {
-        const term = document.getElementById('county-search-input').value.toLowerCase();
+        const term = String(document.getElementById('county-search-input').value || '').toLowerCase();
         const list = document.getElementById('county-list');
         list.innerHTML = '';
 
-        currentCounties.filter(c => c.county_name.toLowerCase().includes(term))
+        currentCounties.filter(c => String(c.county_name || '').toLowerCase().includes(term))
         .forEach(c => {
             const item = document.createElement('div');
             item.className = 'list-item';
