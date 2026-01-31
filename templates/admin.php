@@ -3,7 +3,6 @@ use OCP\Util;
 Util::addScript('stech_timesheet', 'admin');
 Util::addStyle('stech_timesheet', 'style'); 
 Util::addStyle('stech_timesheet', 'admin'); 
-// Pre-generate routes
 $urlUsers = \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-users.png']);
 $urlHolidays = \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-holidays.png']);
 $urlJobs = \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-jobs.png']);
@@ -84,11 +83,15 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
             <div class="view-header"><h2>Job Codes</h2></div>
             <div class="view-body split-layout">
                 <div class="split-panel left">
-                    <h3 class="panel-title">Create Job</h3>
+                    <h3 class="panel-title" id="job-form-title">Create Job</h3>
                     <form id="form-job">
+                        <input type="hidden" id="job-id">
                         <div class="input-group"><label>Name / Code</label><input type="text" id="job-name" required class="form-control"></div>
                         <div class="input-group"><label>Description</label><textarea id="job-desc" class="form-control" rows="3"></textarea></div>
-                        <button type="submit" class="primary-button full-width">Create Job</button>
+                        <div style="display:flex; gap:10px;">
+                            <button type="submit" class="primary-button full-width" id="btn-save-job">Create Job</button>
+                            <button type="button" class="secondary-button hidden" id="btn-cancel-job" style="width:auto;">Cancel</button>
+                        </div>
                     </form>
                 </div>
                 <div class="split-panel right">

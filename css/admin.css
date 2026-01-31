@@ -119,49 +119,55 @@
     box-sizing: border-box;
     background-color: var(--color-main-background);
     color: var(--color-text-maxcontrast);
+    font-size: 14px;
 }
 
 .full-width { width: 100%; }
 
-/* --- SEARCH FILTER UI --- */
+/* --- MODERN FLOATING SEARCH FILTER UI --- */
 .search-filter-wrapper {
     position: relative;
     display: flex;
     align-items: center;
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius);
-    background: var(--color-main-background);
+    /* REMOVED BLACK BOX: Transparent Container */
+    border: none;
+    background: transparent;
     margin-bottom: 0;
     height: 34px;
+    gap: 8px; /* Spacing between input and button */
 }
 
 .filter-input-with-icon {
     flex: 1;
-    border: none;
-    background: transparent;
+    /* Distinct Border for Input */
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    background: var(--color-main-background);
     padding: 0 10px;
     font-size: 14px;
     height: 100%;
 }
-.filter-input-with-icon:focus { outline: none; }
+.filter-input-with-icon:focus { outline: none; border-color: var(--color-primary-element); }
 
 .btn-filter-icon {
     height: 100%;
-    padding: 0 10px;
-    background: transparent;
-    border: none;
+    width: 36px;
+    padding: 0;
+    /* Distinct Border for Button */
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    background: var(--color-main-background);
     cursor: pointer;
-    opacity: 0.5;
+    opacity: 0.7;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-left: 1px solid transparent;
+    transition: opacity 0.2s, background-color 0.2s;
 }
 
 .btn-filter-icon:hover {
     opacity: 1;
     background-color: var(--color-background-hover);
-    border-left-color: var(--color-border);
 }
 
 .filter-menu {
@@ -302,8 +308,15 @@
 }
 .admin-switch input { opacity: 0; width: 0; height: 0; }
 .admin-slider {
-    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-    background-color: #ccc; transition: .4s; border-radius: 34px;
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
 }
 .admin-slider:before {
     position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px;

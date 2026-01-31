@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupFilter('county-filter-btn', 'county-filter-menu', 'county-status', renderCounties);
     setupFilter('holiday-filter-btn', 'holiday-filter-menu', 'holiday-status', renderHolidays);
 
-    // --- 1. USERS ---
+    // --- USERS ---
     function loadUsers() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users')).then(r => r.json()).then(u => { allUsers = u; });
     }
@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + document.getElementById('selected-user-uid').value;
     });
 
-    // --- 2. HOLIDAYS ---
+    // --- HOLIDAYS ---
     function loadHolidays() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays'))
             .then(r => r.json())
@@ -112,9 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
             input.type = 'checkbox';
             input.checked = active;
             input.addEventListener('change', () => toggleHoliday(h.holiday_id));
-            
-            const slider = document.createElement('span');
-            slider.className = 'admin-slider';
+            const slider = document.createElement('span'); slider.className = 'admin-slider';
             label.appendChild(input); label.appendChild(slider);
             item.appendChild(info); item.appendChild(label);
             list.appendChild(item);
@@ -160,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(loadHolidays);
     }
 
-    // --- 3. JOBS ---
+    // --- JOBS (UPDATED for Editing) ---
     function loadJobs() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs'))
             .then(r => r.json()).then(d => { allJobs = d || []; renderJobs(); });
@@ -181,9 +179,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const item = document.createElement('div');
             item.className = 'list-item';
             if(!active) item.style.opacity = '0.6';
-            const span = document.createElement('span'); span.innerText = j.job_name;
-            const label = document.createElement('label'); label.className = 'admin-switch';
-            const input = document.createElement('input'); input.type = 'checkbox'; input.checked = active;
+
+            // Click to Edit
+            const span = document.createElement('span');
+            span.innerText = j.job_name;
+            span.style.flex = '1';
+            span.style.cursor = 'pointer';
+            span.addEventListener('click', () => editJob(j));
+
+            const label = document.createElement('label');
+            label.className = 'admin-switch';
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.checked = active;
             input.addEventListener('change', () => toggleJob(j.job_id));
             const slider = document.createElement('span'); slider.className = 'admin-slider';
             label.appendChild(input); label.appendChild(slider);
@@ -192,16 +200,42 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     document.getElementById('job-search-input').addEventListener('input', renderJobs);
+
+    // Job Edit Functions
+    function editJob(j) {
+        document.getElementById('job-id').value = j.job_id;
+        document.getElementById('job-name').value = j.job_name;
+        document.getElementById('job-desc').value = j.job_description;
+        document.getElementById('btn-save-job').innerText = "Update Job";
+        document.getElementById('job-form-title').innerText = "Edit Job";
+        document.getElementById('btn-cancel-job').classList.remove('hidden');
+    }
+
+    function resetJobForm() {
+        document.getElementById('form-job').reset();
+        document.getElementById('job-id').value = '';
+        document.getElementById('btn-save-job').innerText = "Create Job";
+        document.getElementById('job-form-title').innerText = "Create Job";
+        document.getElementById('btn-cancel-job').classList.add('hidden');
+    }
+    document.getElementById('btn-cancel-job').addEventListener('click', resetJobForm);
+
     document.getElementById('form-job').addEventListener('submit', (e) => {
         e.preventDefault();
+        const payload = {
+            id: document.getElementById('job-id').value,
+            name: document.getElementById('job-name').value,
+            description: document.getElementById('job-desc').value
+        };
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs'), {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ name: document.getElementById('job-name').value, description: document.getElementById('job-desc').value })
-        }).then(() => { document.getElementById('form-job').reset(); loadJobs(); });
+            body: JSON.stringify(payload)
+        }).then(() => { resetJobForm(); loadJobs(); });
     });
+
     function toggleJob(id) { apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs/'+id+'/toggle'), { method:'POST' }).then(loadJobs); }
 
-    // --- 4. LOCATIONS ---
+    // --- LOCATIONS ---
     function loadStates() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states'))
             .then(r => r.json()).then(d => { allStates = d || []; renderStates(); });

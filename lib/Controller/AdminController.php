@@ -9,6 +9,7 @@ use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\FileDisplayResponse;
 use OCP\AppFramework\Http\StreamResponse;
+use OCP\AppFramework\Http\Response; 
 use OCP\IDBConnection;
 use OCP\IUserSession;
 use OCP\IGroupManager;
@@ -32,26 +33,21 @@ class AdminController extends Controller {
         $this->appData = $appData;
     }
 
-    private function isAdmin(): bool {
-        return $this->groupManager->isAdmin($this->userSession->getUser()->getUID());
-    }
-
     /**
      * @NoCSRFRequired
-     * @NoAdminRequired
+     * @AdminRequired
      */
     public function index(): TemplateResponse {
-        if (!$this->isAdmin()) {
-            return new TemplateResponse('core', '403', [], '403');
-        }
         return new TemplateResponse('stech_timesheet', 'admin');
     }
 
     // --- SETTINGS & THUMBNAILS ---
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function getSettings(): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
         try {
             $schema = \OC::$server->getDatabaseConnection()->getSchemaManager();
             if (!$schema->tablesExist(['stech_admin_settings'])) {
@@ -69,17 +65,14 @@ class AdminController extends Controller {
         }
     }
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function saveSetting(): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
         $data = $this->request->getParams();
-        $key = $data['key'] ?? null;
-        $value = $data['value'] ?? '';
-        
         try {
-            if ($key) {
-                $this->saveSettingValue($key, $value);
-            }
+            $this->saveSettingValue($data['key'] ?? null, $data['value'] ?? '');
             return new DataResponse(['status' => 'success']);
         } catch (\Exception $e) {
             return new DataResponse(['error' => $e->getMessage()], 500);
@@ -87,6 +80,7 @@ class AdminController extends Controller {
     }
 
     private function saveSettingValue($key, $value) {
+        if (!$key) return;
         $qb = $this->db->getQueryBuilder();
         $exists = $qb->select('setting_key')->from('stech_admin_settings')
                      ->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))
@@ -110,6 +104,8 @@ class AdminController extends Controller {
      */
     public function getThumbnail(string $filename) {
         $filename = basename($filename);
+        
+        // 1. Try App img/ folder
         $appPath = \OC::$server->getAppManager()->getAppPath('stech_timesheet');
         $localPath = $appPath . '/img/' . $filename;
 
@@ -117,6 +113,7 @@ class AdminController extends Controller {
             return new StreamResponse(fopen($localPath, 'rb'));
         }
 
+        // 2. Try AppData folder
         try {
             $folder = $this->appData->getFolder('thumbnails');
             $file = $folder->getFile($filename);
@@ -126,10 +123,11 @@ class AdminController extends Controller {
         }
     }
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function uploadThumbnail(string $cardId): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
-        
         $uploadedFile = $this->request->getUploadedFile('image');
         $sourceStream = null;
 
@@ -138,6 +136,7 @@ class AdminController extends Controller {
             if ($uploadedFile) $sourceStream = $uploadedFile->getStream();
         } 
         
+        // Fallback check
         if (!$sourceStream && isset($_FILES['image']) && $_FILES['image']['error'] === 0) {
             $sourceStream = fopen($_FILES['image']['tmp_name'], 'rb');
         }
@@ -182,9 +181,11 @@ class AdminController extends Controller {
 
     // --- USERS ---
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function getUsers(): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
         $users = $this->userManager->search('');
         $result = []; 
         foreach ($users as $u) {
@@ -195,21 +196,23 @@ class AdminController extends Controller {
 
     // --- HOLIDAYS ---
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function getHolidays(): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
-        // Return ALL including archived so we can show them in filters
         return new DataResponse($this->db->getQueryBuilder()->select('*')->from('stech_holidays')->orderBy('holiday_start_date', 'DESC')->executeQuery()->fetchAll());
     }
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function saveHoliday(): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
         $data = $this->request->getParams();
         $qb = $this->db->getQueryBuilder();
 
         if (!empty($data['id'])) {
-            // Update Existing
             $qb->update('stech_holidays')
                ->set('holiday_name', $qb->createNamedParameter($data['name']))
                ->set('holiday_start_date', $qb->createNamedParameter($data['start']))
@@ -217,7 +220,6 @@ class AdminController extends Controller {
                ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($data['id'])))
                ->execute();
         } else {
-            // Insert New
             $qb->insert('stech_holidays')
                ->values([
                    'holiday_name' => $qb->createNamedParameter($data['name']),
@@ -230,10 +232,11 @@ class AdminController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function toggleHoliday(int $id): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
-        
         $qb = $this->db->getQueryBuilder();
         $curr = $qb->select('holiday_archive')->from('stech_holidays')->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($id)))->executeQuery()->fetchOne();
         
@@ -244,41 +247,58 @@ class AdminController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function deleteHoliday(int $id): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
         $this->db->getQueryBuilder()->delete('stech_holidays')->where($this->db->getQueryBuilder()->expr()->eq('holiday_id', $this->db->getQueryBuilder()->createNamedParameter($id)))->execute();
         return new DataResponse(['status' => 'success']);
     }
 
     // --- JOBS ---
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function getJobs(): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
         $qb = $this->db->getQueryBuilder();
         $jobs = $qb->select('*')->from('stech_jobs')->orderBy('job_name', 'ASC')->executeQuery()->fetchAll();
         return new DataResponse($jobs);
     }
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function saveJob(): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
         $data = $this->request->getParams();
         $qb = $this->db->getQueryBuilder();
-        $qb->insert('stech_jobs')
-           ->values([
-               'job_name' => $qb->createNamedParameter($data['name']), 
-               'job_description' => $qb->createNamedParameter($data['description'] ?? ''), 
-               'job_archive' => $qb->createNamedParameter(0)
-           ])
-           ->execute();
+        
+        if (!empty($data['id'])) {
+            $qb->update('stech_jobs')
+               ->set('job_name', $qb->createNamedParameter($data['name']))
+               ->set('job_description', $qb->createNamedParameter($data['description'] ?? ''))
+               ->where($qb->expr()->eq('job_id', $qb->createNamedParameter($data['id'])))
+               ->execute();
+        } else {
+            $qb->insert('stech_jobs')
+               ->values([
+                   'job_name' => $qb->createNamedParameter($data['name']), 
+                   'job_description' => $qb->createNamedParameter($data['description'] ?? ''), 
+                   'job_archive' => $qb->createNamedParameter(0)
+               ])
+               ->execute();
+        }
         return new DataResponse(['status' => 'success']);
     }
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function toggleJob(int $id): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
         $qb = $this->db->getQueryBuilder();
         $current = $qb->select('job_archive')->from('stech_jobs')->where($qb->expr()->eq('job_id', $qb->createNamedParameter($id)))->executeQuery()->fetchOne();
         
@@ -291,35 +311,38 @@ class AdminController extends Controller {
 
     // --- LOCATIONS ---
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function getStates(): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
         $qb = $this->db->getQueryBuilder();
-        // Return ALL states so we can see enabled/disabled
         $res = $qb->select('*')->from('stech_states')->orderBy('state_name', 'ASC')->executeQuery()->fetchAll();
         return new DataResponse($res);
     }
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function getCounties(string $stateAbbr): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
-        
         $qbS = $this->db->getQueryBuilder();
         $state = $qbS->select('fips_code')->from('stech_states')->where($qbS->expr()->eq('state_abbr', $qbS->createNamedParameter($stateAbbr)))->executeQuery()->fetch();
         
         if (!$state) return new DataResponse([]);
 
         $qb = $this->db->getQueryBuilder();
-        // Return ALL counties so we can see enabled/disabled
         $res = $qb->select('*')->from('stech_counties')
                   ->where($qb->expr()->eq('state_fips', $qb->createNamedParameter($state['fips_code'])))
                   ->orderBy('county_name', 'ASC')->executeQuery()->fetchAll();
         return new DataResponse($res);
     }
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function toggleState(int $id): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
         $qb = $this->db->getQueryBuilder();
         $current = $qb->select('is_enabled')->from('stech_states')->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))->executeQuery()->fetchOne();
         
@@ -330,9 +353,11 @@ class AdminController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-    /** @NoCSRFRequired */
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
     public function toggleCounty(int $id): DataResponse {
-        if (!$this->isAdmin()) return new DataResponse([], 403);
         $qb = $this->db->getQueryBuilder();
         $current = $qb->select('is_enabled')->from('stech_counties')->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))->executeQuery()->fetchOne();
         
