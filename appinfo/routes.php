@@ -5,7 +5,7 @@ return [
         ['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'admin#index', 'url' => '/admin', 'verb' => 'GET'],
 
-        // --- Public API (For Timesheet User) ---
+        // --- Public API ---
         ['name' => 'timesheet#getAttributes', 'url' => '/api/attributes', 'verb' => 'GET'],
         ['name' => 'timesheet#getCounties', 'url' => '/api/counties/{stateAbbr}', 'verb' => 'GET'],
         ['name' => 'timesheet#getTimesheets', 'url' => '/api/list', 'verb' => 'GET'],
@@ -13,8 +13,6 @@ return [
         ['name' => 'timesheet#saveTimesheet', 'url' => '/api/save', 'verb' => 'POST'],
 
         // --- Admin API ---
-        
-        // Users & Settings
         ['name' => 'admin#getUsers', 'url' => '/api/admin/users', 'verb' => 'GET'],
         ['name' => 'admin#getSettings', 'url' => '/api/admin/settings', 'verb' => 'GET'],
         ['name' => 'admin#saveSetting', 'url' => '/api/admin/settings', 'verb' => 'POST'],
@@ -26,11 +24,12 @@ return [
         ['name' => 'admin#saveHoliday', 'url' => '/api/admin/holidays', 'verb' => 'POST'],
         ['name' => 'admin#deleteHoliday', 'url' => '/api/admin/holidays/{id}', 'verb' => 'DELETE'],
 
-        // Jobs
+        // Jobs (NEW GET ROUTE)
+        ['name' => 'admin#getJobs', 'url' => '/api/admin/jobs', 'verb' => 'GET'],
         ['name' => 'admin#saveJob', 'url' => '/api/admin/jobs', 'verb' => 'POST'],
         ['name' => 'admin#toggleJob', 'url' => '/api/admin/jobs/{id}/toggle', 'verb' => 'POST'],
 
-        // Locations (NEW ADMIN ROUTES)
+        // Locations
         ['name' => 'admin#getStates', 'url' => '/api/admin/states', 'verb' => 'GET'],
         ['name' => 'admin#getCounties', 'url' => '/api/admin/counties/{stateAbbr}', 'verb' => 'GET'],
         ['name' => 'admin#toggleState', 'url' => '/api/admin/states/{id}/toggle', 'verb' => 'POST'],
