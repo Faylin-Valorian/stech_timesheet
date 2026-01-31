@@ -17,26 +17,10 @@ Util::addStyle('stech_timesheet', 'admin');
             <div class="app-navigation-separator"></div>
             <li class="nav-section-header"><span>Administration</span></li>
             
-            <li class="nav-item">
-                <a class="nav-link active" href="#" id="nav-users">
-                    <span class="icon-user"></span><span>User Management</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#" id="nav-holidays">
-                    <span class="icon-calendar-dark"></span><span>Holidays</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#" id="nav-jobs">
-                    <span class="icon-category-office"></span><span>Job Codes</span>
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="#" id="nav-locations">
-                    <span class="icon-address"></span><span>Locations</span>
-                </a>
-            </li>
+            <li class="nav-item"><a class="nav-link active" href="#" id="nav-users"><span class="icon-user"></span><span>User Management</span></a></li>
+            <li class="nav-item"><a class="nav-link" href="#" id="nav-holidays"><span class="icon-calendar-dark"></span><span>Holidays</span></a></li>
+            <li class="nav-item"><a class="nav-link" href="#" id="nav-jobs"><span class="icon-category-office"></span><span>Job Codes</span></a></li>
+            <li class="nav-item"><a class="nav-link" href="#" id="nav-locations"><span class="icon-address"></span><span>Locations</span></a></li>
         </ul>
     </div>
 
@@ -63,12 +47,17 @@ Util::addStyle('stech_timesheet', 'admin');
             <div class="view-header"><h2>Holiday Management</h2></div>
             <div class="view-body split-layout">
                 <div class="split-panel left">
-                    <h3 class="panel-title">Add Holiday</h3>
+                    <h3 class="panel-title" id="holiday-form-title">Add Holiday</h3>
                     <form id="form-holiday">
+                        <input type="hidden" id="holiday-id">
+                        
                         <div class="input-group"><label>Name</label><input type="text" id="holiday-name" required class="form-control"></div>
                         <div class="input-group"><label>Start</label><input type="date" id="holiday-start" required class="form-control"></div>
                         <div class="input-group"><label>End</label><input type="date" id="holiday-end" required class="form-control"></div>
-                        <button type="submit" class="primary-button full-width">Add Holiday</button>
+                        <div class="btn-row" style="display:flex; gap:10px;">
+                            <button type="submit" class="primary-button full-width" id="btn-save-holiday">Add Holiday</button>
+                            <button type="button" class="secondary-button hidden" id="btn-cancel-holiday" style="width:auto;">Cancel</button>
+                        </div>
                     </form>
                 </div>
                 <div class="split-panel right">

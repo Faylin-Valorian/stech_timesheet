@@ -1,74 +1,329 @@
-/* --- LAYOUT --- */
+/* =========================================
+   1. MAIN LAYOUT
+   ========================================= */
 #app-content {
+    /* Standard Nextcloud content area setup */
     background-color: var(--color-main-background);
     padding: 0;
-    overflow: hidden; /* Scroll is handled inside views */
+    /* Prevent double scrollbars; scrolling happens inside .view-body */
+    overflow: hidden; 
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
-/* Views */
+/* Individual Views (Users, Holidays, etc.) */
 .admin-view {
     height: 100%;
     display: flex;
     flex-direction: column;
     padding: 20px 40px;
     box-sizing: border-box;
+    /* Ensure it takes full width/height of #app-content */
+    width: 100%;
 }
-.admin-view.hidden { display: none; }
 
+.admin-view.hidden {
+    display: none !important;
+}
+
+/* Headers within views */
 .view-header {
-    flex: 0 0 auto;
+    flex: 0 0 auto; /* Don't shrink */
     margin-bottom: 20px;
     border-bottom: 1px solid var(--color-border);
     padding-bottom: 15px;
 }
-.view-header h2 { margin: 0; font-size: 24px; font-weight: bold; }
-.view-header p { margin: 5px 0 0 0; opacity: 0.7; }
 
+.view-header h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--color-main-text);
+}
+
+.view-header p {
+    margin: 5px 0 0 0;
+    opacity: 0.7;
+    font-size: 14px;
+}
+
+/* Scrollable Body Area */
 .view-body {
-    flex: 1 1 auto;
-    overflow-y: auto; /* Internal Scrolling */
+    flex: 1 1 auto; /* Grow to fill space */
+    overflow-y: auto; /* Internal scrolling */
+    position: relative;
+    padding-bottom: 50px; /* Space at bottom */
+}
+
+/* =========================================
+   2. SPLIT LAYOUT (Forms + Lists)
+   ========================================= */
+.split-layout {
+    display: flex;
+    gap: 30px;
+    height: 100%;
+}
+
+.split-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.split-panel.left {
+    width: 350px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--color-border);
+    padding-right: 30px;
+    /* Allow left panel to scroll independently if needed */
+    overflow-y: auto; 
+}
+
+.split-panel.right {
+    flex: 1;
+    min-width: 0; /* Prevents flex overflow issues */
+    overflow-y: hidden; /* Contains the scroll list */
+    display: flex;
+    flex-direction: column;
+}
+
+.panel-title {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--color-text-maxcontrast);
+}
+
+.panel-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* =========================================
+   3. FORMS & CONTROLS
+   ========================================= */
+.max-width-600 { max-width: 600px; }
+
+.input-group { margin-bottom: 15px; }
+
+.input-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.form-control { 
+    width: 100%; 
+    padding: 8px 10px; 
+    border: 1px solid var(--color-border); 
+    border-radius: var(--border-radius); 
+    box-sizing: border-box;
+    background-color: var(--color-main-background);
+    color: var(--color-text-maxcontrast);
+}
+
+.full-width { width: 100%; }
+
+/* Filter Controls (Search + Radios) */
+.filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.filter-input {
+    padding: 6px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    min-width: 200px;
+}
+
+.radio-group {
+    display: flex;
+    gap: 12px;
+    font-size: 13px;
+}
+
+.radio-group label {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.9;
+}
+.radio-group label:hover { opacity: 1; }
+
+/* =========================================
+   4. DATA LISTS & ACTIONS
+   ========================================= */
+.scroll-list {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    background-color: var(--color-background-light);
+}
+
+.list-item {
+    padding: 10px 15px;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--color-main-background);
+    transition: background-color 0.1s;
+}
+
+.list-item:hover {
+    background-color: var(--color-background-hover);
+}
+
+.list-item.active-selection {
+    background-color: var(--color-primary-light);
+    border-left: 3px solid var(--color-primary-element);
+}
+
+.empty-msg {
+    padding: 30px;
+    text-align: center;
+    opacity: 0.6;
+    font-style: italic;
+}
+
+/* Action Buttons (Edit/Delete) */
+.action-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.icon-action {
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%; /* Circle shape */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.icon-action:hover {
+    background-color: var(--color-background-dark);
+    opacity: 1;
+    border-color: var(--color-border);
+}
+
+/* Specific Delete Hover color */
+.icon-action.delete:hover {
+    background-color: rgba(255, 0, 0, 0.1);
+    border-color: rgba(255, 0, 0, 0.2);
+}
+
+/* Icon Span Sizing within buttons */
+.icon-action span[class^="icon-"] {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.8;
+}
+
+/* =========================================
+   5. USER SEARCH DROPDOWN
+   ========================================= */
+.searchable-select-wrapper {
     position: relative;
 }
 
-/* --- SPLIT LAYOUT --- */
-.split-layout { display: flex; gap: 30px; height: 100%; }
-.split-panel { display: flex; flex-direction: column; }
-.split-panel.left { width: 350px; flex-shrink: 0; border-right: 1px solid var(--color-border); padding-right: 30px; }
-.split-panel.right { flex: 1; min-width: 0; }
+.custom-dropdown-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: 250px;
+    overflow-y: auto;
+    background: var(--color-main-background);
+    border: 1px solid var(--color-primary-element);
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+    border-radius: 0 0 4px 4px;
+}
 
-.panel-title { margin: 0 0 15px 0; font-size: 16px; font-weight: bold; color: var(--color-text-maxcontrast); }
-.panel-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
+.custom-dropdown-list.hidden {
+    display: none;
+}
 
-/* --- CONTROLS --- */
-.max-width-600 { max-width: 600px; }
-.input-group { margin-bottom: 15px; }
-.input-group label { display: block; margin-bottom: 5px; font-weight: bold; }
-.form-control { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--border-radius); box-sizing: border-box; }
-.full-width { width: 100%; }
+.dropdown-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--color-border);
+}
 
-.filter-controls { display: flex; align-items: center; gap: 15px; }
-.filter-input { padding: 6px 10px; border: 1px solid var(--color-border); border-radius: var(--border-radius); }
-.radio-group { display: flex; gap: 10px; font-size: 13px; }
-.radio-group label { cursor: pointer; display: flex; align-items: center; gap: 4px; }
+.dropdown-item:hover {
+    background-color: var(--color-primary-light);
+}
 
-/* --- LISTS --- */
-.scroll-list { flex: 1; overflow-y: auto; border: 1px solid var(--color-border); border-radius: var(--border-radius); background-color: var(--color-background-light); }
-.list-item { padding: 10px 15px; border-bottom: 1px solid var(--color-border); display: flex; justify-content: space-between; align-items: center; }
-.list-item:hover { background-color: var(--color-background-hover); }
-.list-item.active-selection { background-color: var(--color-primary-light); border-left: 3px solid var(--color-primary-element); }
-.empty-msg { padding: 20px; text-align: center; opacity: 0.6; }
+/* =========================================
+   6. TOGGLE SWITCHES
+   ========================================= */
+.admin-switch {
+    position: relative;
+    display: inline-block;
+    width: 34px;
+    height: 20px;
+}
 
-/* --- DROPDOWN --- */
-.searchable-select-wrapper { position: relative; }
-.custom-dropdown-list { position: absolute; top: 100%; left: 0; width: 100%; max-height: 250px; overflow-y: auto; background: var(--color-main-background); border: 1px solid var(--color-primary-element); z-index: 1000; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-.custom-dropdown-list.hidden { display: none; }
-.dropdown-item { padding: 10px; cursor: pointer; border-bottom: 1px solid var(--color-border); }
-.dropdown-item:hover { background-color: var(--color-primary-light); }
+.admin-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
 
-/* --- TOGGLES --- */
-.admin-switch { position: relative; display: inline-block; width: 34px; height: 20px; }
-.admin-switch input { opacity: 0; width: 0; height: 0; }
-.admin-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-.admin-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
-input:checked + .admin-slider { background-color: var(--color-primary-element); }
-input:checked + .admin-slider:before { transform: translateX(14px); }
+.admin-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.admin-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .admin-slider {
+    background-color: var(--color-primary-element);
+}
+
+input:checked + .admin-slider:before {
+    transform: translateX(14px);
+}
+
+/* Focus styles for accessibility */
+input:focus + .admin-slider {
+    box-shadow: 0 0 1px var(--color-primary-element);
+}
