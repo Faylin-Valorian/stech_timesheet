@@ -13,25 +13,22 @@ document.addEventListener('DOMContentLoaded', function() {
         return fetch(url, options);
     }
 
-    // --- NAVIGATION LOGIC ---
+    // --- NAVIGATION ---
     function switchView(viewId) {
-        // Hide all views
         document.querySelectorAll('.admin-view').forEach(el => el.classList.add('hidden'));
-        // Show target
-        document.getElementById('view-' + viewId).classList.remove('hidden');
+        const target = document.getElementById('view-' + viewId);
+        if(target) target.classList.remove('hidden');
         
-        // Update Sidebar
         document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
-        document.getElementById('nav-' + viewId).classList.add('active');
+        const nav = document.getElementById('nav-' + viewId);
+        if(nav) nav.classList.add('active');
 
-        // Load Data
         if(viewId === 'users') loadUsers();
         if(viewId === 'holidays') loadHolidays();
         if(viewId === 'jobs') loadJobs();
         if(viewId === 'locations') loadStates();
     }
 
-    // Bind Nav Clicks
     document.getElementById('nav-users').addEventListener('click', () => switchView('users'));
     document.getElementById('nav-holidays').addEventListener('click', () => switchView('holidays'));
     document.getElementById('nav-jobs').addEventListener('click', () => switchView('jobs'));
@@ -44,10 +41,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 1. USER MANAGEMENT
     // =========================================================
     function loadUsers() {
-        // Only fetch if empty to save bandwidth, or always fetch if you prefer live data
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users'))
             .then(r => r.json())
-            .then(u => { allUsers = u; }); // Data loaded, wait for search input
+            .then(u => { allUsers = u; }); 
     }
 
     const userSearch = document.getElementById('user-search');
@@ -83,7 +79,6 @@ document.addEventListener('DOMContentLoaded', function() {
         userDropdown.classList.remove('hidden');
     });
 
-    // Close dropdown on click outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.searchable-select-wrapper')) userDropdown.classList.add('hidden');
     });
@@ -101,15 +96,22 @@ document.addEventListener('DOMContentLoaded', function() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays')).then(r => r.json()).then(data => {
             const list = document.getElementById('holiday-list');
             list.innerHTML = '';
+            
             data.forEach(h => {
-                list.innerHTML += `
-                    <div class="list-item">
-                        <div>
-                            <strong>${h.holiday_name}</strong><br>
-                            <span style="font-size:11px; opacity:0.6">${h.holiday_start_date} to ${h.holiday_end_date}</span>
-                        </div>
-                        <button class="icon-delete" onclick="deleteHoliday(${h.holiday_id})" title="Delete"></button>
-                    </div>`;
+                const item = document.createElement('div');
+                item.className = 'list-item';
+                
+                const info = document.createElement('div');
+                info.innerHTML = `<strong>${h.holiday_name}</strong><br><span style="font-size:11px; opacity:0.6">${h.holiday_start_date} to ${h.holiday_end_date}</span>`;
+                
+                const btn = document.createElement('button');
+                btn.className = 'icon-delete';
+                btn.title = 'Delete';
+                btn.addEventListener('click', () => deleteHoliday(h.holiday_id));
+                
+                item.appendChild(info);
+                item.appendChild(btn);
+                list.appendChild(item);
             });
         });
     }
@@ -129,12 +131,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    window.deleteHoliday = function(id) {
+    function deleteHoliday(id) {
         if(confirm('Delete holiday?')) {
             apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays/'+id), { method:'DELETE' })
             .then(loadHolidays);
         }
-    };
+    }
 
 
     // =========================================================
@@ -159,14 +161,32 @@ document.addEventListener('DOMContentLoaded', function() {
             return j.job_name.toLowerCase().includes(term);
         }).forEach(j => {
             const active = j.job_archive == 0;
-            list.innerHTML += `
-                <div class="list-item" style="${!active?'opacity:0.6':''}">
-                    <span>${j.job_name}</span>
-                    <label class="admin-switch">
-                        <input type="checkbox" ${active?'checked':''} onchange="toggleJob(${j.job_id})">
-                        <span class="admin-slider"></span>
-                    </label>
-                </div>`;
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            if(!active) item.style.opacity = '0.6';
+
+            // Text
+            const span = document.createElement('span');
+            span.innerText = j.job_name;
+            
+            // Toggle
+            const label = document.createElement('label');
+            label.className = 'admin-switch';
+            
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.checked = active;
+            input.addEventListener('change', () => toggleJob(j.job_id));
+            
+            const slider = document.createElement('span');
+            slider.className = 'admin-slider';
+            
+            label.appendChild(input);
+            label.appendChild(slider);
+            
+            item.appendChild(span);
+            item.appendChild(label);
+            list.appendChild(item);
         });
     }
 
@@ -187,10 +207,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    window.toggleJob = function(id) {
+    function toggleJob(id) {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs/'+id+'/toggle'), { method:'POST' })
         .then(loadJobs);
-    };
+    }
 
 
     // =========================================================
@@ -209,28 +229,45 @@ document.addEventListener('DOMContentLoaded', function() {
 
         allStates.filter(s => s.state_name.toLowerCase().includes(term))
         .forEach(s => {
-            const div = document.createElement('div'); div.className = 'list-item';
-            div.innerHTML = `
-                <span style="cursor:pointer;flex:1">${s.state_name}</span>
-                <label class="admin-switch">
-                    <input type="checkbox" ${s.is_enabled == 1 ? 'checked' : ''}>
-                    <span class="admin-slider"></span>
-                </label>`;
+            const item = document.createElement('div');
+            item.className = 'list-item';
             
-            div.querySelector('span').addEventListener('click', () => {
+            // Clickable Text
+            const span = document.createElement('span');
+            span.innerText = s.state_name;
+            span.style.cursor = 'pointer';
+            span.style.flex = '1';
+            span.addEventListener('click', () => {
                 document.querySelectorAll('#state-list .list-item').forEach(el => el.classList.remove('active-selection'));
-                div.classList.add('active-selection');
+                item.classList.add('active-selection');
                 loadCounties(s.state_abbr, s.state_name);
             });
-            div.querySelector('input').addEventListener('change', () => toggleState(s.id));
-            list.appendChild(div);
+
+            // Toggle
+            const label = document.createElement('label');
+            label.className = 'admin-switch';
+            
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.checked = (s.is_enabled == 1);
+            input.addEventListener('change', () => toggleState(s.id));
+            
+            const slider = document.createElement('span');
+            slider.className = 'admin-slider';
+            
+            label.appendChild(input);
+            label.appendChild(slider);
+            
+            item.appendChild(span);
+            item.appendChild(label);
+            list.appendChild(item);
         });
     }
     document.getElementById('state-search-input').addEventListener('input', renderStates);
 
-    window.toggleState = function(id) {
+    function toggleState(id) {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states/'+id+'/toggle'), { method:'POST' });
-    };
+    }
 
     function loadCounties(abbr, name) {
         document.getElementById('county-header').innerText = 'Counties: ' + name;
@@ -247,20 +284,35 @@ document.addEventListener('DOMContentLoaded', function() {
 
         currentCounties.filter(c => c.county_name.toLowerCase().includes(term))
         .forEach(c => {
-            list.innerHTML += `
-                <div class="list-item">
-                    <span>${c.county_name}</span>
-                    <label class="admin-switch">
-                        <input type="checkbox" ${c.is_enabled == 1 ? 'checked' : ''} onchange="toggleCounty(${c.id})">
-                        <span class="admin-slider"></span>
-                    </label>
-                </div>`;
+            const item = document.createElement('div');
+            item.className = 'list-item';
+            
+            const span = document.createElement('span');
+            span.innerText = c.county_name;
+            
+            const label = document.createElement('label');
+            label.className = 'admin-switch';
+            
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.checked = (c.is_enabled == 1);
+            input.addEventListener('change', () => toggleCounty(c.id));
+            
+            const slider = document.createElement('span');
+            slider.className = 'admin-slider';
+            
+            label.appendChild(input);
+            label.appendChild(slider);
+            
+            item.appendChild(span);
+            item.appendChild(label);
+            list.appendChild(item);
         });
     }
     document.getElementById('county-search-input').addEventListener('input', renderCounties);
 
-    window.toggleCounty = function(id) {
+    function toggleCounty(id) {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/counties/'+id+'/toggle'), { method:'POST' });
-    };
+    }
 
 });
