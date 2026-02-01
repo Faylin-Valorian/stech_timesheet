@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // --- State ---
     let charts = {}; 
-    let currentData = null; // Store fetched data
+    let currentData = null;
     let currentView = 'dashboard';
 
     // --- Navigation ---
@@ -26,17 +26,26 @@ document.addEventListener('DOMContentLoaded', function() {
             navJobs.classList.add('active');
         }
         
-        // Render charts for the active view ONLY
         if(currentData) renderVisibleCharts();
     }
 
     navDashboard.addEventListener('click', () => switchView('dashboard'));
     navJobs.addEventListener('click', () => switchView('jobs'));
 
+    // --- Search Logic (Job View) ---
+    const searchInput = document.getElementById('job-search-input');
+    if(searchInput) {
+        searchInput.addEventListener('input', () => {
+            if(currentView === 'jobs' && currentData) {
+                renderDetailedJobsChart(currentData);
+            }
+        });
+    }
+
     // --- Data Fetching ---
     function fetchData() {
         if (typeof Chart === 'undefined') {
-            alert("Error: Chart.js library not loaded. Check internet connection or CSP settings.");
+            alert("Error: Chart.js not loaded. Please download chart.js to your js/ folder.");
             return;
         }
 
@@ -47,7 +56,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const url = OC.generateUrl('/apps/stech_timesheet/api/analysis/stats') + 
                     `?period=${period}&target_uid=${targetUid}`;
 
-        // Show loading state (optional)
         document.getElementById('metric-total-hours').innerText = '...';
 
         fetch(url, { headers: { 'requesttoken': OC.requestToken } })
@@ -136,17 +144,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         destroyChart('chart-jobs-simple');
 
-        // Handle empty data
-        if (!data.jobs || data.jobs.length === 0) {
-            // Optional: Draw a "No Data" placeholder or just return
-            return;
-        }
+        if (!data.jobs || data.jobs.length === 0) return;
 
         const jobLabels = data.jobs.map(j => j.name).slice(0, 5);
         const jobValues = data.jobs.map(j => j.hours).slice(0, 5);
 
         charts['chart-jobs-simple'] = new Chart(ctx, {
-            type: 'doughnut', // Changed to Doughnut for better look
+            type: 'doughnut',
             data: {
                 labels: jobLabels,
                 datasets: [{
@@ -157,21 +161,27 @@ document.addEventListener('DOMContentLoaded', function() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'right' }
-                }
+                plugins: { legend: { position: 'right' } }
             }
         });
     }
 
+    // [NEW] Updated to support filtering
     function renderDetailedJobsChart(data) {
         const ctx = document.getElementById('chart-jobs-detailed');
         if(!ctx) return;
 
         destroyChart('chart-jobs-detailed');
 
-        const names = data.jobs.map(j => j.name);
-        const hours = data.jobs.map(j => j.hours);
+        // Apply Search Filter
+        const term = (document.getElementById('job-search-input').value || '').toLowerCase();
+        
+        const filteredJobs = data.jobs.filter(j => 
+            j.name.toLowerCase().includes(term)
+        );
+
+        const names = filteredJobs.map(j => j.name);
+        const hours = filteredJobs.map(j => j.hours);
 
         charts['chart-jobs-detailed'] = new Chart(ctx, {
             type: 'bar',
@@ -200,6 +210,5 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Initial Load
     fetchData();
 });

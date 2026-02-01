@@ -1,6 +1,6 @@
 <?php
 use OCP\Util;
-Util::addScript('stech_timesheet', 'chart'); // Loads local Chart.js with nonce
+Util::addScript('stech_timesheet', 'chart');
 Util::addScript('stech_timesheet', 'analysis');
 Util::addStyle('stech_timesheet', 'style');
 Util::addStyle('stech_timesheet', 'analysis');
@@ -41,11 +41,16 @@ Util::addStyle('stech_timesheet', 'analysis');
                 <select id="user-selector" class="form-control">
                     <option value="self">Myself</option>
                     <option value="all">All Employees (Aggregate)</option>
-                    </select>
+                </select>
             </div>
             <?php endif; ?>
 
-            <button id="btn-refresh" class="primary-button">Refresh Data</button>
+            <div class="filter-group">
+                <label>Search Jobs:</label>
+                <input type="text" id="job-search-input" class="job-search-box" placeholder="Filter job codes...">
+            </div>
+
+            <button id="btn-refresh" class="primary-button" style="margin-left: auto;">Refresh Data</button>
         </div>
 
         <div id="view-dashboard" class="analysis-view">
@@ -67,16 +72,16 @@ Util::addStyle('stech_timesheet', 'analysis');
                     <div class="metric-sub">> 40h / week</div>
                 </div>
 
-                <div class="chart-container full-width">
+                <div class="chart-container col-span-2">
                     <h3>Hours Worked Trend</h3>
-                    <div style="position: relative; height: 300px;">
+                    <div class="chart-wrapper">
                         <canvas id="chart-trend"></canvas>
                     </div>
                 </div>
 
-                <div class="chart-container full-width">
+                <div class="chart-container">
                     <h3>Job Code Distribution (Top 5)</h3>
-                    <div style="position: relative; height: 300px;">
+                    <div class="chart-wrapper">
                         <canvas id="chart-jobs-simple"></canvas>
                     </div>
                 </div>
@@ -84,10 +89,12 @@ Util::addStyle('stech_timesheet', 'analysis');
         </div>
 
         <div id="view-jobs" class="analysis-view hidden">
-            <div class="chart-container full-width">
-                <h3>Detailed Job Code Allocation</h3>
-                <div style="position: relative; height: 500px;">
-                    <canvas id="chart-jobs-detailed"></canvas>
+            <div class="charts-grid">
+                <div class="chart-container full-width">
+                    <h3>Detailed Job Code Allocation</h3>
+                    <div class="chart-wrapper" style="min-height: 600px;">
+                        <canvas id="chart-jobs-detailed"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
