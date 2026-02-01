@@ -3,7 +3,7 @@ return [
     'routes' => [
         // Pages
         ['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
-        ['name' => 'page#analysis', 'url' => '/analysis', 'verb' => 'GET'], // [NEW] Analysis Page
+        ['name' => 'page#analysis', 'url' => '/analysis', 'verb' => 'GET'],
         ['name' => 'admin#index', 'url' => '/admin', 'verb' => 'GET'],
 
         // Time Entry API
@@ -13,7 +13,7 @@ return [
         ['name' => 'timesheet#saveTimesheet', 'url' => '/api/timesheets', 'verb' => 'POST'],
         ['name' => 'timesheet#getCounties', 'url' => '/api/counties/{stateAbbr}', 'verb' => 'GET'],
 
-        // [UPDATED] Analysis API - Points to AnalysisController
+        // Analysis API (Updated to use AnalysisController)
         ['name' => 'analysis#getStats', 'url' => '/api/analysis/stats', 'verb' => 'GET'],
 
         // Admin API - Settings & Thumbnails

@@ -1,11 +1,10 @@
 <?php
 use OCP\Util;
+Util::addScript('stech_timesheet', 'chart'); // Loads local Chart.js with nonce
 Util::addScript('stech_timesheet', 'analysis');
 Util::addStyle('stech_timesheet', 'style');
 Util::addStyle('stech_timesheet', 'analysis');
 ?>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <div id="app">
     <div id="app-navigation">

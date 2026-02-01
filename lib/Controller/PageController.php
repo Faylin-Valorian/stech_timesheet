@@ -21,14 +21,11 @@ class PageController extends Controller {
     public function index(): TemplateResponse {
         $response = new TemplateResponse('stech_timesheet', 'main');
 
-        // Create the CSP object
+        // Create the CSP object (Standard for FullCalendar if needed)
         $csp = new ContentSecurityPolicy();
-
-        // correct method names for Nextcloud v32+
         $csp->addAllowedScriptDomain('cdn.jsdelivr.net');
         $csp->addAllowedStyleDomain('cdn.jsdelivr.net');
 
-        // Apply the policy
         $response->setContentSecurityPolicy($csp);
 
         return $response;
@@ -39,13 +36,6 @@ class PageController extends Controller {
      * @NoCSRFRequired
      */
     public function analysis(): TemplateResponse {
-        $response = new TemplateResponse('stech_timesheet', 'analysis');
-
-        // Allow Chart.js from CDN
-        $csp = new ContentSecurityPolicy();
-        $csp->addAllowedScriptDomain('cdn.jsdelivr.net');
-        $response->setContentSecurityPolicy($csp);
-
-        return $response;
+        return new TemplateResponse('stech_timesheet', 'analysis');
     }
 }
