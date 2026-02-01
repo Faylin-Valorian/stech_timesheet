@@ -189,9 +189,8 @@ Util::addStyle('stech_timesheet', 'admin');
                         <div class="search-filter-wrapper" style="width: auto;">
                             <button id="state-filter-btn" class="btn-filter-icon"><span class="icon-filter"></span></button>
                             <div id="state-filter-menu" class="filter-menu hidden">
-                                <label><input type="radio" name="state-status" value="enabled" checked> Enabled</label>
-                                <label><input type="radio" name="state-status" value="disabled"> Disabled</label>
-                                <label><input type="radio" name="state-status" value="all"> All</label>
+                                <label><input type="radio" name="state-status" value="enabled" checked> Active States</label>
+                                <label><input type="radio" name="state-status" value="disabled"> Inactive States</label>
                             </div>
                         </div>
                     </div>
@@ -205,9 +204,8 @@ Util::addStyle('stech_timesheet', 'admin');
                         <div class="search-filter-wrapper" style="width: auto;">
                             <button id="county-filter-btn" class="btn-filter-icon"><span class="icon-filter"></span></button>
                             <div id="county-filter-menu" class="filter-menu hidden">
-                                <label><input type="radio" name="county-status" value="enabled" checked> Enabled</label>
-                                <label><input type="radio" name="county-status" value="disabled"> Disabled</label>
-                                <label><input type="radio" name="county-status" value="all"> All</label>
+                                <label><input type="radio" name="county-status" value="enabled" checked> Active Counties</label>
+                                <label><input type="radio" name="county-status" value="disabled"> Inactive Counties</label>
                             </div>
                         </div>
                     </div>

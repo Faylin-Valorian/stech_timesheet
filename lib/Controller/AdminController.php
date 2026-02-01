@@ -55,7 +55,11 @@ class AdminController extends Controller {
                 return new DataResponse([]);
             }
             $qb = $this->db->getQueryBuilder();
-            $rows = $qb->select('*')->from('stech_admin_settings')->executeQuery()->fetchAll();
+            $rows = $qb->select('*')
+                       ->from('stech_admin_settings')
+                       ->executeQuery()
+                       ->fetchAll();
+            
             $settings = [];
             foreach ($rows as $row) {
                 $settings[$row['setting_key']] = $row['setting_value'];
@@ -82,20 +86,27 @@ class AdminController extends Controller {
 
     private function saveSettingValue($key, $value) {
         if (!$key) return;
+        
         $qb = $this->db->getQueryBuilder();
-        $exists = $qb->select('setting_key')->from('stech_admin_settings')
+        $exists = $qb->select('setting_key')
+                     ->from('stech_admin_settings')
                      ->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))
-                     ->executeQuery()->fetch();
+                     ->executeQuery()
+                     ->fetch();
 
         $qb = $this->db->getQueryBuilder();
         if ($exists) {
-            $qb->update('stech_admin_settings')->set('setting_value', $qb->createNamedParameter($value))
-               ->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))->execute();
+            $qb->update('stech_admin_settings')
+               ->set('setting_value', $qb->createNamedParameter($value))
+               ->where($qb->expr()->eq('setting_key', $qb->createNamedParameter($key)))
+               ->execute();
         } else {
-            $qb->insert('stech_admin_settings')->values([
-                'setting_key' => $qb->createNamedParameter($key),
-                'setting_value' => $qb->createNamedParameter($value)
-            ])->execute();
+            $qb->insert('stech_admin_settings')
+               ->values([
+                   'setting_key' => $qb->createNamedParameter($key),
+                   'setting_value' => $qb->createNamedParameter($value)
+               ])
+               ->execute();
         }
     }
 
@@ -152,7 +163,7 @@ class AdminController extends Controller {
         $localFile = $localImgDir . $fileName;
         $savedToLocal = false;
 
-        // Try writing to app directory (often read-only in production, but good for dev)
+        // Try writing to app directory
         if (is_writable($localImgDir)) {
             $content = stream_get_contents($sourceStream);
             if (file_put_contents($localFile, $content) !== false) {
@@ -164,10 +175,15 @@ class AdminController extends Controller {
         // If app dir failed, write to AppData
         if (!$savedToLocal) {
             try {
-                try { $folder = $this->appData->getFolder('thumbnails'); } 
-                catch (NotFoundException $e) { $folder = $this->appData->newFolder('thumbnails'); }
+                try { 
+                    $folder = $this->appData->getFolder('thumbnails'); 
+                } catch (NotFoundException $e) { 
+                    $folder = $this->appData->newFolder('thumbnails'); 
+                }
                 
-                try { $folder->getFile($fileName)->delete(); } catch(NotFoundException $e) {}
+                try { 
+                    $folder->getFile($fileName)->delete(); 
+                } catch(NotFoundException $e) {}
 
                 $file = $folder->newFile($fileName);
                 if (isset($content)) $file->putContent($content);
@@ -197,7 +213,10 @@ class AdminController extends Controller {
         // 2. Get Local Employee Status from stech_employees
         try {
             $qb = $this->db->getQueryBuilder();
-            $employeeRows = $qb->select('*')->from('stech_employees')->executeQuery()->fetchAll();
+            $employeeRows = $qb->select('*')
+                               ->from('stech_employees')
+                               ->executeQuery()
+                               ->fetchAll();
         } catch (\Exception $e) {
             $employeeRows = [];
         }
@@ -245,9 +264,11 @@ class AdminController extends Controller {
         }
 
         $qb = $this->db->getQueryBuilder();
-        $record = $qb->select('*')->from('stech_employees')
+        $record = $qb->select('*')
+                     ->from('stech_employees')
                      ->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
-                     ->executeQuery()->fetch();
+                     ->executeQuery()
+                     ->fetch();
 
         $currentStatus = $record ? (int)$record['is_active'] : 1; // Default 1 if no record
         $newStatus = ($currentStatus === 1) ? 0 : 1;
@@ -268,14 +289,15 @@ class AdminController extends Controller {
                    'uid' => $qb->createNamedParameter($uid),
                    'is_active' => $qb->createNamedParameter($newStatus),
                    'status_changed_at' => $qb->createNamedParameter($now)
-               ])->execute();
+               ])
+               ->execute();
         }
 
         // 2. Handle Holiday Archiving logic
         $archiveVal = ($newStatus === 0) ? 1 : 0; 
         
-        // Custom query to handle prefixing correctly if using query builder is complex for subqueries
-        $prefix = '*PREFIX*'; 
+        // Custom query to handle subquery update
+        $prefix = '*PREFIX*'; // Nextcloud replaces this automatically
         $sql = "UPDATE `{$prefix}stech_timesheets` AS t
                 SET t.`archive` = :archiveVal 
                 WHERE t.`userid` = :uid 
@@ -303,7 +325,13 @@ class AdminController extends Controller {
      * @AdminRequired
      */
     public function getHolidays(): DataResponse {
-        return new DataResponse($this->db->getQueryBuilder()->select('*')->from('stech_holidays')->orderBy('holiday_start_date', 'DESC')->executeQuery()->fetchAll());
+        $qb = $this->db->getQueryBuilder();
+        $result = $qb->select('*')
+                     ->from('stech_holidays')
+                     ->orderBy('holiday_start_date', 'DESC')
+                     ->executeQuery()
+                     ->fetchAll();
+        return new DataResponse($result);
     }
 
     /**
@@ -340,12 +368,19 @@ class AdminController extends Controller {
      */
     public function toggleHoliday(int $id): DataResponse {
         $qb = $this->db->getQueryBuilder();
-        $curr = $qb->select('holiday_archive')->from('stech_holidays')->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($id)))->executeQuery()->fetchOne();
+        $curr = $qb->select('holiday_archive')
+                   ->from('stech_holidays')
+                   ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($id)))
+                   ->executeQuery()
+                   ->fetchOne();
         
         $new = ((int)$curr === 1) ? 0 : 1;
         
         $qb = $this->db->getQueryBuilder();
-        $qb->update('stech_holidays')->set('holiday_archive', $qb->createNamedParameter($new))->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($id)))->execute();
+        $qb->update('stech_holidays')
+           ->set('holiday_archive', $qb->createNamedParameter($new))
+           ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($id)))
+           ->execute();
         return new DataResponse(['status' => 'success']);
     }
 
@@ -354,7 +389,10 @@ class AdminController extends Controller {
      * @AdminRequired
      */
     public function deleteHoliday(int $id): DataResponse {
-        $this->db->getQueryBuilder()->delete('stech_holidays')->where($this->db->getQueryBuilder()->expr()->eq('holiday_id', $this->db->getQueryBuilder()->createNamedParameter($id)))->execute();
+        $qb = $this->db->getQueryBuilder();
+        $qb->delete('stech_holidays')
+           ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($id)))
+           ->execute();
         return new DataResponse(['status' => 'success']);
     }
 
@@ -368,7 +406,11 @@ class AdminController extends Controller {
      */
     public function getJobs(): DataResponse {
         $qb = $this->db->getQueryBuilder();
-        $jobs = $qb->select('*')->from('stech_jobs')->orderBy('job_name', 'ASC')->executeQuery()->fetchAll();
+        $jobs = $qb->select('*')
+                   ->from('stech_jobs')
+                   ->orderBy('job_name', 'ASC')
+                   ->executeQuery()
+                   ->fetchAll();
         return new DataResponse($jobs);
     }
 
@@ -378,7 +420,7 @@ class AdminController extends Controller {
      */
     public function saveJob(): DataResponse {
         $data = $this->request->getParams();
-        // Capture new PTO flag
+        // Capture PTO flag
         $isPto = isset($data['is_pto']) && $data['is_pto'] == 1 ? 1 : 0;
         
         $qb = $this->db->getQueryBuilder();
@@ -409,12 +451,19 @@ class AdminController extends Controller {
      */
     public function toggleJob(int $id): DataResponse {
         $qb = $this->db->getQueryBuilder();
-        $current = $qb->select('job_archive')->from('stech_jobs')->where($qb->expr()->eq('job_id', $qb->createNamedParameter($id)))->executeQuery()->fetchOne();
+        $current = $qb->select('job_archive')
+                      ->from('stech_jobs')
+                      ->where($qb->expr()->eq('job_id', $qb->createNamedParameter($id)))
+                      ->executeQuery()
+                      ->fetchOne();
         
         $newState = ((int)$current === 1) ? 0 : 1;
         
         $qb = $this->db->getQueryBuilder();
-        $qb->update('stech_jobs')->set('job_archive', $qb->createNamedParameter($newState))->where($qb->expr()->eq('job_id', $qb->createNamedParameter($id)))->execute();
+        $qb->update('stech_jobs')
+           ->set('job_archive', $qb->createNamedParameter($newState))
+           ->where($qb->expr()->eq('job_id', $qb->createNamedParameter($id)))
+           ->execute();
         return new DataResponse(['status' => 'success']);
     }
 
@@ -428,7 +477,11 @@ class AdminController extends Controller {
      */
     public function getStates(): DataResponse {
         $qb = $this->db->getQueryBuilder();
-        $res = $qb->select('*')->from('stech_states')->orderBy('state_name', 'ASC')->executeQuery()->fetchAll();
+        $res = $qb->select('*')
+                  ->from('stech_states')
+                  ->orderBy('state_name', 'ASC')
+                  ->executeQuery()
+                  ->fetchAll();
         return new DataResponse($res);
     }
 
@@ -438,7 +491,7 @@ class AdminController extends Controller {
      */
     public function getCounties(string $stateAbbr): DataResponse {
         $qbS = $this->db->getQueryBuilder();
-        // Correct logic: lookup FIPS code using the abbreviation
+        // Lookup FIPS code using the abbreviation
         $state = $qbS->select('fips_code')
                      ->from('stech_states')
                      ->where($qbS->expr()->eq('state_abbr', $qbS->createNamedParameter($stateAbbr)))
@@ -464,12 +517,33 @@ class AdminController extends Controller {
      */
     public function toggleState(int $id): DataResponse {
         $qb = $this->db->getQueryBuilder();
-        $current = $qb->select('is_enabled')->from('stech_states')->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))->executeQuery()->fetchOne();
         
-        $newState = ((int)$current === 1) ? 0 : 1;
+        // 1. Get current state status and FIPS code
+        $stateRecord = $qb->select('is_enabled', 'fips_code')
+                          ->from('stech_states')
+                          ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+                          ->executeQuery()
+                          ->fetch();
         
+        if (!$stateRecord) return new DataResponse(['error' => 'State not found'], 404);
+
+        $newState = ((int)$stateRecord['is_enabled'] === 1) ? 0 : 1;
+        $fips = $stateRecord['fips_code'];
+
+        // 2. Update the State
         $qb = $this->db->getQueryBuilder();
-        $qb->update('stech_states')->set('is_enabled', $qb->createNamedParameter($newState))->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))->execute();
+        $qb->update('stech_states')
+           ->set('is_enabled', $qb->createNamedParameter($newState))
+           ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+           ->execute();
+
+        // 3. Cascade Update: Toggle all counties in this state
+        $qbC = $this->db->getQueryBuilder();
+        $qbC->update('stech_counties')
+            ->set('is_enabled', $qbC->createNamedParameter($newState))
+            ->where($qbC->expr()->eq('state_fips', $qbC->createNamedParameter($fips)))
+            ->execute();
+
         return new DataResponse(['status' => 'success']);
     }
 
@@ -479,12 +553,19 @@ class AdminController extends Controller {
      */
     public function toggleCounty(int $id): DataResponse {
         $qb = $this->db->getQueryBuilder();
-        $current = $qb->select('is_enabled')->from('stech_counties')->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))->executeQuery()->fetchOne();
+        $current = $qb->select('is_enabled')
+                      ->from('stech_counties')
+                      ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+                      ->executeQuery()
+                      ->fetchOne();
         
         $newState = ((int)$current === 1) ? 0 : 1;
         
         $qb = $this->db->getQueryBuilder();
-        $qb->update('stech_counties')->set('is_enabled', $qb->createNamedParameter($newState))->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))->execute();
+        $qb->update('stech_counties')
+           ->set('is_enabled', $qb->createNamedParameter($newState))
+           ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+           ->execute();
         return new DataResponse(['status' => 'success']);
     }
 }

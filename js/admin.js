@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupFilter('county-filter-btn', 'county-filter-menu', 'county-status', renderCounties);
     setupFilter('holiday-filter-btn', 'holiday-filter-menu', 'holiday-status', renderHolidays);
 
-    // --- USERS (Redesigned) ---
+    // --- USERS ---
     function loadUsers() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users'))
             .then(r => r.json())
@@ -64,7 +64,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderUsers() {
         const term = (document.getElementById('user-search-input').value || '').toLowerCase();
-        // Get the selected status from the filter menu
         const statusRadio = document.querySelector('input[name="user-status"]:checked');
         const status = statusRadio ? statusRadio.value : 'active';
 
@@ -72,12 +71,10 @@ document.addEventListener('DOMContentLoaded', function() {
         container.innerHTML = '';
 
         const filtered = allUsers.filter(u => {
-            // 1. Text Search Filter (Dynamic)
             const matchesName = (u.displayname || '').toLowerCase().includes(term);
             const matchesEmail = (u.email || '').toLowerCase().includes(term);
             if (!matchesName && !matchesEmail) return false;
 
-            // 2. Status Filter
             const isActive = (u.is_active === 1);
             if (status === 'active' && !isActive) return false;
             if (status === 'inactive' && isActive) return false;
@@ -93,15 +90,12 @@ document.addEventListener('DOMContentLoaded', function() {
         filtered.forEach(u => {
             const card = document.createElement('div');
             card.className = 'user-card';
-            // Make card look clickable
             card.style.cursor = 'pointer'; 
             
             if (u.is_active === 0) card.classList.add('inactive');
 
-            // Avatar Initials
             const initials = (u.displayname || '?').substring(0,2).toUpperCase();
             
-            // Buttons HTML - ONLY Toggle remains
             const buttonsHtml = `
                 <label class="admin-switch" title="Toggle Active/Inactive">
                     <input type="checkbox" class="user-toggle-input" data-uid="${u.uid}" ${u.is_active === 1 ? 'checked' : ''}>
@@ -118,20 +112,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="user-actions">${buttonsHtml}</div>
             `;
 
-            // Click event for the whole card
             card.addEventListener('click', (e) => {
-                // If user clicked the switch or slider, do NOT navigate
-                if (e.target.closest('.admin-switch')) {
-                    return;
-                }
-                // Otherwise open timesheet
+                if (e.target.closest('.admin-switch')) return;
                 window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + u.uid;
             });
 
             container.appendChild(card);
         });
 
-        // Attach Events for toggles
         document.querySelectorAll('.user-toggle-input').forEach(input => {
             input.addEventListener('change', (e) => {
                 const uid = e.target.dataset.uid;
@@ -146,14 +134,11 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({uid: uid})
         }).then(r => r.json()).then(res => {
-            // Update local state without full reload to keep UI snappy
             const u = allUsers.find(user => user.uid === uid);
             if (u) u.is_active = res.new_state;
-            renderUsers(); // Re-render to apply active/inactive styling immediately
+            renderUsers(); 
         });
     }
-
-    // Bind the input event for dynamic searching
     document.getElementById('user-search-input').addEventListener('input', renderUsers);
 
     // --- HOLIDAYS ---
@@ -261,7 +246,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if(!active) item.style.opacity = '0.6';
 
             const span = document.createElement('span');
-            // Show PTO tag if active
+            // [UPDATED] Show PTO badge
             const ptoTag = (j.is_pto == 1) ? ' <span style="font-size:0.7em; background:#9b59b6; color:white; padding:1px 4px; border-radius:3px;">PTO</span>' : '';
             span.innerHTML = j.job_name + ptoTag;
             span.style.flex = '1';
@@ -286,7 +271,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('job-id').value = j.job_id;
         document.getElementById('job-name').value = j.job_name;
         document.getElementById('job-desc').value = j.job_description;
-        // [NEW] Populate PTO Toggle
+        // [UPDATED] Populate PTO checkbox
         document.getElementById('job-is-pto').checked = (j.is_pto == 1);
         
         document.getElementById('btn-save-job').innerText = "Update Job";
@@ -297,7 +282,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function resetJobForm() {
         document.getElementById('form-job').reset();
         document.getElementById('job-id').value = '';
-        document.getElementById('job-is-pto').checked = false; // [NEW] Reset toggle
+        // [UPDATED] Reset PTO checkbox
+        document.getElementById('job-is-pto').checked = false;
         document.getElementById('btn-save-job').innerText = "Create Job";
         document.getElementById('job-form-title').innerText = "Create Job";
         document.getElementById('btn-cancel-job').classList.add('hidden');
@@ -310,7 +296,8 @@ document.addEventListener('DOMContentLoaded', function() {
             id: document.getElementById('job-id').value,
             name: document.getElementById('job-name').value,
             description: document.getElementById('job-desc').value,
-            is_pto: document.getElementById('job-is-pto').checked ? 1 : 0 // [NEW] Include toggle value
+            // [UPDATED] Include PTO status
+            is_pto: document.getElementById('job-is-pto').checked ? 1 : 0
         };
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs'), {
             method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -333,6 +320,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         allStates.filter(s => {
             const en = s.is_enabled == 1;
+            // [UPDATED] Filter logic (Active/Inactive only)
             if(status === 'enabled' && !en) return false;
             if(status === 'disabled' && en) return false;
             return (s.state_name || '').toLowerCase().includes(term);
@@ -356,7 +344,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     document.getElementById('state-search-input').addEventListener('input', renderStates);
-    function toggleState(id) { apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states/'+id+'/toggle'), { method:'POST' }).then(loadStates); }
+    
+    function toggleState(id) { 
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states/'+id+'/toggle'), { method:'POST' })
+        .then(() => { 
+            loadStates(); 
+            // If the toggled state is currently selected, reload counties to reflect cascade
+            if(selectedStateAbbr) loadCounties(selectedStateAbbr, selectedStateName); 
+        }); 
+    }
 
     function loadCounties(abbr, name) {
         document.getElementById('county-header').innerText = 'Counties: ' + name;
@@ -364,6 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/counties/'+abbr))
             .then(r => r.json()).then(c => { currentCounties = c; renderCounties(); });
     }
+    
     function renderCounties() {
         const term = (document.getElementById('county-search-input').value || '').toLowerCase();
         const status = document.querySelector('input[name="county-status"]:checked').value;
@@ -372,6 +369,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         currentCounties.filter(c => {
             const en = c.is_enabled == 1;
+            // [UPDATED] Filter logic (Active/Inactive only)
             if(status === 'enabled' && !en) return false;
             if(status === 'disabled' && en) return false;
             return (c.county_name || '').toLowerCase().includes(term);
@@ -388,5 +386,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     document.getElementById('county-search-input').addEventListener('input', renderCounties);
-    function toggleCounty(id) { apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/counties/'+id+'/toggle'), { method:'POST' }).then(() => { if(selectedStateAbbr) loadCounties(selectedStateAbbr, selectedStateName); }); }
+    function toggleCounty(id) { 
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/counties/'+id+'/toggle'), { method:'POST' })
+        .then(() => { 
+            if(selectedStateAbbr) loadCounties(selectedStateAbbr, selectedStateName); 
+        }); 
+    }
 });

@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Data Stores
     let jobOptions = [];
+    let stateMap = {};     // Map: "Texas" -> "TX" (For API calls)
+    let stateMapRev = {};  // Map: "TX" -> "Texas" (For legacy data display)
     
     // Helper for API URLs (Supports Admin Impersonation)
     function getApiUrl(endpoint) {
@@ -61,8 +63,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // --- CLICK DATE (NEW) ---
         dateClick: function(info) {
-            // Note: We don't block opening the modal here anymore, 
-            // as users might need to add a separate Per Diem entry.
+            // Check for open entries on this day to potentially warn user?
+            // Current logic: Always allow opening modal (for Per Diem or New Entry)
             openModal(info.dateStr, null);
         },
 
@@ -74,7 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     calendar.render();
 
-    // 3. API Calls
+    // 3. API Calls (Updated for Datalists)
     function fetchAttributes() {
         fetch(getApiUrl('/api/attributes'), {
             headers: { 'requesttoken': OC.requestToken, 'OCS-APIRequest': 'true' }
@@ -83,39 +85,50 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.jobs) jobOptions = data.jobs;
             
-            const stateSelect = document.getElementById('travel-state');
-            if (stateSelect && data.states) {
-                stateSelect.innerHTML = '<option value="">Select State...</option>';
+            // Populate State Datalist
+            const stateList = document.getElementById('state-options');
+            if (stateList && data.states) {
+                stateList.innerHTML = '';
+                stateMap = {};
+                stateMapRev = {};
+                
                 data.states.forEach(state => {
                     let opt = document.createElement('option');
-                    opt.value = state.state_abbr;
-                    opt.innerText = state.state_name;
-                    stateSelect.appendChild(opt);
+                    // Value is the NAME (what user types/sees)
+                    opt.value = state.state_name; 
+                    stateList.appendChild(opt);
+                    
+                    // Store mappings for Logic
+                    stateMap[state.state_name] = state.state_abbr;
+                    stateMapRev[state.state_abbr] = state.state_name;
                 });
             }
         });
     }
 
-    // State Change Listener
-    const stateSelect = document.getElementById('travel-state');
-    if (stateSelect) {
-        stateSelect.addEventListener('change', function() {
-            const val = this.value;
-            const countySelect = document.getElementById('travel-county');
-            countySelect.innerHTML = '<option value="">Loading...</option>';
-            if (val) {
-                fetch(getApiUrl('/api/counties/' + val), {
+    // State Change Listener (Updated for Input/Datalist)
+    const stateInput = document.getElementById('travel-state');
+    if (stateInput) {
+        stateInput.addEventListener('change', function() {
+            const val = this.value; // The full name entered by user
+            
+            // Look up Abbreviation from Map (or fallback to value if logic changes)
+            const abbr = stateMap[val];
+
+            const countyList = document.getElementById('county-options');
+            countyList.innerHTML = ''; // Clear old options
+
+            if (abbr) {
+                fetch(getApiUrl('/api/counties/' + abbr), {
                     headers: { 'requesttoken': OC.requestToken, 'OCS-APIRequest': 'true' }
                 }).then(res => res.json()).then(counties => {
-                    countySelect.innerHTML = '<option value="">Select County...</option>';
                     counties.forEach(c => {
                         let opt = document.createElement('option');
                         opt.value = c.county_name;
-                        opt.innerText = c.county_name;
-                        countySelect.appendChild(opt);
+                        countyList.appendChild(opt);
                     });
                 });
-            } else { countySelect.innerHTML = '<option value="">Select County...</option>'; }
+            }
         });
     }
 
@@ -149,7 +162,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             document.getElementById('comments').value = comms;
 
-            // Travel Logic: Check if data exists (UI toggle state is irrelevant)
+            // Travel Logic: Check if data exists
             const hasTravelData = (
                 existingData.travel == 1 || 
                 existingData.travel_per_diem == 1 ||
@@ -171,7 +184,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Set Values
                 document.getElementById('miles').value = existingData.travel_miles;
                 document.getElementById('extra-expense').value = existingData.travel_extra_expenses;
-                document.getElementById('travel-state').value = existingData.travel_state;
+                
+                // Set State: Convert stored Abbr to Name if necessary for display
+                let storedState = existingData.travel_state || '';
+                if (storedState.length === 2 && stateMapRev[storedState]) {
+                    storedState = stateMapRev[storedState];
+                }
+                document.getElementById('travel-state').value = storedState;
+                document.getElementById('travel-county').value = existingData.travel_county;
+                
+                // Trigger change to load counties (if state exists)
+                if(storedState) {
+                    stateInput.dispatchEvent(new Event('change'));
+                }
             }
 
             // Activities
@@ -292,60 +317,75 @@ document.addEventListener('DOMContentLoaded', function() {
     setupSidebarButtons(calendar);
 });
 
-// Sidebar setup function
+// Sidebar setup function (Fully Expanded)
 function setupSidebarButtons(calendar) {
     var prevBtn = document.getElementById('nav-prev');
-    if (prevBtn) prevBtn.addEventListener('click', () => calendar.prev());
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => calendar.prev());
+    }
 
     var nextBtn = document.getElementById('nav-next');
-    if (nextBtn) nextBtn.addEventListener('click', () => calendar.next());
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => calendar.next());
+    }
 
     var monthBtn = document.getElementById('view-month');
-    if (monthBtn) monthBtn.addEventListener('click', function() {
-        calendar.changeView('dayGridMonth');
-        toggleActive(this);
-    });
+    if (monthBtn) {
+        monthBtn.addEventListener('click', function() {
+            calendar.changeView('dayGridMonth');
+            toggleActive(this);
+        });
+    }
 
     var weekBtn = document.getElementById('view-week');
-    if (weekBtn) weekBtn.addEventListener('click', function() {
-        calendar.changeView('dayGridWeek');
-        toggleActive(this);
-    });
+    if (weekBtn) {
+        weekBtn.addEventListener('click', function() {
+            calendar.changeView('dayGridWeek');
+            toggleActive(this);
+        });
+    }
 
     var todayBtn = document.getElementById('view-today');
-    if (todayBtn) todayBtn.addEventListener('click', function() {
-        calendar.today();
-        
-        var now = new Date();
-        var offset = now.getTimezoneOffset();
-        var today = new Date(now.getTime() - (offset*60*1000));
-        var todayStr = today.toISOString().split('T')[0];
+    if (todayBtn) {
+        todayBtn.addEventListener('click', function() {
+            calendar.today();
+            
+            var now = new Date();
+            var offset = now.getTimezoneOffset();
+            var today = new Date(now.getTime() - (offset*60*1000));
+            var todayStr = today.toISOString().split('T')[0];
 
-        var dateInput = document.getElementById('entry-date');
-        var form = document.getElementById('timesheet-form');
-        var overlay = document.getElementById('timesheet-modal-overlay');
+            var dateInput = document.getElementById('entry-date');
+            var form = document.getElementById('timesheet-form');
+            var overlay = document.getElementById('timesheet-modal-overlay');
 
-        if (dateInput && form && overlay) {
-            form.reset();
-            dateInput.value = todayStr;
-            document.getElementById('work-rows-container').innerHTML = '';
-            document.getElementById('btn-add-row').click(); 
-            document.getElementById('travel-fields-container').classList.remove('visible');
-            overlay.style.display = 'flex';
-        }
-    });
+            // Quick Add for Today
+            if (dateInput && form && overlay) {
+                form.reset();
+                dateInput.value = todayStr;
+                document.getElementById('work-rows-container').innerHTML = '';
+                document.getElementById('btn-add-row').click(); 
+                document.getElementById('travel-fields-container').classList.remove('visible');
+                overlay.style.display = 'flex';
+            }
+        });
+    }
 
     var dateLabel = document.getElementById('current-date-label');
     var dateInput = document.getElementById('date-picker-input');
     if (dateLabel && dateInput) {
         dateLabel.addEventListener('click', () => dateInput.showPicker());
         dateInput.addEventListener('change', function() {
-            if (this.value) calendar.gotoDate(this.value + '-01');
+            if (this.value) {
+                calendar.gotoDate(this.value + '-01');
+            }
         });
     }
 
     function toggleActive(activeBtn) {
-        document.querySelectorAll('.view-buttons button').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.view-buttons button').forEach(btn => {
+            btn.classList.remove('active');
+        });
         activeBtn.classList.add('active');
     }
 }

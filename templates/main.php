@@ -20,7 +20,6 @@ Util::addStyle('stech_timesheet', 'style');
                     <button id="nav-next" class="icon-action" title="Next"></button>
                 </div>
             </li>
-
             <li class="nav-section-views">
                 <div class="view-buttons">
                     <button id="view-month" class="primary-button active">Month</button>
@@ -28,28 +27,21 @@ Util::addStyle('stech_timesheet', 'style');
                     <button id="view-today" class="secondary-button">Today</button>
                 </div>
             </li>
-
             <div class="app-navigation-separator"></div>
-
             <li class="nav-item">
                 <a class="nav-link active" href="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.page.index')); ?>">
-                    <span class="icon-history"></span>
-                    <span>Timesheet</span>
+                    <span class="icon-history"></span><span>Timesheet</span>
                 </a>
             </li>
-
             <li class="nav-item">
                 <a class="nav-link" href="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.page.analysis')); ?>">
-                    <span class="icon-category-monitoring"></span>
-                    <span>Time Analysis</span>
+                    <span class="icon-category-monitoring"></span><span>Time Analysis</span>
                 </a>
             </li>
-            
             <?php if(\OC::$server->getGroupManager()->isAdmin(\OC::$server->getUserSession()->getUser()->getUID())): ?>
             <li class="nav-item">
                 <a class="nav-link" href="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.index')); ?>">
-                    <span class="icon-settings-dark"></span>
-                    <span>Admin Panel</span>
+                    <span class="icon-settings-dark"></span><span>Admin Panel</span>
                 </a>
             </li>
             <?php endif; ?>
@@ -84,7 +76,6 @@ Util::addStyle('stech_timesheet', 'style');
                     </div>
 
                     <div class="modal-body">
-
                         <div class="form-section">
                             <div class="form-row-4">
                                 <div class="input-group">
@@ -104,7 +95,6 @@ Util::addStyle('stech_timesheet', 'style');
                                     <input type="number" id="break-min" name="break_min" placeholder="0" class="form-control calc-time">
                                 </div>
                             </div>
-                            
                             <div class="form-row-1" style="margin-top: 10px;">
                                 <div class="input-group">
                                     <label>Total Hours Worked</label>
@@ -120,15 +110,12 @@ Util::addStyle('stech_timesheet', 'style');
                                 <h3 class="section-title">Work Breakdown</h3>
                                 <button type="button" id="btn-add-row" class="text-button">+ Add Item</button>
                             </div>
-                            
                             <div class="work-grid-header">
                                 <span>Description</span>
                                 <span class="text-center">Percent (%)</span>
                                 <span></span>
                             </div>
-
-                            <div id="work-rows-container">
-                                </div>
+                            <div id="work-rows-container"></div>
                         </div>
 
                         <div class="form-separator"></div>
@@ -173,16 +160,16 @@ Util::addStyle('stech_timesheet', 'style');
                                 <div class="form-row-3">
                                     <div class="input-group">
                                         <label>State</label>
-                                        <select name="state" id="travel-state" class="form-control">
-                                            <option value="">Select State...</option>
-                                        </select>
+                                        <input list="state-options" name="state" id="travel-state" class="form-control" placeholder="Type to search..." autocomplete="off">
+                                        <datalist id="state-options"></datalist>
                                     </div>
+                                    
                                     <div class="input-group">
                                         <label>County</label>
-                                        <select name="county" id="travel-county" class="form-control">
-                                            <option value="">Select County...</option>
-                                        </select>
+                                        <input list="county-options" name="county" id="travel-county" class="form-control" placeholder="Type to search..." autocomplete="off">
+                                        <datalist id="county-options"></datalist>
                                     </div>
+                                    
                                      <div class="input-group">
                                         <label>Total Miles</label>
                                         <input type="number" id="miles" name="miles" class="form-control" placeholder="0">
@@ -209,17 +196,14 @@ Util::addStyle('stech_timesheet', 'style');
                                 <textarea name="comments" id="comments" rows="3" class="form-control" placeholder="Add details..."></textarea>
                             </div>
                         </div>
-
                     </div>
 
                     <div class="modal-footer">
                         <button type="button" class="secondary-button" id="btn-cancel">Cancel</button>
                         <button type="submit" class="primary-button" id="btn-save">Save Entry</button>
                     </div>
-
                 </form>
             </div>
         </div>
-
     </div>
 </div>
