@@ -183,7 +183,7 @@ class AdminController extends Controller {
     }
 
     // =========================================================================
-    //  USER MANAGEMENT (Updated for Status Toggle)
+    //  USER MANAGEMENT
     // =========================================================================
 
     /**
@@ -195,7 +195,6 @@ class AdminController extends Controller {
         $ncUsers = $this->userManager->search('');
         
         // 2. Get Local Employee Status from stech_employees
-        // (Assumes table exists from Version20260131140000)
         try {
             $qb = $this->db->getQueryBuilder();
             $employeeRows = $qb->select('*')->from('stech_employees')->executeQuery()->fetchAll();
@@ -272,22 +271,17 @@ class AdminController extends Controller {
                ])->execute();
         }
 
-        // 2. Handle Holiday Archiving
-        // Logic: 
-        // IF User -> Inactive ($newStatus == 0): Archive (=1) all timesheets for holidays >= Today
-        // IF User -> Active ($newStatus == 1): Unarchive (=0) all timesheets for holidays >= Today
-        
+        // 2. Handle Holiday Archiving logic
         $archiveVal = ($newStatus === 0) ? 1 : 0; 
-
-        // We use a raw query or DBAL to update stech_timesheets based on stech_holidays
-        // Update stech_timesheets set archive = X where userid = Y AND date >= today AND date IS inside a holiday range
         
-        $sql = "UPDATE `*PREFIX*stech_timesheets` AS t
+        // Custom query to handle prefixing correctly if using query builder is complex for subqueries
+        $prefix = '*PREFIX*'; 
+        $sql = "UPDATE `{$prefix}stech_timesheets` AS t
                 SET t.`archive` = :archiveVal 
                 WHERE t.`userid` = :uid 
                 AND t.`timesheet_date` >= :today
                 AND EXISTS (
-                    SELECT 1 FROM `*PREFIX*stech_holidays` h 
+                    SELECT 1 FROM `{$prefix}stech_holidays` h 
                     WHERE t.`timesheet_date` BETWEEN h.`holiday_start_date` AND h.`holiday_end_date`
                 )";
         
@@ -378,36 +372,34 @@ class AdminController extends Controller {
         return new DataResponse($jobs);
     }
 
-/**
-     * @NoAdminRequired
+    /**
      * @NoCSRFRequired
+     * @AdminRequired
      */
     public function saveJob(): DataResponse {
-        $id = $this->request->getParam('id');
-        $name = $this->request->getParam('name');
-        $desc = $this->request->getParam('description');
-        $isPto = $this->request->getParam('is_pto') ? 1 : 0; // [NEW] Capture PTO Flag
-
+        $data = $this->request->getParams();
+        // Capture new PTO flag
+        $isPto = isset($data['is_pto']) && $data['is_pto'] == 1 ? 1 : 0;
+        
         $qb = $this->db->getQueryBuilder();
-
-        if (!empty($id)) {
+        
+        if (!empty($data['id'])) {
             $qb->update('stech_jobs')
-               ->set('job_name', $qb->createNamedParameter($name))
-               ->set('job_description', $qb->createNamedParameter($desc))
-               ->set('is_pto', $qb->createNamedParameter($isPto, \PDO::PARAM_INT)) // [NEW]
-               ->where($qb->expr()->eq('job_id', $qb->createNamedParameter($id)));
-            $qb->execute();
+               ->set('job_name', $qb->createNamedParameter($data['name']))
+               ->set('job_description', $qb->createNamedParameter($data['description'] ?? ''))
+               ->set('is_pto', $qb->createNamedParameter($isPto, \PDO::PARAM_INT))
+               ->where($qb->expr()->eq('job_id', $qb->createNamedParameter($data['id'])))
+               ->execute();
         } else {
             $qb->insert('stech_jobs')
                ->values([
-                   'job_name' => $qb->createNamedParameter($name),
-                   'job_description' => $qb->createNamedParameter($desc),
+                   'job_name' => $qb->createNamedParameter($data['name']), 
+                   'job_description' => $qb->createNamedParameter($data['description'] ?? ''), 
                    'job_archive' => $qb->createNamedParameter(0),
-                   'is_pto' => $qb->createNamedParameter($isPto, \PDO::PARAM_INT) // [NEW]
-               ]);
-            $qb->execute();
+                   'is_pto' => $qb->createNamedParameter($isPto, \PDO::PARAM_INT)
+               ])
+               ->execute();
         }
-
         return new DataResponse(['status' => 'success']);
     }
 
@@ -446,14 +438,23 @@ class AdminController extends Controller {
      */
     public function getCounties(string $stateAbbr): DataResponse {
         $qbS = $this->db->getQueryBuilder();
-        $state = $qbS->select('fips_code')->from('stech_states')->where($qbS->expr()->eq('state_abbr', $qbS->createNamedParameter($stateAbbr)))->executeQuery()->fetch();
+        // Correct logic: lookup FIPS code using the abbreviation
+        $state = $qbS->select('fips_code')
+                     ->from('stech_states')
+                     ->where($qbS->expr()->eq('state_abbr', $qbS->createNamedParameter($stateAbbr)))
+                     ->executeQuery()
+                     ->fetch();
         
         if (!$state) return new DataResponse([]);
 
         $qb = $this->db->getQueryBuilder();
-        $res = $qb->select('*')->from('stech_counties')
+        $res = $qb->select('*')
+                  ->from('stech_counties')
                   ->where($qb->expr()->eq('state_fips', $qb->createNamedParameter($state['fips_code'])))
-                  ->orderBy('county_name', 'ASC')->executeQuery()->fetchAll();
+                  ->orderBy('county_name', 'ASC')
+                  ->executeQuery()
+                  ->fetchAll();
+                  
         return new DataResponse($res);
     }
 

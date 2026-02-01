@@ -71,7 +71,7 @@ class TimesheetController extends Controller {
         return new DataResponse($counties);
     }
 
-/**
+    /**
      * @NoAdminRequired
      * @NoCSRFRequired
      */
@@ -128,10 +128,9 @@ class TimesheetController extends Controller {
             $acts = $activitiesGrouped[$tid] ?? [];
             
             if (empty($acts)) {
-                // If no activities defined, treat all as Regular (unless [PTO] tag is present - legacy fallback)
+                // If no activities defined, treat as regular
                 $regHours = $totalHours;
             } else {
-                // Calculate split based on activity percent
                 foreach ($acts as $act) {
                     $jobName = $act['activity_description'];
                     $percent = (float)$act['activity_percent'];
@@ -146,8 +145,7 @@ class TimesheetController extends Controller {
                 }
             }
             
-            // Fallback: If [PTO] tag is explicitly in comments, force any "Regular" hours into "PTO" 
-            // (Only if user didn't pick specific jobs, to maintain backward compatibility/manual override)
+            // Fallback: If [PTO] tag is explicitly in comments, force "Regular" hours into "PTO"
             if (strpos($row['additional_comments'] ?? '', '[PTO]') !== false) {
                  $ptoHours += $regHours;
                  $regHours = 0;
@@ -165,24 +163,29 @@ class TimesheetController extends Controller {
                     'extendedProps' => ['isClosed' => true]
                 ];
             }
-
             // 2. Regular Work Event
-            if ($regHours > 0.01) {
-                $color = $isClosed ? '#28a745' : '#ffc107'; // Green or Yellow
-                if ($date < $today && !$isClosed) {
-                    $color = '#dc3545'; // Red (Missing Out)
-                    $title = 'Missing Out';
-                } else {
-                    $title = $isClosed ? round($regHours, 2) . ' hrs' : 'Active';
-                }
+            else {
+                // Show if we have hours OR if it's currently active (not clocked out)
+                // We assume if it's active, it's a regular shift unless explicitly PTO-only
+                if ($regHours > 0.01 || !$isClosed) {
+                    
+                    $color = $isClosed ? '#28a745' : '#ffc107'; // Green or Yellow
+                    
+                    if ($date < $today && !$isClosed) {
+                        $color = '#dc3545'; // Red (Missing Out)
+                        $title = 'Missing Out';
+                    } else {
+                        $title = $isClosed ? round($regHours, 2) . ' hrs' : 'Active';
+                    }
 
-                $events[] = [
-                    'id' => $tid,
-                    'title' => $title,
-                    'start' => $date,
-                    'color' => $color,
-                    'extendedProps' => ['isClosed' => $isClosed]
-                ];
+                    $events[] = [
+                        'id' => $tid,
+                        'title' => $title,
+                        'start' => $date,
+                        'color' => $color,
+                        'extendedProps' => ['isClosed' => $isClosed]
+                    ];
+                }
             }
 
             // 3. Vacation / PTO Event
@@ -192,7 +195,7 @@ class TimesheetController extends Controller {
                     'title' => 'Vacation ' . round($ptoHours, 2) . ' hrs',
                     'start' => $date,
                     'color' => '#9b59b6', // Purple
-                    'extendedProps' => ['isClosed' => true] // PTO is always considered "closed" visually
+                    'extendedProps' => ['isClosed' => true]
                 ];
             }
         }
@@ -205,7 +208,6 @@ class TimesheetController extends Controller {
      * @NoCSRFRequired
      */
     public function getTimesheet(int $id): DataResponse {
-        // 1. Fetch Main Record
         $qb = $this->db->getQueryBuilder();
         $qb->select('*')
            ->from('stech_timesheets')
@@ -217,14 +219,12 @@ class TimesheetController extends Controller {
             return new DataResponse([], 404);
         }
 
-        // 2. Fetch Activities
         $qbAct = $this->db->getQueryBuilder();
         $qbAct->select('*')
               ->from('stech_activity')
               ->where($qbAct->expr()->eq('timesheet_id', $qbAct->createNamedParameter($id)));
         $activities = $qbAct->executeQuery()->fetchAll();
 
-        // 3. Combine
         $timesheet['activities'] = $activities;
         
         return new DataResponse($timesheet);
@@ -238,8 +238,6 @@ class TimesheetController extends Controller {
         $data = $this->request->getParams();
         $date = $data['date'];
         
-        // --- 1. Validation Logic ---
-        
         // Check if user is requesting Per Diem
         $reqPerDiem = isset($data['req_per_diem']);
         
@@ -248,7 +246,6 @@ class TimesheetController extends Controller {
             return new DataResponse(['error' => 'You must provide a Start Time, unless requesting Per Diem only.'], 400);
         }
 
-        // If this is a NEW entry (no ID provided), check if previous is closed
         if (empty($data['timesheet_id'])) {
             $qbCheck = $this->db->getQueryBuilder();
             $qbCheck->select('*')
@@ -265,12 +262,10 @@ class TimesheetController extends Controller {
             }
         }
 
-        // Handle Time Strings
         $timeIn = empty($data['time_in']) ? null : $data['time_in'];
         $timeOut = empty($data['time_out']) ? null : $data['time_out'];
 
         // Determine "Travel" state automatically based on data presence
-        // (Ignoring the specific UI toggle state as requested)
         $hasTravelData = (
             isset($data['req_per_diem']) || 
             isset($data['road_scanning']) || 
@@ -287,7 +282,7 @@ class TimesheetController extends Controller {
             'time_out' => $timeOut,
             'time_break' => (int)$data['break_min'],
             'time_total' => (float)$data['total_hours'],
-            'travel' => $hasTravelData ? 1 : 0, // Set flag based on data content
+            'travel' => $hasTravelData ? 1 : 0, 
             'travel_per_diem' => isset($data['req_per_diem']) ? 1 : 0,
             'travel_road_scanning' => isset($data['road_scanning']) ? 1 : 0,
             'travel_first_last_day' => isset($data['first_last_day']) ? 1 : 0,
@@ -303,7 +298,6 @@ class TimesheetController extends Controller {
         $qb = $this->db->getQueryBuilder();
 
         if (!empty($data['timesheet_id'])) {
-            // --- UPDATE EXISTING ---
             $qb->update('stech_timesheets');
             foreach ($values as $col => $val) {
                 if ($col === 'userid') continue; 
@@ -313,7 +307,6 @@ class TimesheetController extends Controller {
             $qb->execute();
             $timesheetId = $data['timesheet_id'];
         } else {
-            // --- INSERT NEW ---
             $qb->insert('stech_timesheets');
             foreach ($values as $col => $val) {
                 $qb->setValue($col, $qb->createNamedParameter($val));
@@ -322,7 +315,6 @@ class TimesheetController extends Controller {
             $timesheetId = $qb->getLastInsertId();
         }
 
-        // --- Handle Activities ---
         $qbDel = $this->db->getQueryBuilder();
         $qbDel->delete('stech_activity')
               ->where($qbDel->expr()->eq('timesheet_id', $qbDel->createNamedParameter($timesheetId)));
