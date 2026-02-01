@@ -33,4 +33,19 @@ class PageController extends Controller {
 
         return $response;
     }
+
+    /**
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
+    public function analysis(): TemplateResponse {
+        $response = new TemplateResponse('stech_timesheet', 'analysis');
+
+        // Allow Chart.js from CDN
+        $csp = new ContentSecurityPolicy();
+        $csp->addAllowedScriptDomain('cdn.jsdelivr.net');
+        $response->setContentSecurityPolicy($csp);
+
+        return $response;
+    }
 }

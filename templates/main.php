@@ -37,6 +37,13 @@ Util::addStyle('stech_timesheet', 'style');
                     <span>Timesheet</span>
                 </a>
             </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.page.analysis')); ?>">
+                    <span class="icon-category-monitoring"></span>
+                    <span>Time Analysis</span>
+                </a>
+            </li>
             
             <?php if(\OC::$server->getGroupManager()->isAdmin(\OC::$server->getUserSession()->getUser()->getUID())): ?>
             <li class="nav-item">

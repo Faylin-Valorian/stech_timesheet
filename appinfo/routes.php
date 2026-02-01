@@ -3,6 +3,7 @@ return [
     'routes' => [
         // Pages
         ['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
+        ['name' => 'page#analysis', 'url' => '/analysis', 'verb' => 'GET'], // [NEW] Analysis Page
         ['name' => 'admin#index', 'url' => '/admin', 'verb' => 'GET'],
 
         // Time Entry API
@@ -11,6 +12,9 @@ return [
         ['name' => 'timesheet#getTimesheet', 'url' => '/api/timesheets/{id}', 'verb' => 'GET'],
         ['name' => 'timesheet#saveTimesheet', 'url' => '/api/timesheets', 'verb' => 'POST'],
         ['name' => 'timesheet#getCounties', 'url' => '/api/counties/{stateAbbr}', 'verb' => 'GET'],
+
+        // [NEW] Analysis API
+        ['name' => 'timesheet#getAnalysisStats', 'url' => '/api/analysis/stats', 'verb' => 'GET'],
 
         // Admin API - Settings & Thumbnails
         ['name' => 'admin#getSettings', 'url' => '/api/admin/settings', 'verb' => 'GET'],
@@ -35,7 +39,7 @@ return [
         ['name' => 'admin#getCounties', 'url' => '/api/admin/counties/{stateAbbr}', 'verb' => 'GET'],
         ['name' => 'admin#toggleCounty', 'url' => '/api/admin/counties/{id}/toggle', 'verb' => 'POST'],
 
-        // Admin API - Users (Added to fix 404 Error)
+        // Admin API - Users
         ['name' => 'admin#getUsers', 'url' => '/api/admin/users', 'verb' => 'GET'],
         ['name' => 'admin#toggleUserStatus', 'url' => '/api/admin/users/toggle', 'verb' => 'POST'],
     ]

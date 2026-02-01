@@ -1,0 +1,91 @@
+.analysis-content {
+    padding: 20px;
+    background-color: #f8f9fa; /* Light gray background */
+    height: 100%;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.analysis-toolbar {
+    display: flex;
+    gap: 20px;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+    align-items: center;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.filter-group label {
+    font-weight: bold;
+    color: #555;
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3 Columns */
+    gap: 20px;
+}
+
+/* Metrics Cards */
+.metric-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    text-align: center;
+    border-left: 4px solid #0082c9; /* Nextcloud Blue */
+}
+
+.metric-value {
+    font-size: 2.5em;
+    font-weight: bold;
+    color: #333;
+    margin: 10px 0;
+}
+
+.metric-sub {
+    color: #888;
+    font-size: 0.9em;
+}
+
+/* Chart Containers */
+.chart-container {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    min-height: 300px;
+    position: relative;
+}
+
+.full-width {
+    grid-column: 1 / -1; /* Span all columns */
+}
+
+.hidden {
+    display: none !important;
+}
+
+h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.1em;
+    color: #444;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+/* Responsive */
+@media (max-width: 1000px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}
