@@ -3,11 +3,6 @@ use OCP\Util;
 Util::addScript('stech_timesheet', 'admin');
 Util::addStyle('stech_timesheet', 'style'); 
 Util::addStyle('stech_timesheet', 'admin'); 
-$urlUsers = \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-users.png']);
-$urlHolidays = \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-holidays.png']);
-$urlJobs = \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-jobs.png']);
-$urlLocations = \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.getThumbnail', ['filename' => 'thumb-locations.png']);
-$fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/picture.svg');
 ?>
 
 <div id="app">
@@ -29,19 +24,29 @@ $fallbackImg = \OC::$server->getURLGenerator()->imagePath('core', 'places/pictur
 
     <div id="app-content">
         <div id="view-users" class="admin-view">
-            <div class="view-header"><h2>User Management</h2><p>Search for an employee to view their timesheet.</p></div>
+            <div class="view-header">
+                <h2>User Management</h2>
+            </div>
+            
             <div class="view-body">
-                <div class="form-section max-width-600">
-                    <label>Select Employee</label>
-                    <div class="searchable-select-wrapper">
-                        <input type="text" id="user-search" class="form-control" placeholder="Type name..." autocomplete="off">
-                        <div id="user-dropdown-list" class="custom-dropdown-list hidden"></div>
-                        <input type="hidden" id="selected-user-uid">
-                    </div>
-                    <div style="margin-top:20px;">
-                        <button id="btn-view-user" class="primary-button" disabled>Open Timesheet Calendar</button>
+                <div class="panel-header-row full-width-header">
+                    <div class="search-filter-wrapper expanded-search">
+                        <input type="text" id="user-search-input" class="filter-input-with-icon" placeholder="Search employees (e.g. 'Jo' for John)..." autocomplete="off">
+                        
+                        <button class="btn-filter-icon" id="user-filter-btn" title="Filter Options">
+                            <span class="icon-filter"></span>
+                        </button>
+                        
+                        <div class="filter-menu hidden" id="user-filter-menu">
+                            <label><input type="radio" name="user-status" value="active" checked> Active Employees</label>
+                            <label><input type="radio" name="user-status" value="inactive"> Inactive</label>
+                            <label><input type="radio" name="user-status" value="all"> Show All</label>
+                        </div>
                     </div>
                 </div>
+
+                <div id="user-grid-container" class="user-grid">
+                    </div>
             </div>
         </div>
 

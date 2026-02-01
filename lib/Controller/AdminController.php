@@ -9,7 +9,6 @@ use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\Http\FileDisplayResponse;
 use OCP\AppFramework\Http\StreamResponse;
-use OCP\AppFramework\Http\Response; 
 use OCP\IDBConnection;
 use OCP\IUserSession;
 use OCP\IGroupManager;
@@ -41,7 +40,9 @@ class AdminController extends Controller {
         return new TemplateResponse('stech_timesheet', 'admin');
     }
 
-    // --- SETTINGS & THUMBNAILS ---
+    // =========================================================================
+    //  SETTINGS & THUMBNAILS
+    // =========================================================================
 
     /**
      * @NoCSRFRequired
@@ -151,6 +152,7 @@ class AdminController extends Controller {
         $localFile = $localImgDir . $fileName;
         $savedToLocal = false;
 
+        // Try writing to app directory (often read-only in production, but good for dev)
         if (is_writable($localImgDir)) {
             $content = stream_get_contents($sourceStream);
             if (file_put_contents($localFile, $content) !== false) {
@@ -159,6 +161,7 @@ class AdminController extends Controller {
             rewind($sourceStream); 
         }
 
+        // If app dir failed, write to AppData
         if (!$savedToLocal) {
             try {
                 try { $folder = $this->appData->getFolder('thumbnails'); } 
@@ -179,22 +182,127 @@ class AdminController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-    // --- USERS ---
+    // =========================================================================
+    //  USER MANAGEMENT (Updated for Status Toggle)
+    // =========================================================================
 
     /**
      * @NoCSRFRequired
      * @AdminRequired
      */
     public function getUsers(): DataResponse {
-        $users = $this->userManager->search('');
-        $result = []; 
-        foreach ($users as $u) {
-            $result[] = ['uid' => $u->getUID(), 'displayname' => $u->getDisplayName()];
+        // 1. Get All Nextcloud Users
+        $ncUsers = $this->userManager->search('');
+        
+        // 2. Get Local Employee Status from stech_employees
+        // (Assumes table exists from Version20260131140000)
+        try {
+            $qb = $this->db->getQueryBuilder();
+            $employeeRows = $qb->select('*')->from('stech_employees')->executeQuery()->fetchAll();
+        } catch (\Exception $e) {
+            $employeeRows = [];
         }
+
+        $statusMap = [];
+        foreach($employeeRows as $row) {
+            $statusMap[$row['uid']] = (int)$row['is_active'];
+        }
+
+        $result = []; 
+        foreach ($ncUsers as $u) {
+            $uid = $u->getUID();
+            // Default to 1 (active) if not in database
+            $isActive = isset($statusMap[$uid]) ? $statusMap[$uid] : 1;
+            
+            $result[] = [
+                'uid' => $uid, 
+                'displayname' => $u->getDisplayName(),
+                'email' => $u->getEmailAddress(),
+                'is_active' => $isActive
+            ];
+        }
+        
+        // Sort: Active first, then Alphabetical by Name
+        usort($result, function($a, $b) {
+            if ($a['is_active'] !== $b['is_active']) {
+                return $b['is_active'] - $a['is_active']; // 1 before 0
+            }
+            return strcasecmp($a['displayname'], $b['displayname']);
+        });
+
         return new DataResponse($result);
     }
 
-    // --- HOLIDAYS ---
+    /**
+     * @NoCSRFRequired
+     * @AdminRequired
+     */
+    public function toggleUserStatus(): DataResponse {
+        $data = $this->request->getParams();
+        $uid = $data['uid'] ?? null;
+        
+        if (!$uid) {
+            return new DataResponse(['error' => 'Missing UID'], 400);
+        }
+
+        $qb = $this->db->getQueryBuilder();
+        $record = $qb->select('*')->from('stech_employees')
+                     ->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
+                     ->executeQuery()->fetch();
+
+        $currentStatus = $record ? (int)$record['is_active'] : 1; // Default 1 if no record
+        $newStatus = ($currentStatus === 1) ? 0 : 1;
+        $now = date('Y-m-d H:i:s');
+        $todayDate = date('Y-m-d');
+
+        // 1. Update/Insert Status in stech_employees
+        $qb = $this->db->getQueryBuilder();
+        if ($record) {
+            $qb->update('stech_employees')
+               ->set('is_active', $qb->createNamedParameter($newStatus))
+               ->set('status_changed_at', $qb->createNamedParameter($now))
+               ->where($qb->expr()->eq('uid', $qb->createNamedParameter($uid)))
+               ->execute();
+        } else {
+            $qb->insert('stech_employees')
+               ->values([
+                   'uid' => $qb->createNamedParameter($uid),
+                   'is_active' => $qb->createNamedParameter($newStatus),
+                   'status_changed_at' => $qb->createNamedParameter($now)
+               ])->execute();
+        }
+
+        // 2. Handle Holiday Archiving
+        // Logic: 
+        // IF User -> Inactive ($newStatus == 0): Archive (=1) all timesheets for holidays >= Today
+        // IF User -> Active ($newStatus == 1): Unarchive (=0) all timesheets for holidays >= Today
+        
+        $archiveVal = ($newStatus === 0) ? 1 : 0; 
+
+        // We use a raw query or DBAL to update stech_timesheets based on stech_holidays
+        // Update stech_timesheets set archive = X where userid = Y AND date >= today AND date IS inside a holiday range
+        
+        $sql = "UPDATE `*PREFIX*stech_timesheets` AS t
+                SET t.`archive` = :archiveVal 
+                WHERE t.`userid` = :uid 
+                AND t.`timesheet_date` >= :today
+                AND EXISTS (
+                    SELECT 1 FROM `*PREFIX*stech_holidays` h 
+                    WHERE t.`timesheet_date` BETWEEN h.`holiday_start_date` AND h.`holiday_end_date`
+                )";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindValue('archiveVal', $archiveVal, \PDO::PARAM_INT);
+        $stmt->bindValue('uid', $uid);
+        $stmt->bindValue('today', $todayDate);
+        $stmt->execute();
+
+        return new DataResponse(['status' => 'success', 'new_state' => $newStatus]);
+    }
+
+    // =========================================================================
+    //  HOLIDAYS
+    // =========================================================================
 
     /**
      * @NoCSRFRequired
@@ -256,7 +364,9 @@ class AdminController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-    // --- JOBS ---
+    // =========================================================================
+    //  JOBS
+    // =========================================================================
 
     /**
      * @NoCSRFRequired
@@ -309,7 +419,9 @@ class AdminController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-    // --- LOCATIONS ---
+    // =========================================================================
+    //  LOCATIONS
+    // =========================================================================
 
     /**
      * @NoCSRFRequired

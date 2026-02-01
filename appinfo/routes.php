@@ -1,39 +1,42 @@
 <?php
 return [
     'routes' => [
-        // --- Pages ---
+        // Pages
         ['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
         ['name' => 'admin#index', 'url' => '/admin', 'verb' => 'GET'],
 
-        // --- Public API ---
+        // Time Entry API
         ['name' => 'timesheet#getAttributes', 'url' => '/api/attributes', 'verb' => 'GET'],
+        ['name' => 'timesheet#getTimesheets', 'url' => '/api/timesheets', 'verb' => 'GET'],
+        ['name' => 'timesheet#getTimesheet', 'url' => '/api/timesheets/{id}', 'verb' => 'GET'],
+        ['name' => 'timesheet#saveTimesheet', 'url' => '/api/timesheets', 'verb' => 'POST'],
         ['name' => 'timesheet#getCounties', 'url' => '/api/counties/{stateAbbr}', 'verb' => 'GET'],
-        ['name' => 'timesheet#getTimesheets', 'url' => '/api/list', 'verb' => 'GET'],
-        ['name' => 'timesheet#getTimesheet', 'url' => '/api/get/{id}', 'verb' => 'GET'],
-        ['name' => 'timesheet#saveTimesheet', 'url' => '/api/save', 'verb' => 'POST'],
 
-        // --- Admin API ---
-        ['name' => 'admin#getUsers', 'url' => '/api/admin/users', 'verb' => 'GET'],
+        // Admin API - Settings & Thumbnails
         ['name' => 'admin#getSettings', 'url' => '/api/admin/settings', 'verb' => 'GET'],
         ['name' => 'admin#saveSetting', 'url' => '/api/admin/settings', 'verb' => 'POST'],
-        ['name' => 'admin#getThumbnail', 'url' => '/thumbnail/{filename}', 'verb' => 'GET'],
-        ['name' => 'admin#uploadThumbnail', 'url' => '/api/admin/thumbnail/{cardId}', 'verb' => 'POST'],
+        ['name' => 'admin#uploadThumbnail', 'url' => '/api/admin/thumbnails/{cardId}', 'verb' => 'POST'],
+        ['name' => 'admin#getThumbnail', 'url' => '/api/admin/thumbnails/{filename}', 'verb' => 'GET'],
 
-        // Holidays
+        // Admin API - Holidays
         ['name' => 'admin#getHolidays', 'url' => '/api/admin/holidays', 'verb' => 'GET'],
         ['name' => 'admin#saveHoliday', 'url' => '/api/admin/holidays', 'verb' => 'POST'],
-        ['name' => 'admin#toggleHoliday', 'url' => '/api/admin/holidays/{id}/toggle', 'verb' => 'POST'], // Added this
+        ['name' => 'admin#toggleHoliday', 'url' => '/api/admin/holidays/{id}/toggle', 'verb' => 'POST'],
         ['name' => 'admin#deleteHoliday', 'url' => '/api/admin/holidays/{id}', 'verb' => 'DELETE'],
 
-        // Jobs
+        // Admin API - Jobs
         ['name' => 'admin#getJobs', 'url' => '/api/admin/jobs', 'verb' => 'GET'],
         ['name' => 'admin#saveJob', 'url' => '/api/admin/jobs', 'verb' => 'POST'],
         ['name' => 'admin#toggleJob', 'url' => '/api/admin/jobs/{id}/toggle', 'verb' => 'POST'],
 
-        // Locations
+        // Admin API - Locations
         ['name' => 'admin#getStates', 'url' => '/api/admin/states', 'verb' => 'GET'],
-        ['name' => 'admin#getCounties', 'url' => '/api/admin/counties/{stateAbbr}', 'verb' => 'GET'],
         ['name' => 'admin#toggleState', 'url' => '/api/admin/states/{id}/toggle', 'verb' => 'POST'],
+        ['name' => 'admin#getCounties', 'url' => '/api/admin/counties/{stateAbbr}', 'verb' => 'GET'],
         ['name' => 'admin#toggleCounty', 'url' => '/api/admin/counties/{id}/toggle', 'verb' => 'POST'],
+
+        // Admin API - Users (Added to fix 404 Error)
+        ['name' => 'admin#getUsers', 'url' => '/api/admin/users', 'verb' => 'GET'],
+        ['name' => 'admin#toggleUserStatus', 'url' => '/api/admin/users/toggle', 'verb' => 'POST'],
     ]
 ];

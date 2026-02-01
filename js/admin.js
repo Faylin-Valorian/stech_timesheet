@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('nav-jobs').addEventListener('click', () => switchView('jobs'));
     document.getElementById('nav-locations').addEventListener('click', () => switchView('locations'));
 
+    // Init Logic
     loadUsers();
 
     // --- FILTERS ---
@@ -44,37 +45,116 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         document.addEventListener('click', (e) => { if(!menu.contains(e.target) && e.target !== btn) menu.classList.add('hidden'); });
     }
+    // Setup for all views
+    setupFilter('user-filter-btn', 'user-filter-menu', 'user-status', renderUsers);
     setupFilter('job-filter-btn', 'job-filter-menu', 'job-status', renderJobs);
     setupFilter('state-filter-btn', 'state-filter-menu', 'state-status', renderStates);
     setupFilter('county-filter-btn', 'county-filter-menu', 'county-status', renderCounties);
     setupFilter('holiday-filter-btn', 'holiday-filter-menu', 'holiday-status', renderHolidays);
 
-    // --- USERS ---
+    // --- USERS (Redesigned) ---
     function loadUsers() {
-        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users')).then(r => r.json()).then(u => { allUsers = u; });
-    }
-    const userSearch = document.getElementById('user-search');
-    const userDropdown = document.getElementById('user-dropdown-list');
-    userSearch.addEventListener('input', function() {
-        const term = (this.value || '').toLowerCase();
-        userDropdown.innerHTML = '';
-        if(term.length < 1) { userDropdown.classList.add('hidden'); return; }
-        const filtered = allUsers.filter(u => (u.displayname || '').toLowerCase().includes(term));
-        if (filtered.length === 0) userDropdown.innerHTML = '<div style="padding:10px; opacity:0.6;">No users found</div>';
-        else filtered.forEach(u => {
-            const div = document.createElement('div'); div.className = 'dropdown-item'; div.innerText = u.displayname;
-            div.addEventListener('click', () => {
-                userSearch.value = u.displayname; document.getElementById('selected-user-uid').value = u.uid;
-                userDropdown.classList.add('hidden'); document.getElementById('btn-view-user').disabled = false;
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users'))
+            .then(r => r.json())
+            .then(u => { 
+                allUsers = u; 
+                renderUsers(); 
             });
-            userDropdown.appendChild(div);
+    }
+
+    function renderUsers() {
+        const term = (document.getElementById('user-search-input').value || '').toLowerCase();
+        // Get the selected status from the filter menu
+        const statusRadio = document.querySelector('input[name="user-status"]:checked');
+        const status = statusRadio ? statusRadio.value : 'active';
+
+        const container = document.getElementById('user-grid-container');
+        container.innerHTML = '';
+
+        const filtered = allUsers.filter(u => {
+            // 1. Text Search Filter (Dynamic)
+            const matchesName = (u.displayname || '').toLowerCase().includes(term);
+            const matchesEmail = (u.email || '').toLowerCase().includes(term);
+            if (!matchesName && !matchesEmail) return false;
+
+            // 2. Status Filter
+            const isActive = (u.is_active === 1);
+            if (status === 'active' && !isActive) return false;
+            if (status === 'inactive' && isActive) return false;
+            
+            return true;
         });
-        userDropdown.classList.remove('hidden');
-    });
-    document.addEventListener('click', (e) => { if (!e.target.closest('.searchable-select-wrapper')) userDropdown.classList.add('hidden'); });
-    document.getElementById('btn-view-user').addEventListener('click', () => {
-        window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + document.getElementById('selected-user-uid').value;
-    });
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:20px; opacity:0.6;">No employees found matching filter.</div>';
+            return;
+        }
+
+        filtered.forEach(u => {
+            const card = document.createElement('div');
+            card.className = 'user-card';
+            if (u.is_active === 0) card.classList.add('inactive');
+
+            // Avatar Initials
+            const initials = (u.displayname || '?').substring(0,2).toUpperCase();
+            
+            // Buttons HTML
+            const buttonsHtml = `
+                <button class="btn-icon-only" title="Edit Employee" onclick="alert('Edit functionality coming soon for ${u.displayname}')">
+                    <span class="icon-rename"></span>
+                </button>
+                <button class="btn-icon-only btn-calendar" title="Open Timesheet" data-uid="${u.uid}">
+                    <span class="icon-calendar-dark"></span>
+                </button>
+                <label class="admin-switch" title="Toggle Active/Inactive">
+                    <input type="checkbox" class="user-toggle-input" data-uid="${u.uid}" ${u.is_active === 1 ? 'checked' : ''}>
+                    <span class="admin-slider"></span>
+                </label>
+            `;
+
+            card.innerHTML = `
+                <div class="user-avatar-placeholder">${initials}</div>
+                <div class="user-info">
+                    <div class="user-name">${u.displayname}</div>
+                    <div class="user-email">${u.email || ''}</div>
+                </div>
+                <div class="user-actions">${buttonsHtml}</div>
+            `;
+
+            container.appendChild(card);
+        });
+
+        // Attach Events
+        document.querySelectorAll('.btn-calendar').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const uid = e.currentTarget.dataset.uid;
+                window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + uid;
+            });
+        });
+
+        document.querySelectorAll('.user-toggle-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const uid = e.target.dataset.uid;
+                toggleUserStatus(uid);
+            });
+        });
+    }
+
+    function toggleUserStatus(uid) {
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users/toggle'), {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({uid: uid})
+        }).then(r => r.json()).then(res => {
+            // Update local state without full reload to keep UI snappy
+            const u = allUsers.find(user => user.uid === uid);
+            if (u) u.is_active = res.new_state;
+            renderUsers(); // Re-render to apply active/inactive styling immediately
+        });
+    }
+
+    // Bind the input event for dynamic searching
+    document.getElementById('user-search-input').addEventListener('input', renderUsers);
 
     // --- HOLIDAYS ---
     function loadHolidays() {
@@ -158,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(loadHolidays);
     }
 
-    // --- JOBS (UPDATED for Editing) ---
+    // --- JOBS ---
     function loadJobs() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs'))
             .then(r => r.json()).then(d => { allJobs = d || []; renderJobs(); });
@@ -180,7 +260,6 @@ document.addEventListener('DOMContentLoaded', function() {
             item.className = 'list-item';
             if(!active) item.style.opacity = '0.6';
 
-            // Click to Edit
             const span = document.createElement('span');
             span.innerText = j.job_name;
             span.style.flex = '1';
@@ -201,7 +280,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     document.getElementById('job-search-input').addEventListener('input', renderJobs);
 
-    // Job Edit Functions
     function editJob(j) {
         document.getElementById('job-id').value = j.job_id;
         document.getElementById('job-name').value = j.job_name;
