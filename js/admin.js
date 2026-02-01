@@ -261,7 +261,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if(!active) item.style.opacity = '0.6';
 
             const span = document.createElement('span');
-            span.innerText = j.job_name;
+            // Show PTO tag if active
+            const ptoTag = (j.is_pto == 1) ? ' <span style="font-size:0.7em; background:#9b59b6; color:white; padding:1px 4px; border-radius:3px;">PTO</span>' : '';
+            span.innerHTML = j.job_name + ptoTag;
             span.style.flex = '1';
             span.style.cursor = 'pointer';
             span.addEventListener('click', () => editJob(j));
@@ -284,6 +286,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('job-id').value = j.job_id;
         document.getElementById('job-name').value = j.job_name;
         document.getElementById('job-desc').value = j.job_description;
+        // [NEW] Populate PTO Toggle
+        document.getElementById('job-is-pto').checked = (j.is_pto == 1);
+        
         document.getElementById('btn-save-job').innerText = "Update Job";
         document.getElementById('job-form-title').innerText = "Edit Job";
         document.getElementById('btn-cancel-job').classList.remove('hidden');
@@ -292,6 +297,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function resetJobForm() {
         document.getElementById('form-job').reset();
         document.getElementById('job-id').value = '';
+        document.getElementById('job-is-pto').checked = false; // [NEW] Reset toggle
         document.getElementById('btn-save-job').innerText = "Create Job";
         document.getElementById('job-form-title').innerText = "Create Job";
         document.getElementById('btn-cancel-job').classList.add('hidden');
@@ -303,7 +309,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const payload = {
             id: document.getElementById('job-id').value,
             name: document.getElementById('job-name').value,
-            description: document.getElementById('job-desc').value
+            description: document.getElementById('job-desc').value,
+            is_pto: document.getElementById('job-is-pto').checked ? 1 : 0 // [NEW] Include toggle value
         };
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs'), {
             method: 'POST', headers: {'Content-Type': 'application/json'},

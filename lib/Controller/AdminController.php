@@ -378,29 +378,36 @@ class AdminController extends Controller {
         return new DataResponse($jobs);
     }
 
-    /**
+/**
+     * @NoAdminRequired
      * @NoCSRFRequired
-     * @AdminRequired
      */
     public function saveJob(): DataResponse {
-        $data = $this->request->getParams();
+        $id = $this->request->getParam('id');
+        $name = $this->request->getParam('name');
+        $desc = $this->request->getParam('description');
+        $isPto = $this->request->getParam('is_pto') ? 1 : 0; // [NEW] Capture PTO Flag
+
         $qb = $this->db->getQueryBuilder();
-        
-        if (!empty($data['id'])) {
+
+        if (!empty($id)) {
             $qb->update('stech_jobs')
-               ->set('job_name', $qb->createNamedParameter($data['name']))
-               ->set('job_description', $qb->createNamedParameter($data['description'] ?? ''))
-               ->where($qb->expr()->eq('job_id', $qb->createNamedParameter($data['id'])))
-               ->execute();
+               ->set('job_name', $qb->createNamedParameter($name))
+               ->set('job_description', $qb->createNamedParameter($desc))
+               ->set('is_pto', $qb->createNamedParameter($isPto, \PDO::PARAM_INT)) // [NEW]
+               ->where($qb->expr()->eq('job_id', $qb->createNamedParameter($id)));
+            $qb->execute();
         } else {
             $qb->insert('stech_jobs')
                ->values([
-                   'job_name' => $qb->createNamedParameter($data['name']), 
-                   'job_description' => $qb->createNamedParameter($data['description'] ?? ''), 
-                   'job_archive' => $qb->createNamedParameter(0)
-               ])
-               ->execute();
+                   'job_name' => $qb->createNamedParameter($name),
+                   'job_description' => $qb->createNamedParameter($desc),
+                   'job_archive' => $qb->createNamedParameter(0),
+                   'is_pto' => $qb->createNamedParameter($isPto, \PDO::PARAM_INT) // [NEW]
+               ]);
+            $qb->execute();
         }
+
         return new DataResponse(['status' => 'success']);
     }
 

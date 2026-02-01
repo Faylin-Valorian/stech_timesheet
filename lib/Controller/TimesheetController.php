@@ -71,11 +71,23 @@ class TimesheetController extends Controller {
         return new DataResponse($counties);
     }
 
-    /**
+/**
      * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getTimesheets(string $start, string $end): DataResponse {
+        // 1. Fetch Job Metadata (to map Name -> IsPTO)
+        $qbJobs = $this->db->getQueryBuilder();
+        $qbJobs->select('job_name', 'is_pto')
+               ->from('stech_jobs');
+        $allJobs = $qbJobs->executeQuery()->fetchAll();
+        
+        $ptoJobMap = [];
+        foreach($allJobs as $j) {
+            $ptoJobMap[$j['job_name']] = (int)$j['is_pto'];
+        }
+
+        // 2. Fetch Timesheets
         $qb = $this->db->getQueryBuilder();
         $qb->select('*')
            ->from('stech_timesheets')
@@ -84,51 +96,105 @@ class TimesheetController extends Controller {
            ->andWhere($qb->expr()->lte('timesheet_date', $qb->createNamedParameter($end)));
         
         $results = $qb->executeQuery()->fetchAll();
+        $timesheetIds = array_column($results, 'timesheet_id');
+
+        // 3. Fetch Activities for these timesheets
+        $activitiesGrouped = [];
+        if (!empty($timesheetIds)) {
+            $qbAct = $this->db->getQueryBuilder();
+            $qbAct->select('*')
+                  ->from('stech_activity')
+                  ->where($qbAct->expr()->in('timesheet_id', $qbAct->createNamedParameter($timesheetIds, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
+            $acts = $qbAct->executeQuery()->fetchAll();
+            
+            foreach($acts as $a) {
+                $activitiesGrouped[$a['timesheet_id']][] = $a;
+            }
+        }
         
         $events = [];
         $today = date('Y-m-d');
 
         foreach ($results as $row) {
-            $isClosed = !empty($row['time_out']);
+            $tid = $row['timesheet_id'];
+            $totalHours = (float)$row['time_total'];
             $date = $row['timesheet_date'];
+            $isClosed = !empty($row['time_out']);
             
-            // --- COLOR & TITLE LOGIC ---
-            $color = '#ffc107'; // Default: Active (Yellow/Orange)
-            $title = 'Active';
+            // --- SPLIT LOGIC ---
+            $regHours = 0.0;
+            $ptoHours = 0.0;
+            
+            $acts = $activitiesGrouped[$tid] ?? [];
+            
+            if (empty($acts)) {
+                // If no activities defined, treat all as Regular (unless [PTO] tag is present - legacy fallback)
+                $regHours = $totalHours;
+            } else {
+                // Calculate split based on activity percent
+                foreach ($acts as $act) {
+                    $jobName = $act['activity_description'];
+                    $percent = (float)$act['activity_percent'];
+                    $hours = $totalHours * ($percent / 100);
 
-            // 1. Vacation / PTO
-            // Check for PTO tag in comments OR if a vacation flag exists (if you have one)
-            // For now, based on previous code, we check the comments tag.
-            $isPto = (strpos($row['additional_comments'] ?? '', '[PTO]') !== false);
-
-            // 2. Per Diem Only (No Start Time + Per Diem Flag)
-            $isPerDiemOnly = (empty($row['time_in']) && $row['travel_per_diem'] == 1);
-
-            if ($isPto) {
-                $color = '#9b59b6'; // Purple for Vacation
-                $title = 'Vacation ' . $row['time_total'] . ' hrs';
-                $isClosed = true; 
-            } elseif ($isPerDiemOnly) {
-                $color = '#17a2b8'; // Teal for Per Diem Only
-                $title = 'Per Diem';
-                $isClosed = true;
-            } elseif ($isClosed) {
-                $color = '#28a745'; // Green for Closed
-                $title = $row['time_total'] . ' hrs';
-            } elseif ($date < $today) {
-                $color = '#dc3545'; // Red for Missing Out
-                $title = 'Missing Out';
+                    // Check if this job is flagged as PTO
+                    if (isset($ptoJobMap[$jobName]) && $ptoJobMap[$jobName] === 1) {
+                        $ptoHours += $hours;
+                    } else {
+                        $regHours += $hours;
+                    }
+                }
+            }
+            
+            // Fallback: If [PTO] tag is explicitly in comments, force any "Regular" hours into "PTO" 
+            // (Only if user didn't pick specific jobs, to maintain backward compatibility/manual override)
+            if (strpos($row['additional_comments'] ?? '', '[PTO]') !== false) {
+                 $ptoHours += $regHours;
+                 $regHours = 0;
             }
 
-            $events[] = [
-                'id' => $row['timesheet_id'],
-                'title' => $title,
-                'start' => $row['timesheet_date'],
-                'color' => $color,
-                'extendedProps' => [
-                    'isClosed' => $isClosed
-                ]
-            ];
+            // --- GENERATE EVENTS ---
+
+            // 1. Per Diem Event (No Time In, but Per Diem Checked)
+            if (empty($row['time_in']) && $row['travel_per_diem'] == 1) {
+                 $events[] = [
+                    'id' => $tid,
+                    'title' => 'Per Diem',
+                    'start' => $date,
+                    'color' => '#17a2b8', // Teal
+                    'extendedProps' => ['isClosed' => true]
+                ];
+            }
+
+            // 2. Regular Work Event
+            if ($regHours > 0.01) {
+                $color = $isClosed ? '#28a745' : '#ffc107'; // Green or Yellow
+                if ($date < $today && !$isClosed) {
+                    $color = '#dc3545'; // Red (Missing Out)
+                    $title = 'Missing Out';
+                } else {
+                    $title = $isClosed ? round($regHours, 2) . ' hrs' : 'Active';
+                }
+
+                $events[] = [
+                    'id' => $tid,
+                    'title' => $title,
+                    'start' => $date,
+                    'color' => $color,
+                    'extendedProps' => ['isClosed' => $isClosed]
+                ];
+            }
+
+            // 3. Vacation / PTO Event
+            if ($ptoHours > 0.01) {
+                $events[] = [
+                    'id' => $tid,
+                    'title' => 'Vacation ' . round($ptoHours, 2) . ' hrs',
+                    'start' => $date,
+                    'color' => '#9b59b6', // Purple
+                    'extendedProps' => ['isClosed' => true] // PTO is always considered "closed" visually
+                ];
+            }
         }
 
         return new DataResponse($events);
