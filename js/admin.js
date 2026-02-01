@@ -93,19 +93,16 @@ document.addEventListener('DOMContentLoaded', function() {
         filtered.forEach(u => {
             const card = document.createElement('div');
             card.className = 'user-card';
+            // Make card look clickable
+            card.style.cursor = 'pointer'; 
+            
             if (u.is_active === 0) card.classList.add('inactive');
 
             // Avatar Initials
             const initials = (u.displayname || '?').substring(0,2).toUpperCase();
             
-            // Buttons HTML
+            // Buttons HTML - ONLY Toggle remains
             const buttonsHtml = `
-                <button class="btn-icon-only" title="Edit Employee" onclick="alert('Edit functionality coming soon for ${u.displayname}')">
-                    <span class="icon-rename"></span>
-                </button>
-                <button class="btn-icon-only btn-calendar" title="Open Timesheet" data-uid="${u.uid}">
-                    <span class="icon-calendar-dark"></span>
-                </button>
                 <label class="admin-switch" title="Toggle Active/Inactive">
                     <input type="checkbox" class="user-toggle-input" data-uid="${u.uid}" ${u.is_active === 1 ? 'checked' : ''}>
                     <span class="admin-slider"></span>
@@ -121,17 +118,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="user-actions">${buttonsHtml}</div>
             `;
 
+            // Click event for the whole card
+            card.addEventListener('click', (e) => {
+                // If user clicked the switch or slider, do NOT navigate
+                if (e.target.closest('.admin-switch')) {
+                    return;
+                }
+                // Otherwise open timesheet
+                window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + u.uid;
+            });
+
             container.appendChild(card);
         });
 
-        // Attach Events
-        document.querySelectorAll('.btn-calendar').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const uid = e.currentTarget.dataset.uid;
-                window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + uid;
-            });
-        });
-
+        // Attach Events for toggles
         document.querySelectorAll('.user-toggle-input').forEach(input => {
             input.addEventListener('change', (e) => {
                 const uid = e.target.dataset.uid;
