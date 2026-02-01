@@ -8,20 +8,17 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IDBConnection;
 use OCP\IUserSession;
-use OCP\IGroupManager;
 
 class TimesheetController extends Controller {
     private $db;
     private $userSession;
     private $userId;
-    private $groupManager;
 
-    public function __construct(IRequest $request, IDBConnection $db, IUserSession $userSession, IGroupManager $groupManager) {
+    public function __construct(IRequest $request, IDBConnection $db, IUserSession $userSession) {
         parent::__construct('stech_timesheet', $request);
         $this->db = $db;
         $this->userSession = $userSession;
         $this->userId = $userSession->getUser() ? $userSession->getUser()->getUID() : null;
-        $this->groupManager = $groupManager;
     }
 
     /**
@@ -133,6 +130,7 @@ class TimesheetController extends Controller {
      * @NoCSRFRequired
      */
     public function getTimesheet(int $id): DataResponse {
+        // 1. Fetch Main Record
         $qb = $this->db->getQueryBuilder();
         $qb->select('*')
            ->from('stech_timesheets')
@@ -144,12 +142,14 @@ class TimesheetController extends Controller {
             return new DataResponse([], 404);
         }
 
+        // 2. Fetch Activities
         $qbAct = $this->db->getQueryBuilder();
         $qbAct->select('*')
               ->from('stech_activity')
               ->where($qbAct->expr()->eq('timesheet_id', $qbAct->createNamedParameter($id)));
         $activities = $qbAct->executeQuery()->fetchAll();
 
+        // 3. Combine
         $timesheet['activities'] = $activities;
         
         return new DataResponse($timesheet);
@@ -163,6 +163,9 @@ class TimesheetController extends Controller {
         $data = $this->request->getParams();
         $date = $data['date'];
         
+        // --- 1. Validation Logic ---
+        
+        // If this is a NEW entry (no ID provided), check if previous is closed
         if (empty($data['timesheet_id'])) {
             $qbCheck = $this->db->getQueryBuilder();
             $qbCheck->select('*')
@@ -175,10 +178,12 @@ class TimesheetController extends Controller {
             $lastEntry = $qbCheck->executeQuery()->fetch();
 
             if ($lastEntry && empty($lastEntry['time_out'])) {
+                // Allow multiple entries ONLY if previous is clocked out
                 return new DataResponse(['error' => 'You must clock out of your previous entry for this day before adding a new one.'], 400);
             }
         }
 
+        // Handle Time Strings (Convert empty to NULL to avoid SQL Error 1292)
         $timeIn = empty($data['time_in']) ? null : $data['time_in'];
         $timeOut = empty($data['time_out']) ? null : $data['time_out'];
 
@@ -205,15 +210,17 @@ class TimesheetController extends Controller {
         $qb = $this->db->getQueryBuilder();
 
         if (!empty($data['timesheet_id'])) {
+            // --- UPDATE EXISTING ---
             $qb->update('stech_timesheets');
             foreach ($values as $col => $val) {
-                if ($col === 'userid') continue; 
+                if ($col === 'userid') continue; // Don't update userid
                 $qb->set($col, $qb->createNamedParameter($val));
             }
             $qb->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($data['timesheet_id'])));
             $qb->execute();
             $timesheetId = $data['timesheet_id'];
         } else {
+            // --- INSERT NEW ---
             $qb->insert('stech_timesheets');
             foreach ($values as $col => $val) {
                 $qb->setValue($col, $qb->createNamedParameter($val));
@@ -222,6 +229,7 @@ class TimesheetController extends Controller {
             $timesheetId = $qb->getLastInsertId();
         }
 
+        // --- Handle Activities (Delete Old, Insert New) ---
         $qbDel = $this->db->getQueryBuilder();
         $qbDel->delete('stech_activity')
               ->where($qbDel->expr()->eq('timesheet_id', $qbDel->createNamedParameter($timesheetId)));
@@ -244,108 +252,5 @@ class TimesheetController extends Controller {
         }
 
         return new DataResponse(['status' => 'success']);
-    }
-
-    /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     */
-    public function getAnalysisStats(string $period, string $target_uid): DataResponse {
-        $currentUser = $this->userSession->getUser()->getUID();
-        $isAdmin = $this->groupManager->isAdmin($currentUser);
-        $uid = $currentUser;
-
-        // Admin override logic
-        if ($isAdmin && $target_uid !== 'self') {
-            if ($target_uid === 'all') {
-                $uid = null; // Fetch for all users
-            } else {
-                $uid = $target_uid; // Fetch for specific user
-            }
-        }
-
-        // Calculate Date Range
-        $endDate = new \DateTime();
-        $startDate = new \DateTime();
-        $startDate->modify('-' . (int)$period . ' days');
-
-        $qb = $this->db->getQueryBuilder();
-        $qb->select('t.*', 'a.activity_description', 'a.activity_percent')
-           ->from('stech_timesheets', 't')
-           ->leftJoin('t', 'stech_activity', 'a', 't.timesheet_id = a.timesheet_id')
-           ->where($qb->expr()->gte('t.timesheet_date', $qb->createNamedParameter($startDate->format('Y-m-d'))))
-           ->andWhere($qb->expr()->lte('t.timesheet_date', $qb->createNamedParameter($endDate->format('Y-m-d'))));
-
-        if ($uid) {
-            $qb->andWhere($qb->expr()->eq('t.userid', $qb->createNamedParameter($uid)));
-        }
-
-        $results = $qb->executeQuery()->fetchAll();
-
-        // Data Aggregation
-        $totalHours = 0;
-        $ptoHours = 0;
-        $trendData = []; 
-        $jobStats = []; 
-        $processedTimesheets = []; // Track unique timesheets to avoid double counting totals on joined rows
-
-        foreach ($results as $row) {
-            $tid = $row['timesheet_id'];
-            $hours = (float)$row['time_total'];
-            $date = $row['timesheet_date'];
-            
-            // 1. Basic Totals (Handle duplicate rows due to Joins)
-            if (!in_array($tid, $processedTimesheets)) {
-                $totalHours += $hours;
-                
-                $isPto = (strpos($row['additional_comments'] ?? '', '[PTO]') !== false);
-                if ($isPto) {
-                    $ptoHours += $hours;
-                }
-
-                // Trend Data
-                if (!isset($trendData[$date])) $trendData[$date] = 0;
-                $trendData[$date] += $hours;
-                
-                $processedTimesheets[] = $tid;
-            }
-
-            // 2. Job Statistics (Weighted by percent)
-            if (!empty($row['activity_description'])) {
-                $jobName = $row['activity_description'];
-                $percent = (float)$row['activity_percent'];
-                $jobHours = $hours * ($percent / 100);
-
-                if (!isset($jobStats[$jobName])) $jobStats[$jobName] = 0;
-                $jobStats[$jobName] += $jobHours;
-            }
-        }
-
-        // Sort Trend by Date
-        ksort($trendData);
-
-        // Sort Jobs by Hours (Desc)
-        arsort($jobStats);
-        
-        // Format Jobs for Chart
-        $formattedJobs = [];
-        foreach ($jobStats as $name => $h) {
-            $formattedJobs[] = ['name' => $name, 'hours' => round($h, 2)];
-        }
-
-        return new DataResponse([
-            'total_hours' => round($totalHours, 2),
-            'days_worked' => count($processedTimesheets),
-            'overtime_hours' => ($totalHours > 40) ? round($totalHours - 40, 2) : 0, // Simple heuristic
-            'stats' => [
-                'regular_hours' => round($totalHours - $ptoHours, 2),
-                'pto_hours' => round($ptoHours, 2)
-            ],
-            'trend' => [
-                'labels' => array_keys($trendData),
-                'values' => array_values($trendData)
-            ],
-            'jobs' => $formattedJobs
-        ]);
     }
 }

@@ -70,24 +70,26 @@ Util::addStyle('stech_timesheet', 'analysis');
 
                 <div class="chart-container full-width">
                     <h3>Hours Worked Trend</h3>
-                    <canvas id="chart-trend"></canvas>
+                    <div style="position: relative; height: 300px;">
+                        <canvas id="chart-trend"></canvas>
+                    </div>
                 </div>
 
-                <div class="chart-container">
-                    <h3>Work vs. Leave</h3>
-                    <canvas id="chart-leave"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h3>Job Distribution (Top 5)</h3>
-                    <canvas id="chart-jobs-simple"></canvas>
+                <div class="chart-container full-width">
+                    <h3>Job Code Distribution (Top 5)</h3>
+                    <div style="position: relative; height: 300px;">
+                        <canvas id="chart-jobs-simple"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div id="view-jobs" class="analysis-view hidden">
-            <div class="chart-container full-width" style="height: 500px;">
+            <div class="chart-container full-width">
                 <h3>Detailed Job Code Allocation</h3>
-                <canvas id="chart-jobs-detailed"></canvas>
+                <div style="position: relative; height: 500px;">
+                    <canvas id="chart-jobs-detailed"></canvas>
+                </div>
             </div>
         </div>
 

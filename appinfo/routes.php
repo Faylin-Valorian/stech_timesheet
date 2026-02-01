@@ -13,8 +13,8 @@ return [
         ['name' => 'timesheet#saveTimesheet', 'url' => '/api/timesheets', 'verb' => 'POST'],
         ['name' => 'timesheet#getCounties', 'url' => '/api/counties/{stateAbbr}', 'verb' => 'GET'],
 
-        // [NEW] Analysis API
-        ['name' => 'timesheet#getAnalysisStats', 'url' => '/api/analysis/stats', 'verb' => 'GET'],
+        // [UPDATED] Analysis API - Points to AnalysisController
+        ['name' => 'analysis#getStats', 'url' => '/api/analysis/stats', 'verb' => 'GET'],
 
         // Admin API - Settings & Thumbnails
         ['name' => 'admin#getSettings', 'url' => '/api/admin/settings', 'verb' => 'GET'],

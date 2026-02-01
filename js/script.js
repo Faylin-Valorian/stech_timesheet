@@ -28,7 +28,12 @@ document.addEventListener('DOMContentLoaded', function() {
         themeSystem: 'standard',
         
         events: function(info, successCallback, failureCallback) {
-            let url = getApiUrl('/api/list') + '&start=' + info.startStr + '&end=' + info.endStr;
+            // [FIXED] Updated endpoint to /api/timesheets
+            let url = getApiUrl('/api/timesheets');
+            // [FIXED] Ensure we use '?' if it's the first parameter, '&' otherwise
+            const separator = url.includes('?') ? '&' : '?';
+            url += separator + 'start=' + info.startStr + '&end=' + info.endStr;
+
             fetch(url, { headers: { 'requesttoken': OC.requestToken, 'OCS-APIRequest': 'true' } })
             .then(res => res.json())
             .then(data => successCallback(data))
@@ -46,7 +51,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // --- CLICK TAB (EDIT) ---
         eventClick: function(info) {
             const id = info.event.id;
-            fetch(getApiUrl('/api/get/' + id), {
+            // [FIXED] Updated endpoint to /api/timesheets/ + id
+            fetch(getApiUrl('/api/timesheets/' + id), {
                 headers: { 'requesttoken': OC.requestToken, 'OCS-APIRequest': 'true' }
             })
             .then(res => res.json())
@@ -166,8 +172,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('miles').value = existingData.travel_miles;
                 document.getElementById('extra-expense').value = existingData.travel_extra_expenses;
                 document.getElementById('travel-state').value = existingData.travel_state;
-                // Note: County dropdown won't populate instantly if state wasn't loaded, 
-                // but setting value usually works if options exist.
             }
 
             // Activities
@@ -236,7 +240,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!c.includes('[PTO]')) formData.set('comments', '[PTO] ' + c);
         }
 
-        fetch(getApiUrl('/api/save'), {
+        // [FIXED] Updated endpoint to /api/timesheets (POST is inferred by method: 'POST')
+        fetch(getApiUrl('/api/timesheets'), {
             method: 'POST',
             body: new URLSearchParams(formData),
             headers: { 'requesttoken': OC.requestToken, 'OCS-APIRequest': 'true' }

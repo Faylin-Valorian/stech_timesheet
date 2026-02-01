@@ -1,8 +1,10 @@
 document.addEventListener('DOMContentLoaded', function() {
     
     // --- State ---
-    let charts = {}; // Store Chart instances to destroy/update them
-    
+    let charts = {}; 
+    let currentData = null; // Store fetched data
+    let currentView = 'dashboard';
+
     // --- Navigation ---
     const navDashboard = document.getElementById('nav-dashboard');
     const navJobs = document.getElementById('nav-jobs');
@@ -10,6 +12,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const viewJobs = document.getElementById('view-jobs');
 
     function switchView(viewName) {
+        currentView = viewName;
         viewDashboard.classList.add('hidden');
         viewJobs.classList.add('hidden');
         navDashboard.classList.remove('active');
@@ -22,6 +25,9 @@ document.addEventListener('DOMContentLoaded', function() {
             viewJobs.classList.remove('hidden');
             navJobs.classList.add('active');
         }
+        
+        // Render charts for the active view ONLY
+        if(currentData) renderVisibleCharts();
     }
 
     navDashboard.addEventListener('click', () => switchView('dashboard'));
@@ -29,6 +35,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Data Fetching ---
     function fetchData() {
+        if (typeof Chart === 'undefined') {
+            alert("Error: Chart.js library not loaded. Check internet connection or CSP settings.");
+            return;
+        }
+
         const period = document.getElementById('period-selector').value;
         const userSelect = document.getElementById('user-selector');
         const targetUid = userSelect ? userSelect.value : 'self';
@@ -36,13 +47,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const url = OC.generateUrl('/apps/stech_timesheet/api/analysis/stats') + 
                     `?period=${period}&target_uid=${targetUid}`;
 
+        // Show loading state (optional)
+        document.getElementById('metric-total-hours').innerText = '...';
+
         fetch(url, { headers: { 'requesttoken': OC.requestToken } })
             .then(r => r.json())
             .then(data => {
+                currentData = data;
                 updateMetrics(data);
-                renderCharts(data);
+                renderVisibleCharts();
             })
-            .catch(err => console.error("Analysis Error:", err));
+            .catch(err => {
+                console.error("Analysis Error:", err);
+                alert("Failed to load analysis data.");
+            });
     }
 
     // --- Admin: Load User List ---
@@ -73,67 +91,113 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('metric-overtime').innerText = data.overtime_hours.toFixed(2);
     }
 
-    function renderCharts(data) {
-        // 1. Trend Chart (Line)
-        renderChart('chart-trend', 'line', {
-            labels: data.trend.labels,
-            datasets: [{
-                label: 'Hours Worked',
-                data: data.trend.values,
-                borderColor: '#0082c9',
-                backgroundColor: 'rgba(0, 130, 201, 0.1)',
-                fill: true,
-                tension: 0.3
-            }]
-        });
+    function renderVisibleCharts() {
+        if(!currentData) return;
 
-        // 2. Work vs Leave (Doughnut)
-        renderChart('chart-leave', 'doughnut', {
-            labels: ['Regular Work', 'Vacation/PTO'],
-            datasets: [{
-                data: [data.stats.regular_hours, data.stats.pto_hours],
-                backgroundColor: ['#0082c9', '#d9534f']
-            }]
-        });
-
-        // 3. Jobs Simple (Pie)
-        const jobLabels = data.jobs.map(j => j.name).slice(0, 5);
-        const jobValues = data.jobs.map(j => j.hours).slice(0, 5);
-        renderChart('chart-jobs-simple', 'pie', {
-            labels: jobLabels,
-            datasets: [{
-                data: jobValues,
-                backgroundColor: ['#0082c9', '#46ba6f', '#ffd60a', '#d9534f', '#6c757d']
-            }]
-        });
-
-        // 4. Jobs Detailed (Bar)
-        renderChart('chart-jobs-detailed', 'bar', {
-            labels: data.jobs.map(j => j.name),
-            datasets: [{
-                label: 'Hours',
-                data: data.jobs.map(j => j.hours),
-                backgroundColor: '#46ba6f'
-            }]
-        }, { indexAxis: 'y' }); // Horizontal Bar
+        if (currentView === 'dashboard') {
+            renderTrendChart(currentData);
+            renderTopJobsChart(currentData);
+        } else if (currentView === 'jobs') {
+            renderDetailedJobsChart(currentData);
+        }
     }
 
-    function renderChart(canvasId, type, data, options = {}) {
-        const ctx = document.getElementById(canvasId).getContext('2d');
+    function renderTrendChart(data) {
+        const ctx = document.getElementById('chart-trend');
+        if(!ctx) return;
         
-        if(charts[canvasId]) {
-            charts[canvasId].destroy();
-        }
+        destroyChart('chart-trend');
 
-        charts[canvasId] = new Chart(ctx, {
-            type: type,
-            data: data,
+        charts['chart-trend'] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.trend.labels,
+                datasets: [{
+                    label: 'Hours Worked',
+                    data: data.trend.values,
+                    borderColor: '#0082c9',
+                    backgroundColor: 'rgba(0, 130, 201, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4
+                }]
+            },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                ...options
+                scales: { y: { beginAtZero: true } }
             }
         });
+    }
+
+    function renderTopJobsChart(data) {
+        const ctx = document.getElementById('chart-jobs-simple');
+        if(!ctx) return;
+        
+        destroyChart('chart-jobs-simple');
+
+        // Handle empty data
+        if (!data.jobs || data.jobs.length === 0) {
+            // Optional: Draw a "No Data" placeholder or just return
+            return;
+        }
+
+        const jobLabels = data.jobs.map(j => j.name).slice(0, 5);
+        const jobValues = data.jobs.map(j => j.hours).slice(0, 5);
+
+        charts['chart-jobs-simple'] = new Chart(ctx, {
+            type: 'doughnut', // Changed to Doughnut for better look
+            data: {
+                labels: jobLabels,
+                datasets: [{
+                    data: jobValues,
+                    backgroundColor: ['#0082c9', '#46ba6f', '#ffd60a', '#d9534f', '#6c757d']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' }
+                }
+            }
+        });
+    }
+
+    function renderDetailedJobsChart(data) {
+        const ctx = document.getElementById('chart-jobs-detailed');
+        if(!ctx) return;
+
+        destroyChart('chart-jobs-detailed');
+
+        const names = data.jobs.map(j => j.name);
+        const hours = data.jobs.map(j => j.hours);
+
+        charts['chart-jobs-detailed'] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: names,
+                datasets: [{
+                    label: 'Total Hours',
+                    data: hours,
+                    backgroundColor: '#46ba6f',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                indexAxis: 'y', // Horizontal Bar
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { x: { beginAtZero: true } }
+            }
+        });
+    }
+
+    function destroyChart(id) {
+        if(charts[id]) {
+            charts[id].destroy();
+            charts[id] = null;
+        }
     }
 
     // Initial Load
