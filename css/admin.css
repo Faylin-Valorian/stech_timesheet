@@ -1,17 +1,26 @@
 /* =========================================
-   1. MAIN LAYOUT
+   1. MAIN LAYOUT & SCROLLING FIX
    ========================================= */
+/* We apply the absolute positioning fix to enable proper scrolling 
+   while respecting the 300px sidebar.
+*/
 #app-content {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 300px; /* MATCHES SIDEBAR WIDTH */
     background-color: var(--color-main-background);
     padding: 0;
-    overflow: hidden; 
+    overflow-y: auto; /* Enable Scrolling */
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: auto;
 }
 
 .admin-view {
-    height: 100%;
+    /* Allow the view to grow/shrink with content */
+    min-height: 100%;
     display: flex;
     flex-direction: column;
     padding: 20px 40px;
@@ -46,10 +55,9 @@
 
 .view-body {
     flex: 1 1 auto;
-    overflow-y: auto;
     position: relative;
     padding-bottom: 50px;
-    width: 100%; /* Force full width */
+    width: 100%; 
 }
 
 /* =========================================
@@ -59,6 +67,9 @@
     display: flex;
     gap: 30px;
     height: 100%;
+    /* Ensure split layout handles inner scrolling if needed, 
+       though main scroll is now on #app-content */
+    min-height: 500px; 
 }
 
 .split-panel {
@@ -71,13 +82,11 @@
     flex-shrink: 0;
     border-right: 1px solid var(--color-border);
     padding-right: 30px;
-    overflow-y: auto; 
 }
 
 .split-panel.right {
     flex: 1;
     min-width: 0;
-    overflow-y: hidden;
     display: flex;
     flex-direction: column;
 }
@@ -97,13 +106,12 @@
     flex-wrap: wrap;
     gap: 10px;
     flex-shrink: 0;
-    width: 100%; /* Ensure this row takes full width */
+    width: 100%; 
 }
 
-/* --- USER GRID STYLING (FIXED) --- */
+/* --- USER GRID STYLING --- */
 .user-grid {
     display: grid;
-    /* auto-fit: stretches items to fill the row. auto-fill: leaves empty gaps. */
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 15px;
     padding-bottom: 40px;
@@ -120,7 +128,7 @@
     align-items: center;
     gap: 15px;
     transition: box-shadow 0.2s, border-color 0.2s;
-    min-width: 0; /* Prevents flex items from overflowing */
+    min-width: 0;
 }
 
 .user-card:hover {
@@ -174,7 +182,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    margin-left: auto; /* Push actions to the right */
+    margin-left: auto; 
 }
 
 .btn-icon-only {
@@ -231,11 +239,10 @@
     border: none;
     background: transparent;
     margin-bottom: 0;
-    height: 40px; /* Slightly taller for better hit area */
+    height: 40px; 
     gap: 8px; 
 }
 
-/* Updated: Forces the search bar to fill available width */
 .expanded-search {
     width: 100%; 
     flex: 1;
@@ -249,7 +256,7 @@
     padding: 0 15px;
     font-size: 14px;
     height: 100%;
-    width: 100%; /* Ensure input takes full wrapper width */
+    width: 100%; 
 }
 .filter-input-with-icon:focus { outline: none; border-color: var(--color-primary-element); }
 
@@ -307,10 +314,12 @@
    ========================================= */
 .scroll-list {
     flex: 1;
-    overflow-y: auto;
+    /* List scrolling is secondary now, main scroll is layout */
+    overflow-y: auto; 
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     background-color: var(--color-background-light);
+    max-height: 60vh; /* Prevent list from growing infinitely */
 }
 
 .list-item {

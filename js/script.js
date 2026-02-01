@@ -28,9 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
         themeSystem: 'standard',
         
         events: function(info, successCallback, failureCallback) {
-            // [FIXED] Updated endpoint to /api/timesheets
             let url = getApiUrl('/api/timesheets');
-            // [FIXED] Ensure we use '?' if it's the first parameter, '&' otherwise
             const separator = url.includes('?') ? '&' : '?';
             url += separator + 'start=' + info.startStr + '&end=' + info.endStr;
 
@@ -51,7 +49,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // --- CLICK TAB (EDIT) ---
         eventClick: function(info) {
             const id = info.event.id;
-            // [FIXED] Updated endpoint to /api/timesheets/ + id
             fetch(getApiUrl('/api/timesheets/' + id), {
                 headers: { 'requesttoken': OC.requestToken, 'OCS-APIRequest': 'true' }
             })
@@ -64,14 +61,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // --- CLICK DATE (NEW) ---
         dateClick: function(info) {
-            const dayEvents = calendar.getEvents().filter(e => e.startStr === info.dateStr);
-            const hasOpenEntry = dayEvents.some(e => !e.extendedProps.isClosed);
-
-            if (hasOpenEntry) {
-                OC.dialogs.alert('You have an open entry for this date. Clock out first.', 'Active Entry Exists');
-            } else {
-                openModal(info.dateStr, null);
-            }
+            // Note: We don't block opening the modal here anymore, 
+            // as users might need to add a separate Per Diem entry.
+            openModal(info.dateStr, null);
         },
 
         datesSet: function(info) {
@@ -137,7 +129,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Reset ID
         document.getElementById('timesheet_id').value = existingData ? existingData.timesheet_id : '';
 
-        // Reset Checkboxes (Important for "New" mode)
+        // Reset Checkboxes
         ['toggle-pto', 'toggle-travel', 'req-per-diem', 'road-scanning', 'first-last-day', 'overnight'].forEach(id => {
             if(document.getElementById(id)) document.getElementById(id).checked = false;
         });
@@ -157,8 +149,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             document.getElementById('comments').value = comms;
 
-            // Travel Logic
-            if (existingData.travel == 1) {
+            // Travel Logic: Check if data exists (UI toggle state is irrelevant)
+            const hasTravelData = (
+                existingData.travel == 1 || 
+                existingData.travel_per_diem == 1 ||
+                existingData.travel_miles > 0 ||
+                existingData.travel_extra_expenses > 0 ||
+                (existingData.travel_state && existingData.travel_state !== '')
+            );
+
+            if (hasTravelData) {
                 document.getElementById('toggle-travel').checked = true;
                 document.getElementById('travel-fields-container').classList.add('visible');
                 
@@ -240,7 +240,16 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!c.includes('[PTO]')) formData.set('comments', '[PTO] ' + c);
         }
 
-        // [FIXED] Updated endpoint to /api/timesheets (POST is inferred by method: 'POST')
+        // --- VALIDATION UPDATE ---
+        // Allow submission if per_diem is checked, even if time_in is empty
+        const timeIn = formData.get('time_in');
+        const perDiemChecked = document.getElementById('req-per-diem').checked;
+
+        if (!timeIn && !perDiemChecked) {
+            OC.dialogs.alert('Please enter a Start Time or select "Request Per Diem".', 'Validation Error');
+            return;
+        }
+
         fetch(getApiUrl('/api/timesheets'), {
             method: 'POST',
             body: new URLSearchParams(formData),

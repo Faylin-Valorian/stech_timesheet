@@ -92,17 +92,26 @@ class TimesheetController extends Controller {
             $isClosed = !empty($row['time_out']);
             $date = $row['timesheet_date'];
             
-            // --- COLOR LOGIC ---
-            $color = '#ffc107'; // Active (Yellow/Orange)
+            // --- COLOR & TITLE LOGIC ---
+            $color = '#ffc107'; // Default: Active (Yellow/Orange)
             $title = 'Active';
 
-            // Check for PTO tag in comments
+            // 1. Vacation / PTO
+            // Check for PTO tag in comments OR if a vacation flag exists (if you have one)
+            // For now, based on previous code, we check the comments tag.
             $isPto = (strpos($row['additional_comments'] ?? '', '[PTO]') !== false);
 
+            // 2. Per Diem Only (No Start Time + Per Diem Flag)
+            $isPerDiemOnly = (empty($row['time_in']) && $row['travel_per_diem'] == 1);
+
             if ($isPto) {
-                $color = '#9b59b6'; // Purple for Vacation/PTO
-                $title = 'PTO / Vacation';
-                $isClosed = true; // Treat PTO as closed
+                $color = '#9b59b6'; // Purple for Vacation
+                $title = 'Vacation ' . $row['time_total'] . ' hrs';
+                $isClosed = true; 
+            } elseif ($isPerDiemOnly) {
+                $color = '#17a2b8'; // Teal for Per Diem Only
+                $title = 'Per Diem';
+                $isClosed = true;
             } elseif ($isClosed) {
                 $color = '#28a745'; // Green for Closed
                 $title = $row['time_total'] . ' hrs';
@@ -165,6 +174,14 @@ class TimesheetController extends Controller {
         
         // --- 1. Validation Logic ---
         
+        // Check if user is requesting Per Diem
+        $reqPerDiem = isset($data['req_per_diem']);
+        
+        // Rule: Must have Time In OR be a Per Diem Request
+        if (empty($data['time_in']) && !$reqPerDiem) {
+            return new DataResponse(['error' => 'You must provide a Start Time, unless requesting Per Diem only.'], 400);
+        }
+
         // If this is a NEW entry (no ID provided), check if previous is closed
         if (empty($data['timesheet_id'])) {
             $qbCheck = $this->db->getQueryBuilder();
@@ -178,14 +195,24 @@ class TimesheetController extends Controller {
             $lastEntry = $qbCheck->executeQuery()->fetch();
 
             if ($lastEntry && empty($lastEntry['time_out'])) {
-                // Allow multiple entries ONLY if previous is clocked out
                 return new DataResponse(['error' => 'You must clock out of your previous entry for this day before adding a new one.'], 400);
             }
         }
 
-        // Handle Time Strings (Convert empty to NULL to avoid SQL Error 1292)
+        // Handle Time Strings
         $timeIn = empty($data['time_in']) ? null : $data['time_in'];
         $timeOut = empty($data['time_out']) ? null : $data['time_out'];
+
+        // Determine "Travel" state automatically based on data presence
+        // (Ignoring the specific UI toggle state as requested)
+        $hasTravelData = (
+            isset($data['req_per_diem']) || 
+            isset($data['road_scanning']) || 
+            isset($data['first_last_day']) || 
+            isset($data['overnight']) || 
+            !empty($data['miles']) || 
+            !empty($data['extra_expense'])
+        );
 
         $values = [
             'userid' => $this->userId,
@@ -194,7 +221,7 @@ class TimesheetController extends Controller {
             'time_out' => $timeOut,
             'time_break' => (int)$data['break_min'],
             'time_total' => (float)$data['total_hours'],
-            'travel' => isset($data['has_travel']) ? 1 : 0,
+            'travel' => $hasTravelData ? 1 : 0, // Set flag based on data content
             'travel_per_diem' => isset($data['req_per_diem']) ? 1 : 0,
             'travel_road_scanning' => isset($data['road_scanning']) ? 1 : 0,
             'travel_first_last_day' => isset($data['first_last_day']) ? 1 : 0,
@@ -213,7 +240,7 @@ class TimesheetController extends Controller {
             // --- UPDATE EXISTING ---
             $qb->update('stech_timesheets');
             foreach ($values as $col => $val) {
-                if ($col === 'userid') continue; // Don't update userid
+                if ($col === 'userid') continue; 
                 $qb->set($col, $qb->createNamedParameter($val));
             }
             $qb->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($data['timesheet_id'])));
@@ -229,7 +256,7 @@ class TimesheetController extends Controller {
             $timesheetId = $qb->getLastInsertId();
         }
 
-        // --- Handle Activities (Delete Old, Insert New) ---
+        // --- Handle Activities ---
         $qbDel = $this->db->getQueryBuilder();
         $qbDel->delete('stech_activity')
               ->where($qbDel->expr()->eq('timesheet_id', $qbDel->createNamedParameter($timesheetId)));
