@@ -41,7 +41,7 @@ class AdminController extends Controller {
     }
 
     // =========================================================================
-    //  SETTINGS & THUMBNAILS
+    //  SETTINGS (PAYROLL & GENERIC)
     // =========================================================================
 
     /**
@@ -50,10 +50,8 @@ class AdminController extends Controller {
      */
     public function getSettings(): DataResponse {
         try {
-            $schema = \OC::$server->getDatabaseConnection()->getSchemaManager();
-            if (!$schema->tablesExist(['stech_admin_settings'])) {
-                return new DataResponse([]);
-            }
+            // We simply try to fetch. If the table doesn't exist yet, it throws an exception.
+            // This avoids the 'Call to undefined method getSchemaManager' error.
             $qb = $this->db->getQueryBuilder();
             $rows = $qb->select('*')
                        ->from('stech_admin_settings')
@@ -66,6 +64,7 @@ class AdminController extends Controller {
             }
             return new DataResponse($settings);
         } catch (\Exception $e) {
+            // Table likely doesn't exist yet, return empty defaults
             return new DataResponse([]);
         }
     }
@@ -109,6 +108,10 @@ class AdminController extends Controller {
                ->execute();
         }
     }
+
+    // =========================================================================
+    //  THUMBNAIL MANAGEMENT
+    // =========================================================================
 
     /**
      * @NoAdminRequired
@@ -199,7 +202,7 @@ class AdminController extends Controller {
     }
 
     // =========================================================================
-    //  USER MANAGEMENT
+    //  USER MANAGEMENT & STATUS TOGGLING
     // =========================================================================
 
     /**
@@ -293,25 +296,26 @@ class AdminController extends Controller {
                ->execute();
         }
 
-        // 2. Handle Holiday Archiving logic
-        $archiveVal = ($newStatus === 0) ? 1 : 0; 
-        
-        // Custom query to handle subquery update
-        $prefix = '*PREFIX*'; // Nextcloud replaces this automatically
-        $sql = "UPDATE `{$prefix}stech_timesheets` AS t
-                SET t.`archive` = :archiveVal 
-                WHERE t.`userid` = :uid 
-                AND t.`timesheet_date` >= :today
-                AND EXISTS (
-                    SELECT 1 FROM `{$prefix}stech_holidays` h 
-                    WHERE t.`timesheet_date` BETWEEN h.`holiday_start_date` AND h.`holiday_end_date`
-                )";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->bindValue('archiveVal', $archiveVal, \PDO::PARAM_INT);
-        $stmt->bindValue('uid', $uid);
-        $stmt->bindValue('today', $todayDate);
-        $stmt->execute();
+        // 2. HOLIDAY ARCHIVING LOGIC
+        // If user is set to INACTIVE (0), we must archive any FUTURE holiday records
+        // that might have been inserted by the automation (or manually).
+        if ($newStatus === 0) {
+            // Find records for this user, in the future, that overlap with defined holidays
+            $prefix = '*PREFIX*'; // Nextcloud replaces this automatically
+            $sql = "UPDATE `{$prefix}stech_timesheets` AS t
+                    SET t.`archive` = 1 
+                    WHERE t.`userid` = :uid 
+                    AND t.`timesheet_date` > :today
+                    AND EXISTS (
+                        SELECT 1 FROM `{$prefix}stech_holidays` h 
+                        WHERE t.`timesheet_date` BETWEEN h.`holiday_start_date` AND h.`holiday_end_date`
+                    )";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->bindValue('uid', $uid);
+            $stmt->bindValue('today', $todayDate);
+            $stmt->execute();
+        }
 
         return new DataResponse(['status' => 'success', 'new_state' => $newStatus]);
     }
@@ -325,13 +329,7 @@ class AdminController extends Controller {
      * @AdminRequired
      */
     public function getHolidays(): DataResponse {
-        $qb = $this->db->getQueryBuilder();
-        $result = $qb->select('*')
-                     ->from('stech_holidays')
-                     ->orderBy('holiday_start_date', 'DESC')
-                     ->executeQuery()
-                     ->fetchAll();
-        return new DataResponse($result);
+        return new DataResponse($this->db->getQueryBuilder()->select('*')->from('stech_holidays')->orderBy('holiday_start_date', 'DESC')->executeQuery()->fetchAll());
     }
 
     /**

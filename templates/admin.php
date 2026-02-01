@@ -24,6 +24,12 @@ Util::addStyle('stech_timesheet', 'admin');
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link" href="#" id="nav-payroll">
+                    <span class="icon-money"></span>
+                    <span>Payroll Settings</span>
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link" href="#" id="nav-holidays">
                     <span class="icon-calendar-dark"></span>
                     <span>Holidays</span>
@@ -71,6 +77,41 @@ Util::addStyle('stech_timesheet', 'admin');
             <div class="view-body">
                 <div id="user-grid-container" class="user-grid">
                     </div>
+            </div>
+        </div>
+
+        <div id="view-payroll" class="admin-view hidden">
+            <div class="view-header">
+                <h2>Payroll Configuration</h2>
+                <p>Configure the visual "Paid" tab appearance on the calendar.</p>
+            </div>
+            
+            <div class="view-body" style="max-width: 600px;">
+                <div class="form-section" style="background:white; padding:20px; border-radius:8px; border:1px solid #ddd;">
+                    <div class="input-group">
+                        <label>Pay Frequency</label>
+                        <select id="pay-frequency" class="form-control">
+                            <option value="14">Bi-Weekly (Every 2 Weeks)</option>
+                            <option value="7">Weekly</option>
+                            <option value="28">Every 4 Weeks</option>
+                            </select>
+                    </div>
+                    
+                    <div class="input-group" style="margin-top: 15px;">
+                        <label>Reference Start Date</label>
+                        <p style="font-size: 0.85em; color: #666; margin-top:0; margin-bottom:5px;">
+                            Pick any valid past or future Pay Day. The calendar will calculate dates forward and backward from this reference point.
+                        </p>
+                        <input type="date" id="pay-start-date" class="form-control">
+                    </div>
+
+                    <div style="margin-top: 25px; display: flex; align-items: center; gap: 15px;">
+                        <button id="btn-save-payroll" class="primary-button">Save Settings</button>
+                        <span id="payroll-msg" style="color: #27ae60; font-weight: bold; display: none;">
+                            <span class="icon-checkmark" style="display:inline-block; vertical-align:middle; margin-right:5px;"></span> Settings Saved!
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
 

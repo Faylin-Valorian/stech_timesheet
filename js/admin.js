@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return fetch(url, options);
     }
 
+    // --- NAVIGATION ---
     function switchView(viewId) {
         document.querySelectorAll('.admin-view').forEach(el => el.classList.add('hidden'));
         document.getElementById('view-' + viewId).classList.remove('hidden');
@@ -21,12 +22,14 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('nav-' + viewId).classList.add('active');
 
         if(viewId === 'users') loadUsers();
+        if(viewId === 'payroll') loadPayroll(); // [NEW]
         if(viewId === 'holidays') loadHolidays();
         if(viewId === 'jobs') loadJobs();
         if(viewId === 'locations') loadStates();
     }
 
     document.getElementById('nav-users').addEventListener('click', () => switchView('users'));
+    document.getElementById('nav-payroll').addEventListener('click', () => switchView('payroll')); // [NEW]
     document.getElementById('nav-holidays').addEventListener('click', () => switchView('holidays'));
     document.getElementById('nav-jobs').addEventListener('click', () => switchView('jobs'));
     document.getElementById('nav-locations').addEventListener('click', () => switchView('locations'));
@@ -34,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Init Logic
     loadUsers();
 
-    // --- FILTERS ---
+    // --- GENERIC FILTERS ---
     function setupFilter(btnId, menuId, inputName, renderFn) {
         const btn = document.getElementById(btnId);
         const menu = document.getElementById(menuId);
@@ -45,14 +48,52 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         document.addEventListener('click', (e) => { if(!menu.contains(e.target) && e.target !== btn) menu.classList.add('hidden'); });
     }
-    // Setup for all views
+    
     setupFilter('user-filter-btn', 'user-filter-menu', 'user-status', renderUsers);
     setupFilter('job-filter-btn', 'job-filter-menu', 'job-status', renderJobs);
     setupFilter('state-filter-btn', 'state-filter-menu', 'state-status', renderStates);
     setupFilter('county-filter-btn', 'county-filter-menu', 'county-status', renderCounties);
     setupFilter('holiday-filter-btn', 'holiday-filter-menu', 'holiday-status', renderHolidays);
 
-    // --- USERS ---
+    // =========================================================
+    //  PAYROLL SETTINGS [NEW]
+    // =========================================================
+    function loadPayroll() {
+        apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/settings'))
+            .then(r => r.json())
+            .then(settings => {
+                // Defaults: 14 days, Jan 7 2026
+                document.getElementById('pay-frequency').value = settings['pay_frequency'] || 14;
+                document.getElementById('pay-start-date').value = settings['pay_start_date'] || '2026-01-07';
+            });
+    }
+
+    document.getElementById('btn-save-payroll').addEventListener('click', () => {
+        const freq = document.getElementById('pay-frequency').value;
+        const start = document.getElementById('pay-start-date').value;
+        
+        // Save Frequency
+        const p1 = apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/settings'), {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ key: 'pay_frequency', value: freq })
+        });
+        
+        // Save Start Date
+        const p2 = apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/settings'), {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ key: 'pay_start_date', value: start })
+        });
+
+        Promise.all([p1, p2]).then(() => {
+            const msg = document.getElementById('payroll-msg');
+            msg.style.display = 'inline';
+            setTimeout(() => msg.style.display = 'none', 3000);
+        });
+    });
+
+    // =========================================================
+    //  USERS
+    // =========================================================
     function loadUsers() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/users'))
             .then(r => r.json())
@@ -141,7 +182,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     document.getElementById('user-search-input').addEventListener('input', renderUsers);
 
-    // --- HOLIDAYS ---
+    // =========================================================
+    //  HOLIDAYS
+    // =========================================================
     function loadHolidays() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays'))
             .then(r => r.json())
@@ -223,7 +266,9 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(loadHolidays);
     }
 
-    // --- JOBS ---
+    // =========================================================
+    //  JOBS
+    // =========================================================
     function loadJobs() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs'))
             .then(r => r.json()).then(d => { allJobs = d || []; renderJobs(); });
@@ -246,7 +291,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if(!active) item.style.opacity = '0.6';
 
             const span = document.createElement('span');
-            // [UPDATED] Show PTO badge
             const ptoTag = (j.is_pto == 1) ? ' <span style="font-size:0.7em; background:#9b59b6; color:white; padding:1px 4px; border-radius:3px;">PTO</span>' : '';
             span.innerHTML = j.job_name + ptoTag;
             span.style.flex = '1';
@@ -271,7 +315,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('job-id').value = j.job_id;
         document.getElementById('job-name').value = j.job_name;
         document.getElementById('job-desc').value = j.job_description;
-        // [UPDATED] Populate PTO checkbox
         document.getElementById('job-is-pto').checked = (j.is_pto == 1);
         
         document.getElementById('btn-save-job').innerText = "Update Job";
@@ -282,7 +325,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function resetJobForm() {
         document.getElementById('form-job').reset();
         document.getElementById('job-id').value = '';
-        // [UPDATED] Reset PTO checkbox
         document.getElementById('job-is-pto').checked = false;
         document.getElementById('btn-save-job').innerText = "Create Job";
         document.getElementById('job-form-title').innerText = "Create Job";
@@ -296,7 +338,6 @@ document.addEventListener('DOMContentLoaded', function() {
             id: document.getElementById('job-id').value,
             name: document.getElementById('job-name').value,
             description: document.getElementById('job-desc').value,
-            // [UPDATED] Include PTO status
             is_pto: document.getElementById('job-is-pto').checked ? 1 : 0
         };
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs'), {
@@ -307,11 +348,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function toggleJob(id) { apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/jobs/'+id+'/toggle'), { method:'POST' }).then(loadJobs); }
 
-    // --- LOCATIONS ---
+    // =========================================================
+    //  LOCATIONS
+    // =========================================================
     function loadStates() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states'))
             .then(r => r.json()).then(d => { allStates = d || []; renderStates(); });
     }
+    
     function renderStates() {
         const term = (document.getElementById('state-search-input').value || '').toLowerCase();
         const status = document.querySelector('input[name="state-status"]:checked').value;
@@ -320,7 +364,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         allStates.filter(s => {
             const en = s.is_enabled == 1;
-            // [UPDATED] Filter logic (Active/Inactive only)
             if(status === 'enabled' && !en) return false;
             if(status === 'disabled' && en) return false;
             return (s.state_name || '').toLowerCase().includes(term);
@@ -349,7 +392,6 @@ document.addEventListener('DOMContentLoaded', function() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/states/'+id+'/toggle'), { method:'POST' })
         .then(() => { 
             loadStates(); 
-            // If the toggled state is currently selected, reload counties to reflect cascade
             if(selectedStateAbbr) loadCounties(selectedStateAbbr, selectedStateName); 
         }); 
     }
@@ -369,7 +411,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         currentCounties.filter(c => {
             const en = c.is_enabled == 1;
-            // [UPDATED] Filter logic (Active/Inactive only)
             if(status === 'enabled' && !en) return false;
             if(status === 'disabled' && en) return false;
             return (c.county_name || '').toLowerCase().includes(term);

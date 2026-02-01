@@ -16,10 +16,10 @@ class Application extends App implements IBootstrap {
     }
 
     public function register(IRegistrationContext $context): void {
-        // Registration logic
+        // Job registration is handled via info.xml to ensure compatibility
     }
 
     public function boot(IBootContext $context): void {
-        // Boot logic
+        // No special boot logic needed
     }
 }

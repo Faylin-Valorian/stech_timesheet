@@ -76,29 +76,74 @@ class TimesheetController extends Controller {
      * @NoCSRFRequired
      */
     public function getTimesheets(string $start, string $end): DataResponse {
-        // 1. Fetch Job Metadata (to map Name -> IsPTO)
-        $qbJobs = $this->db->getQueryBuilder();
-        $qbJobs->select('job_name', 'is_pto')
-               ->from('stech_jobs');
-        $allJobs = $qbJobs->executeQuery()->fetchAll();
-        
-        $ptoJobMap = [];
-        foreach($allJobs as $j) {
-            $ptoJobMap[$j['job_name']] = (int)$j['is_pto'];
+        $events = [];
+
+        // --- 1. PAYROLL TABS ---
+        try {
+            $qbSettings = $this->db->getQueryBuilder();
+            // Try/Catch handles missing table if migration hasn't run
+            $rows = $qbSettings->select('*')->from('stech_admin_settings')->executeQuery()->fetchAll();
+            $settings = [];
+            foreach ($rows as $row) {
+                $settings[$row['setting_key']] = $row['setting_value'];
+            }
+        } catch (\Exception $e) {
+            $settings = [];
         }
 
-        // 2. Fetch Timesheets
+        $payStart = $settings['pay_start_date'] ?? '2026-01-07'; 
+        $freq = (int)($settings['pay_frequency'] ?? 14);
+
+        try {
+            $refDate = new \DateTime($payStart);
+            $viewStart = new \DateTime($start);
+            $viewEnd = new \DateTime($end);
+
+            $interval = $refDate->diff($viewStart);
+            $daysDiff = (int)$interval->format('%r%a');
+            
+            if ($daysDiff >= 0) {
+                $remainder = $daysDiff % $freq;
+                $daysToAdd = ($remainder === 0) ? 0 : ($freq - $remainder);
+                $nextPay = clone $viewStart;
+                $nextPay->modify("+$daysToAdd days");
+            } else {
+                $nextPay = clone $refDate;
+                while ($nextPay > $viewStart) $nextPay->modify("-$freq days");
+                while ($nextPay < $viewStart) $nextPay->modify("+$freq days");
+            }
+
+            while ($nextPay <= $viewEnd) {
+                $events[] = [
+                    'id' => 'paid-' . $nextPay->format('Ymd'),
+                    'title' => 'Payroll',
+                    'start' => $nextPay->format('Y-m-d'),
+                    'color' => '#34495e', // Slate Blue
+                    'display' => 'block',
+                    'extendedProps' => ['isVisual' => true, 'isClosed' => true]
+                ];
+                $nextPay->modify("+$freq days");
+            }
+        } catch (\Exception $e) { }
+
+        // --- 2. REAL TIMESHEETS ---
+        $qbJobs = $this->db->getQueryBuilder();
+        $qbJobs->select('job_name', 'is_pto')->from('stech_jobs');
+        $allJobs = $qbJobs->executeQuery()->fetchAll();
+        $ptoJobMap = [];
+        foreach($allJobs as $j) $ptoJobMap[$j['job_name']] = (int)$j['is_pto'];
+
         $qb = $this->db->getQueryBuilder();
         $qb->select('*')
            ->from('stech_timesheets')
            ->where($qb->expr()->eq('userid', $qb->createNamedParameter($this->userId)))
            ->andWhere($qb->expr()->gte('timesheet_date', $qb->createNamedParameter($start)))
-           ->andWhere($qb->expr()->lte('timesheet_date', $qb->createNamedParameter($end)));
+           ->andWhere($qb->expr()->lte('timesheet_date', $qb->createNamedParameter($end)))
+           ->andWhere($qb->expr()->eq('archive', $qb->createNamedParameter(0)));
         
         $results = $qb->executeQuery()->fetchAll();
         $timesheetIds = array_column($results, 'timesheet_id');
 
-        // 3. Fetch Activities for these timesheets
         $activitiesGrouped = [];
         if (!empty($timesheetIds)) {
             $qbAct = $this->db->getQueryBuilder();
@@ -106,13 +151,9 @@ class TimesheetController extends Controller {
                   ->from('stech_activity')
                   ->where($qbAct->expr()->in('timesheet_id', $qbAct->createNamedParameter($timesheetIds, \OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT_ARRAY)));
             $acts = $qbAct->executeQuery()->fetchAll();
-            
-            foreach($acts as $a) {
-                $activitiesGrouped[$a['timesheet_id']][] = $a;
-            }
+            foreach($acts as $a) $activitiesGrouped[$a['timesheet_id']][] = $a;
         }
         
-        $events = [];
         $today = date('Y-m-d');
 
         foreach ($results as $row) {
@@ -120,23 +161,31 @@ class TimesheetController extends Controller {
             $totalHours = (float)$row['time_total'];
             $date = $row['timesheet_date'];
             $isClosed = !empty($row['time_out']);
+            $comments = $row['additional_comments'] ?? '';
             
-            // --- SPLIT LOGIC ---
+            // Holiday Event (Orange + Non-Clickable)
+            if (strpos($comments, 'Holiday:') === 0) {
+                $events[] = [
+                    'id' => $tid,
+                    'title' => 'Holiday',
+                    'start' => $date,
+                    'color' => '#e67e22',
+                    'extendedProps' => ['isClosed' => true, 'isVisual' => true] // Visual = Non-editable
+                ];
+                continue; 
+            }
+
             $regHours = 0.0;
             $ptoHours = 0.0;
-            
             $acts = $activitiesGrouped[$tid] ?? [];
             
             if (empty($acts)) {
-                // If no activities defined, treat as regular
                 $regHours = $totalHours;
             } else {
                 foreach ($acts as $act) {
                     $jobName = $act['activity_description'];
                     $percent = (float)$act['activity_percent'];
                     $hours = $totalHours * ($percent / 100);
-
-                    // Check if this job is flagged as PTO
                     if (isset($ptoJobMap[$jobName]) && $ptoJobMap[$jobName] === 1) {
                         $ptoHours += $hours;
                     } else {
@@ -145,34 +194,24 @@ class TimesheetController extends Controller {
                 }
             }
             
-            // Fallback: If [PTO] tag is explicitly in comments, force "Regular" hours into "PTO"
-            if (strpos($row['additional_comments'] ?? '', '[PTO]') !== false) {
+            if (strpos($comments, '[PTO]') !== false) {
                  $ptoHours += $regHours;
                  $regHours = 0;
             }
 
-            // --- GENERATE EVENTS ---
-
-            // 1. Per Diem Event (No Time In, but Per Diem Checked)
             if (empty($row['time_in']) && $row['travel_per_diem'] == 1) {
                  $events[] = [
                     'id' => $tid,
                     'title' => 'Per Diem',
                     'start' => $date,
-                    'color' => '#17a2b8', // Teal
+                    'color' => '#17a2b8', 
                     'extendedProps' => ['isClosed' => true]
                 ];
-            }
-            // 2. Regular Work Event
-            else {
-                // Show if we have hours OR if it's currently active (not clocked out)
-                // We assume if it's active, it's a regular shift unless explicitly PTO-only
+            } else {
                 if ($regHours > 0.01 || !$isClosed) {
-                    
-                    $color = $isClosed ? '#28a745' : '#ffc107'; // Green or Yellow
-                    
+                    $color = $isClosed ? '#28a745' : '#ffc107';
                     if ($date < $today && !$isClosed) {
-                        $color = '#dc3545'; // Red (Missing Out)
+                        $color = '#dc3545';
                         $title = 'Missing Out';
                     } else {
                         $title = $isClosed ? round($regHours, 2) . ' hrs' : 'Active';
@@ -188,13 +227,12 @@ class TimesheetController extends Controller {
                 }
             }
 
-            // 3. Vacation / PTO Event
             if ($ptoHours > 0.01) {
                 $events[] = [
                     'id' => $tid,
                     'title' => 'Vacation ' . round($ptoHours, 2) . ' hrs',
                     'start' => $date,
-                    'color' => '#9b59b6', // Purple
+                    'color' => '#9b59b6',
                     'extendedProps' => ['isClosed' => true]
                 ];
             }
@@ -209,24 +247,19 @@ class TimesheetController extends Controller {
      */
     public function getTimesheet(int $id): DataResponse {
         $qb = $this->db->getQueryBuilder();
-        $qb->select('*')
-           ->from('stech_timesheets')
-           ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id)))
-           ->andWhere($qb->expr()->eq('userid', $qb->createNamedParameter($this->userId)));
-        $timesheet = $qb->executeQuery()->fetch();
+        $timesheet = $qb->select('*')->from('stech_timesheets')
+                        ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id)))
+                        ->andWhere($qb->expr()->eq('userid', $qb->createNamedParameter($this->userId)))
+                        ->executeQuery()->fetch();
 
-        if (!$timesheet) {
-            return new DataResponse([], 404);
-        }
+        if (!$timesheet) return new DataResponse([], 404);
 
         $qbAct = $this->db->getQueryBuilder();
-        $qbAct->select('*')
-              ->from('stech_activity')
-              ->where($qbAct->expr()->eq('timesheet_id', $qbAct->createNamedParameter($id)));
-        $activities = $qbAct->executeQuery()->fetchAll();
+        $activities = $qbAct->select('*')->from('stech_activity')
+                            ->where($qbAct->expr()->eq('timesheet_id', $qbAct->createNamedParameter($id)))
+                            ->executeQuery()->fetchAll();
 
         $timesheet['activities'] = $activities;
-        
         return new DataResponse($timesheet);
     }
 
@@ -237,43 +270,29 @@ class TimesheetController extends Controller {
     public function saveTimesheet(): DataResponse {
         $data = $this->request->getParams();
         $date = $data['date'];
-        
-        // Check if user is requesting Per Diem
         $reqPerDiem = isset($data['req_per_diem']);
         
-        // Rule: Must have Time In OR be a Per Diem Request
         if (empty($data['time_in']) && !$reqPerDiem) {
             return new DataResponse(['error' => 'You must provide a Start Time, unless requesting Per Diem only.'], 400);
         }
 
         if (empty($data['timesheet_id'])) {
             $qbCheck = $this->db->getQueryBuilder();
-            $qbCheck->select('*')
-                    ->from('stech_timesheets')
-                    ->where($qbCheck->expr()->eq('userid', $qbCheck->createNamedParameter($this->userId)))
-                    ->andWhere($qbCheck->expr()->eq('timesheet_date', $qbCheck->createNamedParameter($date)))
-                    ->orderBy('timesheet_id', 'DESC')
-                    ->setMaxResults(1);
+            $lastEntry = $qbCheck->select('*')->from('stech_timesheets')
+                                 ->where($qbCheck->expr()->eq('userid', $qbCheck->createNamedParameter($this->userId)))
+                                 ->andWhere($qbCheck->expr()->eq('timesheet_date', $qbCheck->createNamedParameter($date)))
+                                 ->orderBy('timesheet_id', 'DESC')->setMaxResults(1)->executeQuery()->fetch();
             
-            $lastEntry = $qbCheck->executeQuery()->fetch();
-
+            // Check if user has an open entry they forgot to close
             if ($lastEntry && empty($lastEntry['time_out'])) {
-                return new DataResponse(['error' => 'You must clock out of your previous entry for this day before adding a new one.'], 400);
+                // Improved Error Message
+                return new DataResponse(['error' => 'You already have an ACTIVE entry for this day. Please click the "Active" tab on the calendar to clock out or edit it.'], 400);
             }
         }
 
         $timeIn = empty($data['time_in']) ? null : $data['time_in'];
         $timeOut = empty($data['time_out']) ? null : $data['time_out'];
-
-        // Determine "Travel" state automatically based on data presence
-        $hasTravelData = (
-            isset($data['req_per_diem']) || 
-            isset($data['road_scanning']) || 
-            isset($data['first_last_day']) || 
-            isset($data['overnight']) || 
-            !empty($data['miles']) || 
-            !empty($data['extra_expense'])
-        );
+        $hasTravelData = (isset($data['req_per_diem']) || isset($data['road_scanning']) || isset($data['first_last_day']) || isset($data['overnight']) || !empty($data['miles']) || !empty($data['extra_expense']));
 
         $values = [
             'userid' => $this->userId,
@@ -296,43 +315,39 @@ class TimesheetController extends Controller {
         ];
 
         $qb = $this->db->getQueryBuilder();
-
         if (!empty($data['timesheet_id'])) {
             $qb->update('stech_timesheets');
-            foreach ($values as $col => $val) {
-                if ($col === 'userid') continue; 
-                $qb->set($col, $qb->createNamedParameter($val));
-            }
-            $qb->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($data['timesheet_id'])));
-            $qb->execute();
+            foreach ($values as $col => $val) { if ($col === 'userid') continue; $qb->set($col, $qb->createNamedParameter($val)); }
+            $qb->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($data['timesheet_id'])))->execute();
             $timesheetId = $data['timesheet_id'];
         } else {
             $qb->insert('stech_timesheets');
-            foreach ($values as $col => $val) {
-                $qb->setValue($col, $qb->createNamedParameter($val));
-            }
+            foreach ($values as $col => $val) $qb->setValue($col, $qb->createNamedParameter($val));
             $qb->execute();
             $timesheetId = $qb->getLastInsertId();
         }
 
+        // --- SQL FIX: CLEAN EXECUTION ---
+        // 1. Delete Old
         $qbDel = $this->db->getQueryBuilder();
         $qbDel->delete('stech_activity')
-              ->where($qbDel->expr()->eq('timesheet_id', $qbDel->createNamedParameter($timesheetId)));
-        $qbDel->execute();
+              ->where($qbDel->expr()->eq('timesheet_id', $qbDel->createNamedParameter($timesheetId)))
+              ->execute();
 
+        // 2. Insert New (Using fresh QueryBuilder for each row to ensure binding works)
         if (isset($data['work_desc']) && is_array($data['work_desc'])) {
             foreach ($data['work_desc'] as $index => $desc) {
                 if (empty($desc)) continue;
                 $percent = isset($data['work_percent'][$index]) ? (int)$data['work_percent'][$index] : 0;
-
-                $qbAct = $this->db->getQueryBuilder();
-                $qbAct->insert('stech_activity')
-                      ->values([
-                          'timesheet_id' => $qbAct->createNamedParameter($timesheetId),
-                          'activity_description' => $qbAct->createNamedParameter($desc),
-                          'activity_percent' => $qbAct->createNamedParameter($percent),
-                      ]);
-                $qbAct->execute();
+                
+                $qbInsert = $this->db->getQueryBuilder(); // NEW INSTANCE IS CRITICAL
+                $qbInsert->insert('stech_activity')
+                         ->values([
+                             'timesheet_id' => $qbInsert->createNamedParameter($timesheetId),
+                             'activity_description' => $qbInsert->createNamedParameter($desc),
+                             'activity_percent' => $qbInsert->createNamedParameter($percent)
+                         ])
+                         ->execute();
             }
         }
 
