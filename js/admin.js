@@ -22,14 +22,14 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('nav-' + viewId).classList.add('active');
 
         if(viewId === 'users') loadUsers();
-        if(viewId === 'payroll') loadPayroll(); // [NEW]
+        if(viewId === 'payroll') loadPayroll();
         if(viewId === 'holidays') loadHolidays();
         if(viewId === 'jobs') loadJobs();
         if(viewId === 'locations') loadStates();
     }
 
     document.getElementById('nav-users').addEventListener('click', () => switchView('users'));
-    document.getElementById('nav-payroll').addEventListener('click', () => switchView('payroll')); // [NEW]
+    document.getElementById('nav-payroll').addEventListener('click', () => switchView('payroll'));
     document.getElementById('nav-holidays').addEventListener('click', () => switchView('holidays'));
     document.getElementById('nav-jobs').addEventListener('click', () => switchView('jobs'));
     document.getElementById('nav-locations').addEventListener('click', () => switchView('locations'));
@@ -56,21 +56,23 @@ document.addEventListener('DOMContentLoaded', function() {
     setupFilter('holiday-filter-btn', 'holiday-filter-menu', 'holiday-status', renderHolidays);
 
     // =========================================================
-    //  PAYROLL SETTINGS [NEW]
+    //  PAYROLL SETTINGS
     // =========================================================
     function loadPayroll() {
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/settings'))
             .then(r => r.json())
             .then(settings => {
-                // Defaults: 14 days, Jan 7 2026
                 document.getElementById('pay-frequency').value = settings['pay_frequency'] || 14;
                 document.getElementById('pay-start-date').value = settings['pay_start_date'] || '2026-01-07';
+                // Load BG Style
+                document.getElementById('pay-bg-style').value = settings['pay_bg_style'] || '';
             });
     }
 
     document.getElementById('btn-save-payroll').addEventListener('click', () => {
         const freq = document.getElementById('pay-frequency').value;
         const start = document.getElementById('pay-start-date').value;
+        const bg = document.getElementById('pay-bg-style').value;
         
         // Save Frequency
         const p1 = apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/settings'), {
@@ -84,7 +86,13 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify({ key: 'pay_start_date', value: start })
         });
 
-        Promise.all([p1, p2]).then(() => {
+        // Save Background
+        const p3 = apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/settings'), {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ key: 'pay_bg_style', value: bg })
+        });
+
+        Promise.all([p1, p2, p3]).then(() => {
             const msg = document.getElementById('payroll-msg');
             msg.style.display = 'inline';
             setTimeout(() => msg.style.display = 'none', 3000);
@@ -233,6 +241,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('holiday-name').value = h.holiday_name;
         document.getElementById('holiday-start').value = h.holiday_start_date;
         document.getElementById('holiday-end').value = h.holiday_end_date;
+        // Load Holiday BG
+        document.getElementById('holiday-bg').value = h.holiday_bg || ''; 
+        
         document.getElementById('btn-save-holiday').innerText = "Update Holiday";
         document.getElementById('holiday-form-title').innerText = "Edit Holiday";
         document.getElementById('btn-cancel-holiday').classList.remove('hidden');
@@ -253,7 +264,9 @@ document.addEventListener('DOMContentLoaded', function() {
             id: document.getElementById('holiday-id').value,
             name: document.getElementById('holiday-name').value,
             start: document.getElementById('holiday-start').value,
-            end: document.getElementById('holiday-end').value
+            end: document.getElementById('holiday-end').value,
+            // Save BG
+            bg_style: document.getElementById('holiday-bg').value 
         };
         apiFetch(OC.generateUrl('/apps/stech_timesheet/api/admin/holidays'), {
             method: 'POST', headers: {'Content-Type': 'application/json'},

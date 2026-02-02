@@ -40,13 +40,33 @@ document.addEventListener('DOMContentLoaded', function() {
         eventContent: function(arg) {
             let div = document.createElement('div');
             div.className = 'fc-event-content-box'; 
-            div.style.backgroundColor = arg.event.backgroundColor;
+            
+            // [UPDATED] Handle Custom Backgrounds (Colors, Gradients, URLs)
+            const customBg = arg.event.extendedProps.customBg;
+            
+            if (customBg && customBg.trim() !== '') {
+                // If custom style exists, apply it to 'background'
+                // This supports 'red', 'linear-gradient(...)', or 'url(...)'
+                div.style.background = customBg;
+                
+                // If it looks like an image URL, add some helper styles
+                if (customBg.includes('url(')) {
+                    div.style.backgroundSize = 'cover';
+                    div.style.backgroundPosition = 'center';
+                    // Text shadow helps readability over images
+                    div.style.textShadow = '0 1px 2px rgba(0,0,0,0.8)'; 
+                }
+            } else {
+                // Fallback to standard color
+                div.style.backgroundColor = arg.event.backgroundColor;
+            }
+
             div.innerText = arg.event.title;
             return { domNodes: [div] };
         },
 
         eventClick: function(info) {
-            // [FIX] Block Holidays & Payroll
+            // Block Holidays & Payroll
             if (info.event.extendedProps.isVisual) {
                 OC.dialogs.info('This record is system generated (Holiday or Payroll) and cannot be edited manually.', 'System Record');
                 return;
@@ -166,11 +186,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (existingData.activities && existingData.activities.length > 0) {
                 existingData.activities.forEach(act => addWorkRow(act.activity_description, act.activity_percent));
-            } else { 
-                addWorkRow(); // Default
-            }
+            } else { addWorkRow(); }
         } else { 
-            addWorkRow(); // New = Default 100
+            addWorkRow(); 
         }
 
         if (overlay) overlay.style.display = 'flex';
@@ -182,26 +200,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('btn-add-row').addEventListener('click', () => addWorkRow());
 
-    // [FIX] Add Row with Percent Logic
     function addWorkRow(descVal = '', percentVal = '') {
         const container = document.getElementById('work-rows-container');
         const existingRows = container.querySelectorAll('.work-row');
         
-        // Auto-Calculate if New Row (empty values)
+        // Auto-Calculate if New Row
         if (descVal === '' && percentVal === '') {
             if (existingRows.length === 0) {
-                percentVal = 100; // First row always 100
+                percentVal = 100; 
             } else {
-                // Distribute evenly among ALL rows (existing + new)
                 const count = existingRows.length + 1;
                 const split = Math.floor(100 / count);
-                
-                // Update existing
                 container.querySelectorAll('.work-percent-input').forEach(inp => {
                     inp.value = split;
                 });
-                
-                // New row gets remainder to ensure 100 total
                 percentVal = 100 - (split * (count - 1));
             }
         }
@@ -221,7 +233,6 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="btn-remove-row" title="Remove">&times;</div>
         `;
         
-        // Listener for Manual Edits
         const input = row.querySelector('.work-percent-input');
         input.addEventListener('change', function() {
             recalculatePercents(this);
@@ -229,12 +240,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         row.querySelector('.btn-remove-row').addEventListener('click', () => {
             row.remove();
-            // Re-distribute remaining? Keeping simple for now to avoid accidental data loss.
         });
         container.appendChild(row);
     }
 
-    // [FIX] Recalculate Logic
     function recalculatePercents(changedInput) {
         const allInputs = document.querySelectorAll('.work-percent-input');
         if (allInputs.length < 2) return;
@@ -244,8 +253,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (newVal < 0) { newVal = 0; changedInput.value = 0; }
         
         const remaining = 100 - newVal;
-        
-        // Distribute remainder to others
         const others = [];
         allInputs.forEach(inp => { if(inp !== changedInput) others.push(inp); });
         
@@ -254,7 +261,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (others.length > 1) {
             const split = Math.floor(remaining / others.length);
             others.forEach((inp, idx) => {
-                // Give remainder to last one
                 if (idx === others.length - 1) {
                     inp.value = remaining - (split * (others.length - 1));
                 } else {

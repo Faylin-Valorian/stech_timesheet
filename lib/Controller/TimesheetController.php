@@ -78,22 +78,48 @@ class TimesheetController extends Controller {
     public function getTimesheets(string $start, string $end): DataResponse {
         $events = [];
 
-        // --- 1. PAYROLL TABS ---
+        // =====================================================================
+        // 1. FETCH SETTINGS & MAPS
+        // =====================================================================
+        $settings = [];
         try {
             $qbSettings = $this->db->getQueryBuilder();
-            // Try/Catch handles missing table if migration hasn't run
             $rows = $qbSettings->select('*')->from('stech_admin_settings')->executeQuery()->fetchAll();
-            $settings = [];
             foreach ($rows as $row) {
                 $settings[$row['setting_key']] = $row['setting_value'];
             }
-        } catch (\Exception $e) {
-            $settings = [];
-        }
+        } catch (\Exception $e) { }
 
+        // Settings for Payroll
         $payStart = $settings['pay_start_date'] ?? '2026-01-07'; 
         $freq = (int)($settings['pay_frequency'] ?? 14);
+        $payBg = $settings['pay_bg_style'] ?? ''; // New Setting
 
+        // Settings for Holidays (Map Date -> Background)
+        $holidayBgMap = [];
+        try {
+            $qbH = $this->db->getQueryBuilder();
+            $holidays = $qbH->select('holiday_start_date', 'holiday_end_date', 'holiday_bg')
+                            ->from('stech_holidays')
+                            ->where($qbH->expr()->isNotNull('holiday_bg'))
+                            ->andWhere($qbH->expr()->neq('holiday_bg', $qbH->createNamedParameter('')))
+                            ->executeQuery()
+                            ->fetchAll();
+
+            foreach ($holidays as $h) {
+                $hStart = new \DateTime($h['holiday_start_date']);
+                $hEnd = new \DateTime($h['holiday_end_date']);
+                // Expand range to map every specific date to the background
+                while ($hStart <= $hEnd) {
+                    $holidayBgMap[$hStart->format('Y-m-d')] = $h['holiday_bg'];
+                    $hStart->modify('+1 day');
+                }
+            }
+        } catch (\Exception $e) { }
+
+        // =====================================================================
+        // 2. INJECT PAYROLL TABS
+        // =====================================================================
         try {
             $refDate = new \DateTime($payStart);
             $viewStart = new \DateTime($start);
@@ -118,15 +144,21 @@ class TimesheetController extends Controller {
                     'id' => 'paid-' . $nextPay->format('Ymd'),
                     'title' => 'Payroll',
                     'start' => $nextPay->format('Y-m-d'),
-                    'color' => '#34495e', // Slate Blue
+                    'color' => '#34495e', // Fallback color
                     'display' => 'block',
-                    'extendedProps' => ['isVisual' => true, 'isClosed' => true]
+                    'extendedProps' => [
+                        'isVisual' => true, 
+                        'isClosed' => true,
+                        'customBg' => $payBg // Pass the custom style
+                    ]
                 ];
                 $nextPay->modify("+$freq days");
             }
         } catch (\Exception $e) { }
 
-        // --- 2. REAL TIMESHEETS ---
+        // =====================================================================
+        // 3. FETCH REAL TIMESHEETS
+        // =====================================================================
         $qbJobs = $this->db->getQueryBuilder();
         $qbJobs->select('job_name', 'is_pto')->from('stech_jobs');
         $allJobs = $qbJobs->executeQuery()->fetchAll();
@@ -163,14 +195,23 @@ class TimesheetController extends Controller {
             $isClosed = !empty($row['time_out']);
             $comments = $row['additional_comments'] ?? '';
             
-            // Holiday Event (Orange + Non-Clickable)
-            if (strpos($comments, 'Holiday:') === 0) {
+            // --- HOLIDAY LOGIC ---
+            $isHoliday = (strpos($comments, 'Holiday:') === 0);
+
+            if ($isHoliday) {
+                // Check if there is a custom background for this date
+                $customBg = $holidayBgMap[$date] ?? '';
+
                 $events[] = [
                     'id' => $tid,
                     'title' => 'Holiday',
                     'start' => $date,
                     'color' => '#e67e22',
-                    'extendedProps' => ['isClosed' => true, 'isVisual' => true] // Visual = Non-editable
+                    'extendedProps' => [
+                        'isClosed' => true, 
+                        'isVisual' => true,
+                        'customBg' => $customBg // Pass custom style if exists
+                    ]
                 ];
                 continue; 
             }
@@ -283,9 +324,7 @@ class TimesheetController extends Controller {
                                  ->andWhere($qbCheck->expr()->eq('timesheet_date', $qbCheck->createNamedParameter($date)))
                                  ->orderBy('timesheet_id', 'DESC')->setMaxResults(1)->executeQuery()->fetch();
             
-            // Check if user has an open entry they forgot to close
             if ($lastEntry && empty($lastEntry['time_out'])) {
-                // Improved Error Message
                 return new DataResponse(['error' => 'You already have an ACTIVE entry for this day. Please click the "Active" tab on the calendar to clock out or edit it.'], 400);
             }
         }
@@ -327,27 +366,21 @@ class TimesheetController extends Controller {
             $timesheetId = $qb->getLastInsertId();
         }
 
-        // --- SQL FIX: CLEAN EXECUTION ---
-        // 1. Delete Old
         $qbDel = $this->db->getQueryBuilder();
         $qbDel->delete('stech_activity')
               ->where($qbDel->expr()->eq('timesheet_id', $qbDel->createNamedParameter($timesheetId)))
               ->execute();
 
-        // 2. Insert New (Using fresh QueryBuilder for each row to ensure binding works)
         if (isset($data['work_desc']) && is_array($data['work_desc'])) {
+            // Using prepared statement for safety and speed
+            $prefix = '*PREFIX*';
+            $sql = "INSERT INTO `{$prefix}stech_activity` (`timesheet_id`, `activity_description`, `activity_percent`) VALUES (?, ?, ?)";
+            $stmt = $this->db->prepare($sql);
+
             foreach ($data['work_desc'] as $index => $desc) {
                 if (empty($desc)) continue;
                 $percent = isset($data['work_percent'][$index]) ? (int)$data['work_percent'][$index] : 0;
-                
-                $qbInsert = $this->db->getQueryBuilder(); // NEW INSTANCE IS CRITICAL
-                $qbInsert->insert('stech_activity')
-                         ->values([
-                             'timesheet_id' => $qbInsert->createNamedParameter($timesheetId),
-                             'activity_description' => $qbInsert->createNamedParameter($desc),
-                             'activity_percent' => $qbInsert->createNamedParameter($percent)
-                         ])
-                         ->execute();
+                $stmt->execute([$timesheetId, $desc, $percent]);
             }
         }
 

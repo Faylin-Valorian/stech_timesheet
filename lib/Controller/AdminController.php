@@ -41,7 +41,7 @@ class AdminController extends Controller {
     }
 
     // =========================================================================
-    //  SETTINGS (PAYROLL & GENERIC)
+    //  SETTINGS (PAYROLL & BACKGROUNDS)
     // =========================================================================
 
     /**
@@ -50,8 +50,7 @@ class AdminController extends Controller {
      */
     public function getSettings(): DataResponse {
         try {
-            // We simply try to fetch. If the table doesn't exist yet, it throws an exception.
-            // This avoids the 'Call to undefined method getSchemaManager' error.
+            // Using try-catch instead of getSchemaManager to avoid potential version conflicts
             $qb = $this->db->getQueryBuilder();
             $rows = $qb->select('*')
                        ->from('stech_admin_settings')
@@ -120,7 +119,7 @@ class AdminController extends Controller {
     public function getThumbnail(string $filename) {
         $filename = basename($filename);
         
-        // 1. Try App img/ folder
+        // 1. Try App img/ folder first
         $appPath = \OC::$server->getAppManager()->getAppPath('stech_timesheet');
         $localPath = $appPath . '/img/' . $filename;
 
@@ -166,7 +165,7 @@ class AdminController extends Controller {
         $localFile = $localImgDir . $fileName;
         $savedToLocal = false;
 
-        // Try writing to app directory
+        // Try writing to app directory if writable (easier for dev)
         if (is_writable($localImgDir)) {
             $content = stream_get_contents($sourceStream);
             if (file_put_contents($localFile, $content) !== false) {
@@ -175,7 +174,7 @@ class AdminController extends Controller {
             rewind($sourceStream); 
         }
 
-        // If app dir failed, write to AppData
+        // Otherwise write to AppData storage
         if (!$savedToLocal) {
             try {
                 try { 
@@ -202,7 +201,7 @@ class AdminController extends Controller {
     }
 
     // =========================================================================
-    //  USER MANAGEMENT & STATUS TOGGLING
+    //  USER MANAGEMENT
     // =========================================================================
 
     /**
@@ -213,7 +212,7 @@ class AdminController extends Controller {
         // 1. Get All Nextcloud Users
         $ncUsers = $this->userManager->search('');
         
-        // 2. Get Local Employee Status from stech_employees
+        // 2. Get Local Employee Status
         try {
             $qb = $this->db->getQueryBuilder();
             $employeeRows = $qb->select('*')
@@ -246,7 +245,7 @@ class AdminController extends Controller {
         // Sort: Active first, then Alphabetical by Name
         usort($result, function($a, $b) {
             if ($a['is_active'] !== $b['is_active']) {
-                return $b['is_active'] - $a['is_active']; // 1 before 0
+                return $b['is_active'] - $a['is_active']; 
             }
             return strcasecmp($a['displayname'], $b['displayname']);
         });
@@ -273,7 +272,7 @@ class AdminController extends Controller {
                      ->executeQuery()
                      ->fetch();
 
-        $currentStatus = $record ? (int)$record['is_active'] : 1; // Default 1 if no record
+        $currentStatus = $record ? (int)$record['is_active'] : 1; 
         $newStatus = ($currentStatus === 1) ? 0 : 1;
         $now = date('Y-m-d H:i:s');
         $todayDate = date('Y-m-d');
@@ -297,11 +296,9 @@ class AdminController extends Controller {
         }
 
         // 2. HOLIDAY ARCHIVING LOGIC
-        // If user is set to INACTIVE (0), we must archive any FUTURE holiday records
-        // that might have been inserted by the automation (or manually).
+        // If user is set to INACTIVE (0), archive any FUTURE holiday records
         if ($newStatus === 0) {
-            // Find records for this user, in the future, that overlap with defined holidays
-            $prefix = '*PREFIX*'; // Nextcloud replaces this automatically
+            $prefix = '*PREFIX*'; 
             $sql = "UPDATE `{$prefix}stech_timesheets` AS t
                     SET t.`archive` = 1 
                     WHERE t.`userid` = :uid 
@@ -338,6 +335,8 @@ class AdminController extends Controller {
      */
     public function saveHoliday(): DataResponse {
         $data = $this->request->getParams();
+        $bgStyle = $data['bg_style'] ?? ''; // New Field
+
         $qb = $this->db->getQueryBuilder();
 
         if (!empty($data['id'])) {
@@ -345,6 +344,7 @@ class AdminController extends Controller {
                ->set('holiday_name', $qb->createNamedParameter($data['name']))
                ->set('holiday_start_date', $qb->createNamedParameter($data['start']))
                ->set('holiday_end_date', $qb->createNamedParameter($data['end']))
+               ->set('holiday_bg', $qb->createNamedParameter($bgStyle)) // Save BG
                ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($data['id'])))
                ->execute();
         } else {
@@ -353,6 +353,7 @@ class AdminController extends Controller {
                    'holiday_name' => $qb->createNamedParameter($data['name']),
                    'holiday_start_date' => $qb->createNamedParameter($data['start']),
                    'holiday_end_date' => $qb->createNamedParameter($data['end']),
+                   'holiday_bg' => $qb->createNamedParameter($bgStyle), // Save BG
                    'holiday_archive' => $qb->createNamedParameter(0)
                ])
                ->execute();
@@ -418,7 +419,6 @@ class AdminController extends Controller {
      */
     public function saveJob(): DataResponse {
         $data = $this->request->getParams();
-        // Capture PTO flag
         $isPto = isset($data['is_pto']) && $data['is_pto'] == 1 ? 1 : 0;
         
         $qb = $this->db->getQueryBuilder();

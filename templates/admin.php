@@ -83,7 +83,7 @@ Util::addStyle('stech_timesheet', 'admin');
         <div id="view-payroll" class="admin-view hidden">
             <div class="view-header">
                 <h2>Payroll Configuration</h2>
-                <p>Configure the visual "Paid" tab appearance on the calendar.</p>
+                <p>Configure the visual "Payroll" tab appearance on the calendar.</p>
             </div>
             
             <div class="view-body" style="max-width: 600px;">
@@ -94,7 +94,7 @@ Util::addStyle('stech_timesheet', 'admin');
                             <option value="14">Bi-Weekly (Every 2 Weeks)</option>
                             <option value="7">Weekly</option>
                             <option value="28">Every 4 Weeks</option>
-                            </select>
+                        </select>
                     </div>
                     
                     <div class="input-group" style="margin-top: 15px;">
@@ -103,6 +103,14 @@ Util::addStyle('stech_timesheet', 'admin');
                             Pick any valid past or future Pay Day. The calendar will calculate dates forward and backward from this reference point.
                         </p>
                         <input type="date" id="pay-start-date" class="form-control">
+                    </div>
+
+                    <div class="input-group" style="margin-top: 15px;">
+                        <label>Tab Background Style (Optional)</label>
+                        <p style="font-size: 0.85em; color: #666; margin:0 0 5px 0;">
+                            Enter a CSS color (e.g. <code>#27ae60</code>), a gradient (e.g. <code>linear-gradient(to right, #00b09b, #96c93d)</code>), or an image URL (e.g. <code>url('https://example.com/bg.jpg')</code>).
+                        </p>
+                        <input type="text" id="pay-bg-style" class="form-control" placeholder="Default: #34495e (Slate Blue)">
                     </div>
 
                     <div style="margin-top: 25px; display: flex; align-items: center; gap: 15px;">
@@ -153,6 +161,12 @@ Util::addStyle('stech_timesheet', 'admin');
                         <div class="input-group">
                             <label>End Date (Optional)</label>
                             <input type="date" id="holiday-end" class="form-control">
+                        </div>
+
+                        <div class="input-group">
+                            <label>Custom Background (Optional)</label>
+                            <p style="font-size: 0.8em; color: #666; margin:0 0 5px 0;">Specific style for this holiday tab.</p>
+                            <input type="text" id="holiday-bg" class="form-control" placeholder="Color hex, gradient, or URL...">
                         </div>
 
                         <div style="display: flex; gap: 10px;">
