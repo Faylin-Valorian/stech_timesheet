@@ -1,10 +1,10 @@
 <?php
 use OCP\Util;
-// Use CDN for Chart.js to ensure it loads correctly
-?>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<?php
+// [FIX] Load LOCAL Chart.js library (from js/chart.js)
+Util::addScript('stech_timesheet', 'chart');
+
+// Load App Scripts
 Util::addScript('stech_timesheet', 'analysis');
 Util::addStyle('stech_timesheet', 'style');
 Util::addStyle('stech_timesheet', 'analysis');
@@ -46,7 +46,7 @@ Util::addStyle('stech_timesheet', 'analysis');
                     
                     <?php if($_['can_view_others']): ?>
                     <div class="control-group">
-                        <select id="analysis-target-user" class="form-control">
+                        <select id="analysis-target-user" class="form-control" style="width: 150px;">
                             <option value="self">Myself</option>
                             <option value="all">All Employees</option>
                         </select>

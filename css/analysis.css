@@ -8,7 +8,7 @@
     flex-direction: column;
     box-sizing: border-box;
     color: var(--color-main-text);
-    overflow-y: auto; /* Allow scroll if content is tall */
+    overflow-y: auto; 
 }
 
 .analysis-header {
@@ -33,7 +33,7 @@
 .date-range-selector {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 15px; /* Spacing between controls */
     flex-wrap: wrap; 
 }
 
@@ -97,7 +97,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     overflow: hidden; 
-    min-height: 500px; /* Ensure space for chart */
+    min-height: 500px;
 }
 
 .tab-headers {
@@ -152,11 +152,11 @@
 }
 
 /* =========================================
-   4. CHARTS & TABLES (Layout Fixes)
+   4. CHARTS & TABLES
    ========================================= */
 .chart-wrapper {
     position: relative;
-    height: 400px; /* Explicit height is needed for Chart.js */
+    height: 400px; 
     width: 100%;
 }
 

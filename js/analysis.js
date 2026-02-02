@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const startInput = document.getElementById('analysis-start');
     const endInput = document.getElementById('analysis-end');
     const updateBtn = document.getElementById('btn-refresh-analysis');
-    const userSelect = document.getElementById('analysis-target-user'); // May not exist if not admin
+    const userSelect = document.getElementById('analysis-target-user'); 
 
     // Tabs Logic
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -24,16 +24,31 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Date Range Logic
+    // --- Dynamic Update Logic ---
+
+    // 1. Period Selector Change
     rangeSelect.addEventListener('change', () => {
         if (rangeSelect.value === 'custom') {
             customInputs.classList.remove('hidden');
         } else {
             customInputs.classList.add('hidden');
+            loadStats(); // Auto-update for non-custom presets
         }
     });
 
-    updateBtn.addEventListener('click', loadStats);
+    // 2. Custom Date Inputs Change
+    startInput.addEventListener('change', loadStats);
+    endInput.addEventListener('change', loadStats);
+
+    // 3. User Dropdown Change (if exists)
+    if (userSelect) {
+        userSelect.addEventListener('change', loadStats);
+    }
+
+    // 4. Manual Button (Backup)
+    if (updateBtn) {
+        updateBtn.addEventListener('click', loadStats);
+    }
 
     // Initial Load
     loadStats();
@@ -45,7 +60,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (period === 'custom') {
             const s = startInput.value;
             const e = endInput.value;
-            if(!s || !e) { OC.dialogs.alert('Please select both start and end dates.', 'Missing Dates'); return; }
+            
+            // Silent Fail: If dates are missing, don't update, don't alert.
+            // Wait for user to finish selecting both.
+            if(!s || !e) return; 
+
             queryParams += '&start=' + s + '&end=' + e;
         }
 
@@ -53,7 +72,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (userSelect) {
             queryParams += '&target_user=' + userSelect.value;
         } else {
-            // Check if global target user exists (from main page context)
             const globalTarget = document.getElementById('global-target-user');
             if(globalTarget) queryParams += '&target_user=' + globalTarget.value;
         }
@@ -95,6 +113,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data.jobs && data.jobs.length > 0) {
             renderJobChart(data.jobs);
             renderJobTable(data.jobs, data.total_hours);
+        } else {
+            // If no data, clear chart
+            const ctx = document.getElementById('chart-jobs');
+            if(ctx && jobChart) jobChart.destroy();
+            const tbody = document.getElementById('job-table-body');
+            if(tbody) tbody.innerHTML = '<tr><td colspan="3">No job data found.</td></tr>';
         }
 
         // 5. Render Location Table
@@ -106,7 +130,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (dailyChart) dailyChart.destroy();
 
-        // Theme colors (detect dark mode if possible, or use neutral)
+        // Theme colors
         const isDarkMode = document.body.classList.contains('theme--dark');
         const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
         const textColor = isDarkMode ? '#ddd' : '#666';
@@ -146,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderJobChart(jobs) {
         const ctx = document.getElementById('chart-jobs');
-        if (!ctx) return; // Element might not exist if permission denied
+        if (!ctx) return; 
 
         if (jobChart) jobChart.destroy();
 
@@ -191,6 +215,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderLocationTable(locs) {
         const tbody = document.getElementById('location-table-body');
+        if(!tbody) return;
         tbody.innerHTML = '';
         locs.forEach(l => {
             const tr = document.createElement('tr');
