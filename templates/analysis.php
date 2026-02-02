@@ -1,8 +1,15 @@
 <?php
 use OCP\Util;
-// Local Chart.js library
-Util::addScript('stech_timesheet', 'chart');
 
+// [LIBRARIES]
+// Chart.js (Base)
+Util::addScript('stech_timesheet', 'chart');
+?>
+<script src="https://unpkg.com/topojson-client@3"></script>
+<script src="https://unpkg.com/chartjs-chart-geo@4"></script>
+
+<?php
+// App Scripts
 Util::addScript('stech_timesheet', 'analysis');
 Util::addStyle('stech_timesheet', 'style');
 Util::addStyle('stech_timesheet', 'analysis');
@@ -44,10 +51,12 @@ Util::addStyle('stech_timesheet', 'analysis');
                     
                     <?php if($_['can_view_others']): ?>
                     <div class="control-group">
-                        <select id="analysis-target-user" class="form-control" style="width: 150px;">
-                            <option value="self">Myself</option>
-                            <option value="all">All Employees</option>
-                        </select>
+                        <input type="text" id="user-search" list="user-list" class="form-control" placeholder="Search Employee..." style="width: 200px;">
+                        <datalist id="user-list">
+                            <option value="Myself" data-value="self"></option>
+                            <option value="All Employees" data-value="all"></option>
+                            </datalist>
+                        <input type="hidden" id="analysis-target-user" value="self">
                     </div>
                     <?php endif; ?>
 
@@ -131,24 +140,51 @@ Util::addStyle('stech_timesheet', 'analysis');
                     </div>
 
                     <div id="tab-profitability" class="tab-pane">
-                        <h3>Job Profitability (Total Hours Allocated)</h3>
-                        <div class="chart-wrapper">
-                            <canvas id="chart-profitability"></canvas>
+                        <div class="profitability-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                            <h3>Job Profitability Meter</h3>
+                            <div class="control-group">
+                                <label for="job-search" style="margin-right:10px; font-size:0.9em; color:var(--color-text-light);">Select Job:</label>
+                                <input type="text" id="job-search" list="job-list" class="form-control" placeholder="All Jobs (Overview)" style="width: 250px;">
+                                <datalist id="job-list">
+                                    <option value="All Jobs" data-value="all"></option>
+                                    </datalist>
+                                <input type="hidden" id="analysis-job-filter" value="all">
+                            </div>
                         </div>
+                        
+                        <div class="gauge-container" style="position:relative; width:100%; height:400px; display:flex; justify-content:center; align-items:flex-end;">
+                            <canvas id="chart-profitability-gauge"></canvas>
+                            <div id="gauge-value-display" style="position:absolute; bottom:20px; font-size:24px; font-weight:bold; color:var(--color-main-text);">0 Hrs</div>
+                        </div>
+                        <p style="text-align:center; color:var(--color-text-light); margin-top:10px;">
+                            Green: Low Usage | Yellow: Moderate | Red: High Usage / Over Budget
+                        </p>
                     </div>
                     <?php endif; ?>
 
                     <div id="tab-state" class="tab-pane">
-                        <h3>State Job Volume</h3>
-                        <div class="chart-wrapper">
-                            <canvas id="chart-state-activity"></canvas>
+                        <h3>US Activity Map (Hot Bed)</h3>
+                        <div class="map-wrapper" style="height: 500px; width: 100%; position:relative;">
+                            <canvas id="chart-state-map"></canvas>
                         </div>
                     </div>
 
                     <div id="tab-county" class="tab-pane">
-                        <h3>County Job Volume</h3>
-                        <div class="chart-wrapper">
-                            <canvas id="chart-county-activity"></canvas>
+                        <div class="county-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                            <h3>County Activity Map</h3>
+                            <div class="control-group">
+                                <label for="state-search" style="margin-right:10px; font-size:0.9em; color:var(--color-text-light);">Select State:</label>
+                                <input type="text" id="state-search" list="state-list" class="form-control" placeholder="Select State to Load..." style="width: 200px;">
+                                <datalist id="state-list">
+                                    </datalist>
+                                <input type="hidden" id="analysis-state-filter" value="">
+                            </div>
+                        </div>
+                        <div class="map-wrapper" style="height: 500px; width: 100%; position:relative;">
+                            <canvas id="chart-county-map"></canvas>
+                            <div id="county-map-placeholder" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:var(--color-text-light);">
+                                Please select a state to load the county heatmap.
+                            </div>
                         </div>
                     </div>
 

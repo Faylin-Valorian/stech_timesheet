@@ -95,14 +95,14 @@
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     overflow: hidden; 
-    min-height: 600px; /* Increased height for new charts */
+    min-height: 600px; 
 }
 
 .tab-headers {
     display: flex;
     background-color: var(--color-background-dark);
     border-bottom: 1px solid var(--color-border);
-    overflow-x: auto; /* Scroll horizontal if too many tabs */
+    overflow-x: auto; 
 }
 
 .tab-btn {
@@ -159,7 +159,6 @@
     width: 100%;
 }
 
-/* Split Layout (Side-by-Side Charts) */
 .split-layout-analysis {
     display: flex;
     gap: 30px;
@@ -203,7 +202,7 @@
     color: var(--color-text-light);
     font-weight: 600;
     background-color: var(--color-background-dark);
-    position: sticky; top: 0; /* Sticky Header */
+    position: sticky; top: 0; 
 }
 
 .analysis-table td {
@@ -213,8 +212,47 @@
 }
 
 /* =========================================
-   5. TRAVEL SUMMARY GRID
+   5. NEW VISUALIZATIONS
    ========================================= */
+
+/* Gauge (Profitability) */
+.gauge-container {
+    background-color: var(--color-main-background);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+}
+
+#gauge-value-display {
+    background: var(--color-background-dark);
+    padding: 5px 15px;
+    border-radius: 20px;
+    border: 1px solid var(--color-border);
+    box-shadow: 0 2px 4px var(--color-box-shadow);
+}
+
+/* Maps */
+.map-wrapper {
+    background-color: var(--color-background-hover);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    padding: 10px;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Searchable Dropdowns (Datalist styling support) */
+input[list] {
+    cursor: pointer;
+}
+input[list]:hover {
+    background-color: var(--color-background-hover);
+}
+
+/* Travel Summary Grid */
 .travel-summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

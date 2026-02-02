@@ -22,9 +22,6 @@ class AnalysisController extends Controller {
         $this->groupManager = $groupManager;
     }
 
-    /**
-     * Helper to check access rules
-     */
     private function checkAccess($uid, $ruleKey): bool {
         if (!$uid) return false;
         if ($this->groupManager->isAdmin($uid)) return true;
@@ -55,10 +52,65 @@ class AnalysisController extends Controller {
      * @NoAdminRequired
      * @NoCSRFRequired
      */
-    public function getStats(string $period, string $target_user = 'self'): DataResponse {
+    public function getFilters(): DataResponse {
         $currentUser = $this->userSession->getUser()->getUID();
         
-        // [SECURITY] Basic Access Check
+        // Users (Only if allowed to see others)
+        $users = [];
+        if ($this->groupManager->isAdmin($currentUser) || $this->checkAccess($currentUser, 'analysis_view_others')) {
+            $query = $this->db->getQueryBuilder();
+            $query->select('uid', 'displayname')
+                  ->from('users')
+                  ->where($query->expr()->eq('status', $query->createNamedParameter(1))); // Assuming 'status' column exists or use OCP API
+            // Note: Direct DB access to 'users' table might not exist in all NC versions. 
+            // Better to use UserManager, but for speed in this context:
+            $allUsers = $this->groupManager->isAdmin($currentUser) 
+                ? \OC::$server->getUserManager()->search('') 
+                : [\OC::$server->getUserManager()->get($currentUser)]; // Fallback
+            
+            // Actually, let's just use the known 'stech_timesheets' table userids or the existing user endpoint logic
+            // Using a simple array for now based on what the AdminController likely provides.
+            // We will fetch from the 'users' table if possible, or just return empty and let JS fetch from Admin API if preferred.
+            // For now, let's fetch strictly Active Users from our managed app list if available, or just all NC users.
+            $foundUsers = \OC::$server->getUserManager()->search('');
+            foreach($foundUsers as $u) {
+                $users[] = ['uid' => $u->getUID(), 'displayname' => $u->getDisplayName()];
+            }
+        } else {
+            $u = $this->userSession->getUser();
+            $users[] = ['uid' => $u->getUID(), 'displayname' => $u->getDisplayName()];
+        }
+
+        // Active Jobs
+        $qb = $this->db->getQueryBuilder();
+        $jobs = $qb->select('job_id', 'job_name')
+                   ->from('stech_jobs')
+                   ->where($qb->expr()->eq('job_archive', $qb->createNamedParameter(0)))
+                   ->executeQuery()
+                   ->fetchAll();
+
+        // Active States (for Dropdown)
+        $qb = $this->db->getQueryBuilder();
+        $states = $qb->select('state_abbr', 'state_name')
+                     ->from('stech_states')
+                     ->where($qb->expr()->eq('is_enabled', $qb->createNamedParameter(1)))
+                     ->executeQuery()
+                     ->fetchAll();
+
+        return new DataResponse([
+            'users' => $users,
+            'jobs' => $jobs,
+            'states' => $states
+        ]);
+    }
+
+    /**
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
+    public function getStats(string $period, string $target_user = 'self', string $job_filter = 'all'): DataResponse {
+        $currentUser = $this->userSession->getUser()->getUID();
+        
         if (!$this->checkAccess($currentUser, 'analysis_tab')) {
             return new DataResponse(['error' => 'Access Denied'], 403);
         }
@@ -66,20 +118,20 @@ class AnalysisController extends Controller {
         $isAdmin = $this->groupManager->isAdmin($currentUser);
         $uid = $currentUser;
 
-        // [SECURITY] "View Others" Logic
+        // 1. User Scope Logic
         if ($target_user !== 'self') {
             if ($isAdmin || $this->checkAccess($currentUser, 'analysis_view_others')) {
                 if ($target_user === 'all') {
-                    $uid = null; // Fetch for all users
+                    $uid = null; // Query ALL users
                 } else {
-                    $uid = $target_user; // Fetch for specific user
+                    $uid = $target_user; // Query SPECIFIC user
                 }
             } else {
-                $uid = $currentUser; // Force self if unauthorized
+                $uid = $currentUser; // Permission denied, force self
             }
         }
 
-        // --- Date Logic ---
+        // 2. Date Logic
         $endDate = new \DateTime();
         $startDate = new \DateTime();
         
@@ -99,36 +151,49 @@ class AnalysisController extends Controller {
                 $endDate = new \DateTime($e);
             }
         } elseif ($period === 'last_pay_period') {
-             // Logic for last pay period (approx 2 weeks back from last cycle)
              $startDate->modify('-28 days');
              $endDate->modify('-14 days');
         } else {
-            // Default: "this_pay_period" (Last 14 days)
-            $startDate->modify('-14 days'); 
+            $startDate->modify('-14 days'); // Default
         }
 
-        // --- Main Query ---
+        // 3. Build Query
         $qb = $this->db->getQueryBuilder();
-        $qb->select('t.*', 'a.activity_description', 'a.activity_percent')
+        $qb->select('t.*', 'a.activity_description', 'a.activity_percent', 'j.job_id', 'j.job_name')
            ->from('stech_timesheets', 't')
            ->leftJoin('t', 'stech_activity', 'a', 't.timesheet_id = a.timesheet_id')
+           ->leftJoin('a', 'stech_jobs', 'j', 'a.activity_description = j.job_name') // Join to get Job IDs if needed
            ->where($qb->expr()->gte('t.timesheet_date', $qb->createNamedParameter($startDate->format('Y-m-d'))))
            ->andWhere($qb->expr()->lte('t.timesheet_date', $qb->createNamedParameter($endDate->format('Y-m-d'))));
 
-        if ($uid) {
+        // User Filter
+        if ($uid !== null) {
             $qb->andWhere($qb->expr()->eq('t.userid', $qb->createNamedParameter($uid)));
+        }
+        
+        // Job Filter (For Profitability Gauge Specifics)
+        // If we select a specific job, we still might want "Overview" stats for everything, 
+        // so we usually filter in PHP. However, if the user requested a specific job filter:
+        if ($job_filter !== 'all') {
+            // We'll handle this in the aggregation loop to allow the "Total Hours" card to remain accurate 
+            // for the USER, even if the GAUGE is filtered. 
+            // OR: If the entire dashboard filters by job, add:
+            // $qb->andWhere($qb->expr()->eq('j.job_id', $qb->createNamedParameter($job_filter)));
+            // *Decision*: The prompt implies the GAUGE has a dropdown. The dashboard has a user dropdown.
+            // I will return ALL data, and let the frontend filter the Gauge, UNLESS the dataset is huge.
+            // For now, return all, it's safer for "Top Stats" context.
         }
 
         $results = $qb->executeQuery()->fetchAll();
 
-        // --- Data Aggregation ---
+        // 4. Aggregation
         $totalHours = 0;
         $ptoHours = 0;
         $trendData = []; 
-        $jobStats = []; 
-        $stateStats = [];
-        $countyStats = [];
-        $processedTimesheets = []; // Track unique IDs
+        $jobStats = []; // For Profitability
+        $stateStats = []; // For Map
+        $countyStats = []; // For Map
+        $processedTimesheets = []; 
 
         $canSeeJobs = $this->checkAccess($currentUser, 'analysis_job_breakdown');
 
@@ -137,64 +202,53 @@ class AnalysisController extends Controller {
             $hours = (float)$row['time_total'];
             $date = $row['timesheet_date'];
             
-            // Process Unique Timesheets (Trends, Totals, Location)
+            // Unique Timesheet Stats
             if (!in_array($tid, $processedTimesheets)) {
                 $totalHours += $hours;
                 
                 $isPto = (strpos($row['additional_comments'] ?? '', '[PTO]') !== false);
-                if ($isPto) {
-                    $ptoHours += $hours;
-                }
+                if ($isPto) $ptoHours += $hours;
 
-                // Trend Data (Date -> Hours)
                 if (!isset($trendData[$date])) $trendData[$date] = 0;
                 $trendData[$date] += $hours;
 
-                // State Activity (Count of entries)
-                $st = $row['travel_state'] ?? 'Unknown';
-                if ($st && $st !== 'Unknown') {
+                // Map Data (States)
+                $st = $row['travel_state'] ?? '';
+                if ($st) {
                     if (!isset($stateStats[$st])) $stateStats[$st] = 0;
-                    $stateStats[$st]++;
+                    $stateStats[$st]++; // Count Visits
                 }
 
-                // County Activity (Count of entries)
-                $ct = $row['travel_county'] ?? 'Unknown';
-                if ($ct && $ct !== 'Unknown') {
-                    // Combine with state to ensure uniqueness (e.g., "Orange (CA)" vs "Orange (FL)")
-                    $label = $ct . ($st ? " ($st)" : "");
-                    if (!isset($countyStats[$label])) $countyStats[$label] = 0;
-                    $countyStats[$label]++;
+                // Map Data (Counties)
+                $ct = $row['travel_county'] ?? '';
+                if ($ct && $st) {
+                    $key = $st . '|' . $ct; // Key by State|County
+                    if (!isset($countyStats[$key])) $countyStats[$key] = 0;
+                    $countyStats[$key]++;
                 }
                 
                 $processedTimesheets[] = $tid;
             }
 
-            // Job Stats (Weighted by percent) - Used for Breakdown AND Profitability
+            // Job Stats
             if ($canSeeJobs && !empty($row['activity_description'])) {
                 $jobName = $row['activity_description'];
+                $jobId = $row['job_id'] ?? 'unknown'; // Use ID if joined, else name
                 $percent = (float)$row['activity_percent'];
                 $jobHours = $hours * ($percent / 100);
 
-                if (!isset($jobStats[$jobName])) $jobStats[$jobName] = 0;
-                $jobStats[$jobName] += $jobHours;
+                // Use ID for precise filtering if available, or Name
+                $key = $jobId; 
+                if (!isset($jobStats[$key])) {
+                    $jobStats[$key] = ['name' => $jobName, 'hours' => 0];
+                }
+                $jobStats[$key]['hours'] += $jobHours;
             }
         }
 
-        // Sorting
         ksort($trendData);
-        arsort($jobStats);
-        arsort($stateStats);
-        arsort($countyStats);
         
-        // Format Jobs
-        $formattedJobs = [];
-        if ($canSeeJobs) {
-            foreach ($jobStats as $name => $h) {
-                $formattedJobs[] = ['name' => $name, 'hours' => round($h, 2)];
-            }
-        }
-        
-        // Travel Summary Calculation (Re-loop unique rows to avoid JOIN duplication)
+        // Travel Summary
         $totalMiles = 0;
         $perDiemDays = 0;
         $overnightStays = 0;
@@ -213,8 +267,6 @@ class AnalysisController extends Controller {
 
         return new DataResponse([
             'total_hours' => round($totalHours, 2),
-            'days_worked' => count($processedTimesheets),
-            'overtime_hours' => ($totalHours > 40) ? round($totalHours - 40, 2) : 0, 
             'stats' => [
                 'regular_hours' => round($totalHours - $ptoHours, 2),
                 'pto_hours' => round($ptoHours, 2)
@@ -223,7 +275,7 @@ class AnalysisController extends Controller {
                 'labels' => array_keys($trendData),
                 'values' => array_values($trendData)
             ],
-            'jobs' => $formattedJobs,
+            'jobs' => array_values($jobStats), // Return array of objects
             'travel' => [
                 'total_miles' => $totalMiles,
                 'per_diem_days' => $perDiemDays,
