@@ -51,24 +51,25 @@ class PageController extends Controller {
         $user = $this->userSession->getUser();
         $uid = $user ? $user->getUID() : null;
 
-        // 1. Basic Access Check (Gatekeeper)
+        // 1. Basic Access Check
         if (!$this->checkAccess($uid, 'analysis_tab')) {
             $response = new TemplateResponse('stech_timesheet', 'error');
             $response->setParams(['msg' => 'You do not have permission to view the Analysis Dashboard.']);
             return $response;
         }
 
-        // 2. Sub-Feature Checks
-        // We map these to rule keys in 'stech_access_rules' table
+        // 2. Feature Checks (The new Access Control Keys)
         $canViewOthers = $this->checkAccess($uid, 'analysis_view_others');
         $canViewTravel = $this->checkAccess($uid, 'analysis_travel');
-        $canViewFinancial = $this->checkAccess($uid, 'analysis_financial'); // Covers Jobs & Profitability
-        $canViewLocation = $this->checkAccess($uid, 'analysis_location'); // Covers State & County Maps
+        $canViewFinancial = $this->checkAccess($uid, 'analysis_financial'); // Covers Profit & Jobs
+        $canViewLocation = $this->checkAccess($uid, 'analysis_location'); // Covers Maps
         
-        // Retain specific breakdown check if needed, or alias it to financial
-        $canViewJobBreakdown = $this->checkAccess($uid, 'analysis_job_breakdown'); 
-        // Logic: If they have generic 'financial' access, they can see breakdown too.
-        if ($canViewFinancial) $canViewJobBreakdown = true;
+        // Logic: If user has Financial Access, they inherently get Job Breakdown access.
+        // Otherwise, check for specific breakdown permission.
+        $canViewJobBreakdown = $this->checkAccess($uid, 'analysis_job_breakdown');
+        if ($canViewFinancial) {
+            $canViewJobBreakdown = true;
+        }
 
         $response = new TemplateResponse('stech_timesheet', 'analysis');
         $response->setParams([

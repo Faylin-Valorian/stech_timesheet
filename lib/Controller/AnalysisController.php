@@ -22,6 +22,7 @@ class AnalysisController extends Controller {
         $this->groupManager = $groupManager;
     }
 
+    // Reuse the same checkAccess logic (duplicated for safety in API)
     private function checkAccess($uid, $ruleKey): bool {
         if (!$uid) return false;
         if ($this->groupManager->isAdmin($uid)) return true;
@@ -96,20 +97,27 @@ class AnalysisController extends Controller {
     public function getStats(string $period, string $target_user = 'self'): DataResponse {
         $currentUser = $this->userSession->getUser()->getUID();
         
+        // Gatekeeper
         if (!$this->checkAccess($currentUser, 'analysis_tab')) {
             return new DataResponse(['error' => 'Access Denied'], 403);
         }
 
+        // Feature Permissions
+        $canViewTravel = $this->checkAccess($currentUser, 'analysis_travel');
+        $canViewFinancial = $this->checkAccess($currentUser, 'analysis_financial');
+        $canViewLocation = $this->checkAccess($currentUser, 'analysis_location');
+        $canViewJobBreakdown = $this->checkAccess($currentUser, 'analysis_job_breakdown');
+        
+        // Financial access implies Job Breakdown access
+        if ($canViewFinancial) $canViewJobBreakdown = true;
+
+        // User Selection Logic
         $isAdmin = $this->groupManager->isAdmin($currentUser);
         $uid = $currentUser;
-
         if ($target_user !== 'self') {
             if ($isAdmin || $this->checkAccess($currentUser, 'analysis_view_others')) {
-                if ($target_user === 'all') {
-                    $uid = null; 
-                } else {
-                    $uid = $target_user; 
-                }
+                if ($target_user === 'all') $uid = null; 
+                else $uid = $target_user; 
             } else {
                 $uid = $currentUser; 
             }
@@ -141,13 +149,12 @@ class AnalysisController extends Controller {
             $startDate->modify('-14 days'); 
         }
 
-        // QUERY: Ensure we get FINANCIALS from stech_jobs
+        // Query
         $qb = $this->db->getQueryBuilder();
         $qb->select('t.*', 'a.activity_description', 'a.activity_percent', 
                     'j.job_id', 'j.job_name', 'j.job_revenue', 'j.job_expense_budget', 'j.job_hourly_cost')
            ->from('stech_timesheets', 't')
            ->leftJoin('t', 'stech_activity', 'a', 't.timesheet_id = a.timesheet_id')
-           // Crucial Join for Gauge Data
            ->leftJoin('a', 'stech_jobs', 'j', 'a.activity_description = j.job_name') 
            ->where($qb->expr()->gte('t.timesheet_date', $qb->createNamedParameter($startDate->format('Y-m-d'))))
            ->andWhere($qb->expr()->lte('t.timesheet_date', $qb->createNamedParameter($endDate->format('Y-m-d'))));
@@ -167,8 +174,6 @@ class AnalysisController extends Controller {
         $countyStats = []; 
         $processedTimesheets = []; 
 
-        $canSeeJobs = $this->checkAccess($currentUser, 'analysis_job_breakdown');
-
         foreach ($results as $row) {
             $tid = $row['timesheet_id'];
             $hours = (float)$row['time_total'];
@@ -183,24 +188,26 @@ class AnalysisController extends Controller {
                 if (!isset($trendData[$date])) $trendData[$date] = 0;
                 $trendData[$date] += $hours;
 
-                $st = $row['travel_state'] ?? '';
-                if ($st) {
-                    if (!isset($stateStats[$st])) $stateStats[$st] = 0;
-                    $stateStats[$st]++;
-                }
-
-                $ct = $row['travel_county'] ?? '';
-                if ($ct && $st) {
-                    $key = $st . '|' . $ct;
-                    if (!isset($countyStats[$key])) $countyStats[$key] = 0;
-                    $countyStats[$key]++;
+                // Only process location data if allowed
+                if ($canViewLocation) {
+                    $st = $row['travel_state'] ?? '';
+                    if ($st) {
+                        if (!isset($stateStats[$st])) $stateStats[$st] = 0;
+                        $stateStats[$st]++;
+                    }
+                    $ct = $row['travel_county'] ?? '';
+                    if ($ct && $st) {
+                        $key = $st . '|' . $ct;
+                        if (!isset($countyStats[$key])) $countyStats[$key] = 0;
+                        $countyStats[$key]++;
+                    }
                 }
                 
                 $processedTimesheets[] = $tid;
             }
 
-            // Job Stats - Accumulate Hours & Store Fixed Financial Data
-            if ($canSeeJobs && !empty($row['activity_description'])) {
+            // Job Stats (Only if allowed)
+            if ($canViewJobBreakdown && !empty($row['activity_description'])) {
                 $jobName = $row['activity_description'];
                 $percent = (float)$row['activity_percent'];
                 $jobHours = $hours * ($percent / 100);
@@ -209,7 +216,6 @@ class AnalysisController extends Controller {
                     $jobStats[$jobName] = [
                         'name' => $jobName, 
                         'hours' => 0,
-                        // Parse Financials (Float)
                         'revenue' => (float)($row['job_revenue'] ?? 0),
                         'budget' => (float)($row['job_expense_budget'] ?? 0),
                         'hourly_cost' => (float)($row['job_hourly_cost'] ?? 0)
@@ -222,39 +228,53 @@ class AnalysisController extends Controller {
         ksort($trendData);
         arsort($stateStats);
         
-        $totalMiles = 0;
-        $perDiemDays = 0;
-        $overnightStays = 0;
-        $totalExpenses = 0.0;
-        
-        $uniqueRows = [];
-        foreach($results as $r) {
-            if(!in_array($r['timesheet_id'], $uniqueRows)) {
-                $uniqueRows[] = $r['timesheet_id'];
-                $totalMiles += (int)($r['travel_miles'] ?? 0);
-                if(($r['travel_per_diem'] ?? 0) == 1) $perDiemDays++;
-                if(($r['travel_overnight'] ?? 0) == 1) $overnightStays++;
-                $totalExpenses += (float)($r['travel_extra_expenses'] ?? 0);
+        // Travel Stats (Only if allowed)
+        $travelStats = [
+            'total_miles' => 0,
+            'per_diem_days' => 0,
+            'overnight_stays' => 0,
+            'total_expenses' => 0.0
+        ];
+
+        if ($canViewTravel) {
+            $totalMiles = 0;
+            $perDiemDays = 0;
+            $overnightStays = 0;
+            $totalExpenses = 0.0;
+            $uniqueRows = [];
+            
+            foreach($results as $r) {
+                if(!in_array($r['timesheet_id'], $uniqueRows)) {
+                    $uniqueRows[] = $r['timesheet_id'];
+                    $totalMiles += (int)($r['travel_miles'] ?? 0);
+                    if(($r['travel_per_diem'] ?? 0) == 1) $perDiemDays++;
+                    if(($r['travel_overnight'] ?? 0) == 1) $overnightStays++;
+                    $totalExpenses += (float)($r['travel_extra_expenses'] ?? 0);
+                }
             }
+            $travelStats = [
+                'total_miles' => $totalMiles,
+                'per_diem_days' => $perDiemDays,
+                'overnight_stays' => $overnightStays,
+                'total_expenses' => round($totalExpenses, 2)
+            ];
         }
 
+        // Return Data (Empty arrays where permission denied)
         return new DataResponse([
             'total_hours' => round($totalHours, 2),
             'stats' => [
                 'regular_hours' => round($totalHours - $ptoHours, 2),
-                'pto_hours' => round($ptoHours, 2)
+                'pto_hours' => round($ptoHours, 2),
+                // Fix for Overtime missing property
+                'overtime_hours' => 0 // or calculate if you have the logic
             ],
             'trend' => [
                 'labels' => array_keys($trendData),
                 'values' => array_values($trendData)
             ],
-            'jobs' => array_values($jobStats),
-            'travel' => [
-                'total_miles' => $totalMiles,
-                'per_diem_days' => $perDiemDays,
-                'overnight_stays' => $overnightStays,
-                'total_expenses' => round($totalExpenses, 2)
-            ],
+            'jobs' => $canViewFinancial ? array_values($jobStats) : [],
+            'travel' => $travelStats,
             'states' => $stateStats,
             'counties' => $countyStats
         ]);

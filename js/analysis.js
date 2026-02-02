@@ -15,6 +15,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let cachedData = null; 
     let usTopology = null; 
+    
+    // State FIPS Lookup (Created dynamically)
+    let fipsToStateName = {}; 
+    let stateBounds = {}; // Cache for zooming
 
     // --- Elements ---
     const rangeSelect = document.getElementById('range-preset');
@@ -23,7 +27,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const endInput = document.getElementById('analysis-end');
     const updateBtn = document.getElementById('btn-refresh-analysis');
     
-    // Search Inputs
     const userSearch = document.getElementById('user-search');
     const userHidden = document.getElementById('analysis-target-user');
     const jobSearch = document.getElementById('job-search');
@@ -33,7 +36,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Init ---
     initTabs();
-    initSearchInputs(); // New Helper
+    initSearchInputs(); 
     loadFilters(); 
     loadStats();   
 
@@ -48,29 +51,47 @@ document.addEventListener('DOMContentLoaded', function() {
                 const target = e.target.dataset.tab;
                 document.getElementById(target).classList.add('active');
                 
-                // Leaflet Resize Fix
+                // Resize Maps
                 if(target === 'tab-state' && mapState) setTimeout(() => mapState.invalidateSize(), 200);
                 if(target === 'tab-county' && mapCounty) setTimeout(() => mapCounty.invalidateSize(), 200);
             });
         });
     }
 
-    // --- Search Input Logic (Click-to-Clear) ---
+    // --- Search Input Logic (Aggressive Clear) ---
     function initSearchInputs() {
-        // Helper to clear input on click so full datalist shows
-        const setupClear = (el, triggerInput = true) => {
+        const setupClear = (el, hiddenInput, triggerLoad = true) => {
             if(!el) return;
-            el.addEventListener('click', function() {
+            
+            // Clear on click to show full list
+            const clearFn = function() {
                 if (this.value !== '') {
                     this.value = '';
-                    if(triggerInput) this.dispatchEvent(new Event('input'));
+                    if (hiddenInput) hiddenInput.value = (triggerLoad && hiddenInput.id !== 'analysis-target-user') ? 'all' : ''; 
+                    
+                    // Trigger input event to reset datalist filtering
+                    const event = new Event('input', { bubbles: true });
+                    this.dispatchEvent(event);
                 }
-            });
+            };
+
+            el.addEventListener('click', clearFn);
+            // Optional: clear on focus too, if desired
+            // el.addEventListener('focus', clearFn);
         };
 
-        setupClear(userSearch, false); // Don't trigger reload on click, just clear
-        setupClear(jobSearch, true);   // Trigger filter update
-        setupClear(stateSearch, false); // Don't trigger map zoom on clear
+        setupClear(userSearch, userHidden, true);
+        setupClear(jobSearch, jobHidden, true);
+        
+        // State is special: clearing it shouldn't trigger reload, just map reset
+        if(stateSearch) {
+            stateSearch.addEventListener('click', function() {
+                this.value = '';
+                stateHidden.value = '';
+                // Reset map to full view
+                if(cachedData) renderLeafletCountyMap(cachedData.counties, null);
+            });
+        }
     }
 
     // --- Data Loading: Filters ---
@@ -78,33 +99,21 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(OC.generateUrl('/apps/stech_timesheet/api/analysis/filters'), { headers: { 'requesttoken': OC.requestToken } })
         .then(r => r.json())
         .then(data => {
-            if (document.getElementById('user-list')) {
-                const list = document.getElementById('user-list');
-                data.users.forEach(u => {
+            const populate = (id, items, valKey, attrKey) => {
+                const list = document.getElementById(id);
+                if(!list) return;
+                list.innerHTML = ''; // Clear existing
+                items.forEach(item => {
                     const opt = document.createElement('option');
-                    opt.value = u.displayname;
-                    opt.setAttribute('data-value', u.uid);
+                    opt.value = item[valKey];
+                    opt.setAttribute('data-value', item[attrKey]);
                     list.appendChild(opt);
                 });
-            }
-            if (document.getElementById('job-list')) {
-                const list = document.getElementById('job-list');
-                data.jobs.forEach(j => {
-                    const opt = document.createElement('option');
-                    opt.value = j.job_name;
-                    opt.setAttribute('data-value', j.job_id);
-                    list.appendChild(opt);
-                });
-            }
-            if (document.getElementById('state-list')) {
-                const list = document.getElementById('state-list');
-                data.states.forEach(s => {
-                    const opt = document.createElement('option');
-                    opt.value = s.state_name;
-                    opt.setAttribute('data-value', s.state_abbr);
-                    list.appendChild(opt);
-                });
-            }
+            };
+            
+            populate('user-list', data.users, 'displayname', 'uid');
+            populate('job-list', data.jobs, 'job_name', 'job_id');
+            populate('state-list', data.states, 'state_name', 'state_abbr');
         });
     }
 
@@ -117,11 +126,11 @@ document.addEventListener('DOMContentLoaded', function() {
     endInput.addEventListener('change', loadStats);
     if (updateBtn) updateBtn.addEventListener('click', loadStats);
 
+    // Input Listeners (Selection Logic)
     if (userSearch) {
         userSearch.addEventListener('input', (e) => {
             const val = e.target.value;
             const opts = document.getElementById('user-list').options;
-            // Robust check to avoid errors
             for (let i = 0; i < opts.length; i++) {
                 if (opts[i].value === val) {
                     userHidden.value = opts[i].getAttribute('data-value');
@@ -135,7 +144,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (jobSearch) {
         jobSearch.addEventListener('input', (e) => {
             const val = e.target.value;
-            // Handle Empty
             if(val === "") {
                 jobHidden.value = 'all';
                 if(cachedData) updateGauge(cachedData.jobs, 'All Jobs');
@@ -160,6 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (opts[i].value === val) {
                     const abbr = opts[i].getAttribute('data-value');
                     stateHidden.value = abbr;
+                    // Just zoom/pan map, don't reload stats
                     if(cachedData) renderLeafletCountyMap(cachedData.counties, abbr);
                     break;
                 }
@@ -195,15 +204,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateUI(data) {
-        // Cards
         document.getElementById('stat-total-hours').innerText = data.total_hours;
         document.getElementById('stat-reg-hours').innerText = data.stats.regular_hours;
         document.getElementById('stat-pto-hours').innerText = data.stats.pto_hours;
-        
         const ot = data.stats.overtime_hours !== undefined ? data.stats.overtime_hours : 0;
         document.getElementById('stat-overtime-hours').innerText = ot;
 
-        // Travel
         if(document.getElementById('val-total-miles')) {
             document.getElementById('val-total-miles').innerText = data.travel.total_miles;
             document.getElementById('val-per-diem').innerText = data.travel.per_diem_days;
@@ -211,37 +217,38 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('val-expenses').innerText = '$' + data.travel.total_expenses;
         }
 
-        // Render Basic Charts
         renderOverviewChart(data.trend);
         renderTravelCharts(data.states, data.counties); 
         
         if (document.getElementById('chart-jobs')) renderJobCharts(data.jobs, data.total_hours);
-        
         if (document.getElementById('chart-profitability-gauge')) {
             const currentJobFilter = jobSearch ? jobSearch.value : 'All Jobs';
             updateGauge(data.jobs, currentJobFilter);
         }
 
-        // Render Maps (Leaflet Logic)
+        // --- MAP LOADER ---
         if(!usTopology) {
             const mapUrl = OC.webroot + '/apps/stech_timesheet/js/us-atlas.json';
             fetch(mapUrl)
-                .then(r => {
-                    if(!r.ok) throw new Error("File not found");
-                    return r.json();
-                })
+                .then(r => r.json())
                 .then(topo => {
                     usTopology = topo;
+                    
+                    // 1. Build FIPS -> State Name Map (CRITICAL for Chambers County fix)
+                    const states = topojson.feature(topo, topo.objects.states).features;
+                    states.forEach(s => {
+                        fipsToStateName[s.id] = s.properties.name;
+                    });
+
                     renderLeafletStateMap(data.states);
+                    
+                    // Check if state is already selected
+                    let abbr = null;
                     if(stateSearch && stateSearch.value) {
                          const opts = document.getElementById('state-list').options;
-                         let abbr = '';
                          for(let i=0; i<opts.length; i++) if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
-                         renderLeafletCountyMap(data.counties, abbr);
-                    } else {
-                        // Render full map if no state selected
-                        renderLeafletCountyMap(data.counties, null);
                     }
+                    renderLeafletCountyMap(data.counties, abbr);
                 })
                 .catch(e => console.error("Map Load Error:", e));
         } else {
@@ -264,28 +271,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // =========================================================
-    //  4. CHART RENDERERS (Standard)
+    //  4. CHART RENDERERS
     // =========================================================
 
-    // --- A. Overview Line Chart ---
     function renderOverviewChart(trend) {
         const ctx = document.getElementById('chart-daily').getContext('2d');
         if (charts.daily) charts.daily.destroy();
         const theme = getTheme();
-
         charts.daily = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: trend.labels,
                 datasets: [{
-                    label: 'Hours Worked',
-                    data: trend.values,
-                    borderColor: '#0082c9',
-                    backgroundColor: 'rgba(0, 130, 201, 0.2)',
-                    fill: true,
-                    tension: 0.3, 
-                    pointRadius: 3,
-                    pointHoverRadius: 6
+                    label: 'Hours Worked', data: trend.values,
+                    borderColor: '#0082c9', backgroundColor: 'rgba(0, 130, 201, 0.2)',
+                    fill: true, tension: 0.3, pointRadius: 3
                 }]
             },
             options: {
@@ -299,7 +299,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- B. Travel Distribution ---
     function renderTravelCharts(states, counties) {
         const ctxS = document.getElementById('chart-travel-state');
         if (ctxS) {
@@ -339,7 +338,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- C. Job Breakdown ---
     function renderJobCharts(jobs, total) {
         const ctx = document.getElementById('chart-jobs');
         if (charts.job) charts.job.destroy();
@@ -372,41 +370,27 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- D. Profitability Gauge (Net Profit: Red -> Green) ---
     function updateGauge(jobs, filterName) {
         const ctx = document.getElementById('chart-profitability-gauge');
         if (!ctx) return;
         
-        let revenue = 0;
-        let expenses = 0; 
-        let laborCost = 0;
-        let profit = 0;
-        let label = "";
+        let revenue = 0, expenses = 0, laborCost = 0, profit = 0, label = "";
         
-        // 1. Calculate Financials
         if (filterName === 'All Jobs' || filterName === 'all' || filterName === '') {
             jobs.forEach(j => {
-                revenue += j.revenue;
-                expenses += j.budget; 
-                laborCost += (j.hours * j.hourly_cost);
+                revenue += j.revenue; expenses += j.budget; laborCost += (j.hours * j.hourly_cost);
             });
             profit = revenue - expenses - laborCost;
             label = "$" + profit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " Net Profit";
         } else {
             const job = jobs.find(x => x.name === filterName);
             if (job) {
-                revenue = job.revenue;
-                expenses = job.budget;
-                laborCost = job.hours * job.hourly_cost;
+                revenue = job.revenue; expenses = job.budget; laborCost = job.hours * job.hourly_cost;
                 profit = revenue - expenses - laborCost;
                 label = "$" + profit.toLocaleString() + " Net Profit";
             }
         }
 
-        // 2. Set Visual Scale
-        let scaleMax = revenue > 0 ? revenue : (Math.abs(profit) > 0 ? Math.abs(profit) * 1.5 : 1000);
-
-        // 3. Update Text Display
         const displayEl = document.getElementById('gauge-value-display');
         displayEl.innerHTML = `
             <div style="text-align:center">
@@ -419,38 +403,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (charts.gauge) charts.gauge.destroy();
 
-        // 4. Custom Needle Logic
         const needlePlugin = {
             id: 'needle',
             afterDatasetDraw(chart) {
                 const { ctx, chartArea: { width, height } } = chart;
                 ctx.save();
-                
-                // Ratio Logic:
                 let ratio = 0;
-                
                 if (revenue > 0) {
                     const margin = profit / revenue; 
                     if(margin < 0) {
-                        // Loss -> Red Section (0.0 - 0.33)
                         let lossSeverity = Math.min(Math.abs(margin), 0.5) / 0.5; 
                         ratio = 0.33 - (lossSeverity * 0.33); 
                     } else {
-                        // Profit -> Yellow/Green Section (0.33 - 1.0)
                         let success = Math.min(margin, 0.5) / 0.5; 
                         ratio = 0.33 + (success * 0.67);
                     }
                 } else {
                     ratio = profit < 0 ? 0.1 : 0.5;
                 }
-                if (ratio < 0) ratio = 0;
-                if (ratio > 1) ratio = 1;
+                if (ratio < 0) ratio = 0; if (ratio > 1) ratio = 1;
 
                 const angle = Math.PI + (ratio * Math.PI);
                 const cx = width / 2;
                 const cy = chart._metasets[0].data[0].y;
 
-                // Draw Needle
                 ctx.translate(cx, cy);
                 ctx.rotate(angle);
                 ctx.beginPath();
@@ -459,8 +435,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 ctx.lineTo(0, 2);
                 ctx.fillStyle = getTheme().text;
                 ctx.fill();
-
-                // Draw Pivot
                 ctx.rotate(-angle);
                 ctx.beginPath();
                 ctx.arc(0, 0, 5, 0, 10);
@@ -475,18 +449,11 @@ document.addEventListener('DOMContentLoaded', function() {
             data: {
                 labels: ['Loss', 'Break Even', 'Profitable'],
                 datasets: [{
-                    // Sections: Red (Left), Yellow (Middle), Green (Right)
-                    data: [33, 33, 34], 
-                    backgroundColor: ['#e9322d', '#ffd60a', '#46ba6f'], 
-                    borderWidth: 0
+                    data: [33, 33, 34], backgroundColor: ['#e9322d', '#ffd60a', '#46ba6f'], borderWidth: 0
                 }]
             },
             options: {
-                rotation: -90,
-                circumference: 180,
-                responsive: true,
-                maintainAspectRatio: false,
-                cutout: '70%',
+                rotation: -90, circumference: 180, responsive: true, maintainAspectRatio: false, cutout: '70%',
                 plugins: { legend: { display: false }, tooltip: { enabled: false } }
             },
             plugins: [needlePlugin]
@@ -494,10 +461,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // =========================================================
-    //  5. LEAFLET MAP RENDERERS (Fixed: Full US, Zoom, ResetStyle)
+    //  5. LEAFLET MAP RENDERERS (Fixed)
     // =========================================================
 
-    // --- Helper: Color Scale (Grey -> Red) ---
     function getMapColor(d) {
         return d > 50 ? '#800026' :
                d > 20 ? '#BD0026' :
@@ -508,7 +474,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         '#EEEEEE'; 
     }
 
-    // --- Helper: Style Function ---
     function getStyle(value) {
         return {
             fillColor: getMapColor(value),
@@ -520,25 +485,17 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // --- A. US State Map ---
     function renderLeafletStateMap(stateData) {
         if (!L || !topojson || !usTopology) return;
-
         const containerId = 'map-state-container';
-        
         if (!mapState) {
-            mapState = L.map(containerId, {
-                center: [37.8, -96],
-                zoom: 4,
-                scrollWheelZoom: false 
-            });
+            mapState = L.map(containerId, { center: [37.8, -96], zoom: 4, scrollWheelZoom: false });
         }
 
         mapState.eachLayer(layer => mapState.removeLayer(layer));
-
         const geojson = topojson.feature(usTopology, usTopology.objects.states);
 
-        // Define layer variable first so we can reference it in resetStyle
+        // Store layer ref for resetStyle
         const geoJsonLayer = L.geoJson(geojson, {
             style: function(feature) {
                 const name = feature.properties.name;
@@ -549,18 +506,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const name = feature.properties.name;
                 const value = stateData[name] || 0;
                 
-                layer.bindTooltip(`<strong>${name}</strong><br>Visits: ${value}`, {
-                    direction: 'top', sticky: true
-                });
+                // Save bounds for Zooming to this state later
+                stateBounds[name] = layer.getBounds();
 
+                layer.bindTooltip(`<strong>${name}</strong><br>Visits: ${value}`, { direction: 'top', sticky: true });
                 layer.on({
                     mouseover: (e) => {
-                        const l = e.target;
-                        l.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
-                        l.bringToFront();
+                        e.target.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
+                        e.target.bringToFront();
                     },
                     mouseout: (e) => {
-                        // FIX: Use the group layer reference
                         geoJsonLayer.resetStyle(e.target);
                     },
                     click: (e) => {
@@ -571,25 +526,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }).addTo(mapState);
     }
 
-    // --- B. County Map (Full US + Zoom + Collision Fix) ---
     function renderLeafletCountyMap(countyData, stateAbbr) {
         if (!L || !topojson || !usTopology) return;
-
         document.getElementById('county-map-placeholder').style.display = 'none';
         
         if (!mapCounty) {
-            mapCounty = L.map('map-county-container', {
-                center: [37.8, -96],
-                zoom: 4
-            });
+            mapCounty = L.map('map-county-container', { center: [37.8, -96], zoom: 4 });
         }
         
         mapCounty.eachLayer(layer => mapCounty.removeLayer(layer));
 
-        // 1. Resolve State Logic
-        let selectedStateName = '';
-        let selectedStateFips = '';
-
+        // 1. Resolve Selection
+        let selectedStateName = null;
         if (stateAbbr) {
             const opts = document.getElementById('state-list').options;
             for(let i=0; i<opts.length; i++) {
@@ -599,106 +547,66 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             if(!selectedStateName) selectedStateName = stateAbbr;
-
-            // Find FIPS ID
-            const allStates = usTopology.objects.states.geometries;
-            const targetStateGeo = allStates.find(s => s.properties.name === selectedStateName);
-            if(targetStateGeo) selectedStateFips = targetStateGeo.id;
         }
 
-        // 2. Filter Geometry
-        let allCounties = topojson.feature(usTopology, usTopology.objects.counties).features;
-        let filteredFeatures = [];
-
-        if (selectedStateFips) {
-            // Specific State: Filter by FIPS
-            filteredFeatures = allCounties.filter(f => f.id.startsWith(selectedStateFips));
-        } else {
-            // No State Selected: Show ALL Counties
-            filteredFeatures = allCounties;
-        }
-
-        if (filteredFeatures.length === 0) return;
+        // 2. Load ALL Features (Do NOT filter)
+        const allCounties = topojson.feature(usTopology, usTopology.objects.counties).features;
 
         // 3. Render
-        const geoJsonLayer = L.geoJson(filteredFeatures, {
+        const geoJsonLayer = L.geoJson(allCounties, {
             style: function(feature) {
-                const name = feature.properties.name;
+                const name = feature.properties.name; // "Chambers"
+                
+                // DATA MATCHING LOGIC
+                // We must use FIPS to find the correct state for this county feature
+                const fips = feature.id; // "01017"
                 let value = 0;
 
-                // Strict Key Matching
-                // If a state is selected, we prepend that state name.
-                // If NO state is selected (Full US View), we have a tricky situation 
-                // because multiple states have "Washington County".
-                // Ideally, your backend sends data like "Texas|Harris". 
-                // We need to match features to that key.
-                
-                // For Full View: We iterate data keys to find match? Too slow.
-                // Better: We need to know the State Name of this county feature.
-                // TopoJSON counties don't always have state properties attached easily without extra lookup.
-                // Fallback for Full View: Just match by County Name (Visual collision risk accepted for Full View speed)
-                // OR: Improved Logic below.
-
-                if (selectedStateName) {
-                    const dbKey = selectedStateName + '|' + name;
-                    value = countyData[dbKey] || 0;
-                } else {
-                    // FULL MAP MODE:
-                    // Try to find ANY key ending in "|CountyName"
-                    // This is imperfect but functional for overview.
-                    // Correct way requires joining State FIPS to County FIPS 
-                    // but that requires more complex topology handling.
-                    // Simple approach:
-                    for (const [k, v] of Object.entries(countyData)) {
-                        if (k.endsWith('|' + name)) {
-                            value += v; // Accumulate if multiple states have same county name (e.g. Washington)
-                        }
+                if (fips) {
+                    const stateFips = fips.substring(0, 2); // "01"
+                    const stateName = fipsToStateName[stateFips]; // "Alabama"
+                    
+                    if (stateName) {
+                        const dbKey = stateName + '|' + name; // "Alabama|Chambers"
+                        value = countyData[dbKey] || 0;
                     }
                 }
-                
+
                 return getStyle(value);
             },
             onEachFeature: function(feature, layer) {
                 const name = feature.properties.name;
-                
-                // Tooltip Content
-                let tooltipText = `<strong>${name} County</strong>`;
-                
-                // Retrieve value again for tooltip
+                const fips = feature.id;
+                let stateName = "Unknown";
                 let value = 0;
-                if (selectedStateName) {
-                    const dbKey = selectedStateName + '|' + name;
+
+                if(fips && fipsToStateName[fips.substring(0,2)]) {
+                    stateName = fipsToStateName[fips.substring(0,2)];
+                    const dbKey = stateName + '|' + name;
                     value = countyData[dbKey] || 0;
-                } else {
-                    // Calc total for overview
-                    for (const [k, v] of Object.entries(countyData)) {
-                        if (k.endsWith('|' + name)) value += v;
-                    }
                 }
 
-                tooltipText += `<br>Visits: ${value}`;
-
-                layer.bindTooltip(tooltipText, {
-                    direction: 'top', sticky: true
-                });
-
+                layer.bindTooltip(`<strong>${name} County, ${stateName}</strong><br>Visits: ${value}`, { direction: 'top', sticky: true });
                 layer.on({
                     mouseover: (e) => {
-                        const l = e.target;
-                        l.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
-                        l.bringToFront();
+                        e.target.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
+                        e.target.bringToFront();
                     },
                     mouseout: (e) => {
-                        // FIX: Use group layer
                         geoJsonLayer.resetStyle(e.target);
                     }
                 });
             }
         }).addTo(mapCounty);
 
-        // 4. Auto-Zoom
-        // If state selected, zoom to it. If not (Full US), zoom to show all.
-        mapCounty.fitBounds(geoJsonLayer.getBounds());
+        // 4. Smart Pan/Zoom
+        if (selectedStateName && stateBounds[selectedStateName]) {
+            // If state selected, zoom to cached bounds of that state
+            mapCounty.fitBounds(stateBounds[selectedStateName]);
+        } else {
+            // Full US View
+            mapCounty.setView([37.8, -96], 4);
+        }
     }
 
-}); // END DOMContentLoaded
+});
