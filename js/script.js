@@ -41,23 +41,17 @@ document.addEventListener('DOMContentLoaded', function() {
             let div = document.createElement('div');
             div.className = 'fc-event-content-box'; 
             
-            // [UPDATED] Handle Custom Backgrounds (Colors, Gradients, URLs)
+            // Handle Custom Backgrounds (Colors, Gradients, URLs)
             const customBg = arg.event.extendedProps.customBg;
             
             if (customBg && customBg.trim() !== '') {
-                // If custom style exists, apply it to 'background'
-                // This supports 'red', 'linear-gradient(...)', or 'url(...)'
                 div.style.background = customBg;
-                
-                // If it looks like an image URL, add some helper styles
                 if (customBg.includes('url(')) {
                     div.style.backgroundSize = 'cover';
                     div.style.backgroundPosition = 'center';
-                    // Text shadow helps readability over images
                     div.style.textShadow = '0 1px 2px rgba(0,0,0,0.8)'; 
                 }
             } else {
-                // Fallback to standard color
                 div.style.backgroundColor = arg.event.backgroundColor;
             }
 
@@ -66,7 +60,6 @@ document.addEventListener('DOMContentLoaded', function() {
         },
 
         eventClick: function(info) {
-            // Block Holidays & Payroll
             if (info.event.extendedProps.isVisual) {
                 OC.dialogs.info('This record is system generated (Holiday or Payroll) and cannot be edited manually.', 'System Record');
                 return;
@@ -299,6 +292,37 @@ document.addEventListener('DOMContentLoaded', function() {
         const container = document.getElementById('travel-fields-container');
         this.checked ? container.classList.add('visible') : container.classList.remove('visible');
     });
+
+    // [NEW] PTO Toggle Auto-Fill Listener
+    const ptoToggle = document.getElementById('toggle-pto');
+    if (ptoToggle) {
+        ptoToggle.addEventListener('change', function() {
+            if (this.checked) {
+                const timeIn = document.getElementById('time-in');
+                const timeOut = document.getElementById('time-out');
+                const breakMin = document.getElementById('break-min');
+
+                // Only auto-fill if times are unset (no start OR end)
+                if (!timeIn.value && !timeOut.value) {
+                    timeIn.value = '08:00';
+                    timeOut.value = '17:00';
+                    breakMin.value = '60';
+                    
+                    // Trigger total calc
+                    calculateTotalHours();
+
+                    // Find first PTO job
+                    const ptoJob = jobOptions.find(j => j.is_pto == 1);
+                    if (ptoJob) {
+                        // Clear existing rows and add PTO job at 100%
+                        const container = document.getElementById('work-rows-container');
+                        container.innerHTML = ''; 
+                        addWorkRow(ptoJob.job_name, 100);
+                    }
+                }
+            }
+        });
+    }
 
     const timeInputs = document.querySelectorAll('.calc-time');
     timeInputs.forEach(input => input.addEventListener('change', calculateTotalHours));

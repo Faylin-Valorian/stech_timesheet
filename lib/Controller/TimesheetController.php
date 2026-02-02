@@ -84,6 +84,7 @@ class TimesheetController extends Controller {
         $settings = [];
         try {
             $qbSettings = $this->db->getQueryBuilder();
+            // Try/catch prevents 500 error if table doesn't exist yet
             $rows = $qbSettings->select('*')->from('stech_admin_settings')->executeQuery()->fetchAll();
             foreach ($rows as $row) {
                 $settings[$row['setting_key']] = $row['setting_value'];
@@ -93,7 +94,7 @@ class TimesheetController extends Controller {
         // Settings for Payroll
         $payStart = $settings['pay_start_date'] ?? '2026-01-07'; 
         $freq = (int)($settings['pay_frequency'] ?? 14);
-        $payBg = $settings['pay_bg_style'] ?? ''; // New Setting
+        $payBg = $settings['pay_bg_style'] ?? ''; 
 
         // Settings for Holidays (Map Date -> Background)
         $holidayBgMap = [];
@@ -144,12 +145,12 @@ class TimesheetController extends Controller {
                     'id' => 'paid-' . $nextPay->format('Ymd'),
                     'title' => 'Payroll',
                     'start' => $nextPay->format('Y-m-d'),
-                    'color' => '#34495e', // Fallback color
+                    'color' => '#34495e', // Fallback color (Slate Blue)
                     'display' => 'block',
                     'extendedProps' => [
                         'isVisual' => true, 
                         'isClosed' => true,
-                        'customBg' => $payBg // Pass the custom style
+                        'customBg' => $payBg 
                     ]
                 ];
                 $nextPay->modify("+$freq days");
@@ -210,7 +211,7 @@ class TimesheetController extends Controller {
                     'extendedProps' => [
                         'isClosed' => true, 
                         'isVisual' => true,
-                        'customBg' => $customBg // Pass custom style if exists
+                        'customBg' => $customBg 
                     ]
                 ];
                 continue; 
@@ -317,6 +318,7 @@ class TimesheetController extends Controller {
             return new DataResponse(['error' => 'You must provide a Start Time, unless requesting Per Diem only.'], 400);
         }
 
+        // Logic Check: Do they already have an open entry?
         if (empty($data['timesheet_id'])) {
             $qbCheck = $this->db->getQueryBuilder();
             $lastEntry = $qbCheck->select('*')->from('stech_timesheets')
@@ -366,13 +368,16 @@ class TimesheetController extends Controller {
             $timesheetId = $qb->getLastInsertId();
         }
 
+        // --- SQL SYNTAX ERROR FIX ---
+        // 1. Delete old activities
         $qbDel = $this->db->getQueryBuilder();
         $qbDel->delete('stech_activity')
               ->where($qbDel->expr()->eq('timesheet_id', $qbDel->createNamedParameter($timesheetId)))
               ->execute();
 
+        // 2. Insert new activities using Prepared Statements
+        // This avoids the Doctrine Loop Parameter Binding issue causing the "SQLSTATE[42000]" error
         if (isset($data['work_desc']) && is_array($data['work_desc'])) {
-            // Using prepared statement for safety and speed
             $prefix = '*PREFIX*';
             $sql = "INSERT INTO `{$prefix}stech_activity` (`timesheet_id`, `activity_description`, `activity_percent`) VALUES (?, ?, ?)";
             $stmt = $this->db->prepare($sql);
