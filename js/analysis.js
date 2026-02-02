@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     
-    // --- State & Chart Instances ---
+    // --- Global State ---
     let charts = {
         daily: null,
         job: null,
@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', function() {
         countyMap: null
     };
 
-    let cachedData = null; // Store data to allow frontend filtering (Gauge/Maps) without re-fetching
-    let usTopology = null; // Cache US map data
+    let cachedData = null; 
+    let usTopology = null; // Stores the local map data
 
     // --- Elements ---
     const rangeSelect = document.getElementById('range-preset');
@@ -29,10 +29,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const stateSearch = document.getElementById('state-search');
     const stateHidden = document.getElementById('analysis-state-filter');
 
-    // --- Initialization ---
+    // --- Init ---
     initTabs();
-    loadFilters(); // Populate Dropdowns
-    loadStats();   // Load Initial Data
+    loadFilters(); 
+    loadStats();   
 
     // --- Tab Logic ---
     function initTabs() {
@@ -40,25 +40,25 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+                
                 e.target.classList.add('active');
                 const target = e.target.dataset.tab;
                 document.getElementById(target).classList.add('active');
                 
-                // Resize charts if needed when tab becomes visible
+                // Resize maps if needed when tab becomes visible
                 if(target === 'tab-state' && charts.stateMap) charts.stateMap.resize();
                 if(target === 'tab-county' && charts.countyMap) charts.countyMap.resize();
             });
         });
     }
 
-    // --- 1. Populate Searchable Dropdowns ---
+    // --- Data Loading: Filters ---
     function loadFilters() {
-        fetch(OC.generateUrl('/apps/stech_timesheet/api/analysis/filters'), {
-            headers: { 'requesttoken': OC.requestToken }
+        fetch(OC.generateUrl('/apps/stech_timesheet/api/analysis/filters'), { 
+            headers: { 'requesttoken': OC.requestToken } 
         })
         .then(r => r.json())
         .then(data => {
-            // Users
             if (document.getElementById('user-list')) {
                 const list = document.getElementById('user-list');
                 data.users.forEach(u => {
@@ -68,17 +68,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     list.appendChild(opt);
                 });
             }
-            // Jobs
             if (document.getElementById('job-list')) {
                 const list = document.getElementById('job-list');
                 data.jobs.forEach(j => {
                     const opt = document.createElement('option');
-                    opt.value = j.job_name; // Search by Name
-                    opt.setAttribute('data-value', j.job_id); // ID reference
+                    opt.value = j.job_name;
+                    opt.setAttribute('data-value', j.job_id);
                     list.appendChild(opt);
                 });
             }
-            // States
             if (document.getElementById('state-list')) {
                 const list = document.getElementById('state-list');
                 data.states.forEach(s => {
@@ -91,9 +89,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- 2. Event Listeners ---
-
-    // Period
+    // --- Event Listeners ---
     rangeSelect.addEventListener('change', () => {
         if (rangeSelect.value === 'custom') customInputs.classList.remove('hidden');
         else { customInputs.classList.add('hidden'); loadStats(); }
@@ -102,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
     endInput.addEventListener('change', loadStats);
     if (updateBtn) updateBtn.addEventListener('click', loadStats);
 
-    // Search Input Handler (User)
+    // User Search
     if (userSearch) {
         userSearch.addEventListener('input', (e) => {
             const val = e.target.value;
@@ -110,52 +106,50 @@ document.addEventListener('DOMContentLoaded', function() {
             for (let i = 0; i < opts.length; i++) {
                 if (opts[i].value === val) {
                     userHidden.value = opts[i].getAttribute('data-value');
-                    loadStats(); // Re-fetch data for new user
+                    loadStats(); 
                     break;
                 }
             }
         });
     }
 
-    // Search Input Handler (Job - Frontend Filter)
+    // Job Search (Local Filter for Gauge)
     if (jobSearch) {
         jobSearch.addEventListener('input', (e) => {
             const val = e.target.value;
+            if(val === "") {
+                jobHidden.value = 'all';
+                if(cachedData) updateGauge(cachedData.jobs, 'All Jobs');
+                return;
+            }
             const opts = document.getElementById('job-list').options;
-            let found = false;
-            
-            if(val === "") { jobHidden.value = 'all'; updateGauge(cachedData.jobs); return; }
-
             for (let i = 0; i < opts.length; i++) {
                 if (opts[i].value === val) {
-                    jobHidden.value = opts[i].getAttribute('data-value'); // ID or Name
-                    found = true;
-                    // Update Gauge Only (No fetch needed)
-                    if(cachedData) updateGauge(cachedData.jobs, opts[i].value);
+                    jobHidden.value = opts[i].getAttribute('data-value');
+                    if(cachedData) updateGauge(cachedData.jobs, val);
                     break;
                 }
             }
         });
     }
 
-    // Search Input Handler (State - Map Filter)
+    // State Search (Local Filter for County Map)
     if (stateSearch) {
         stateSearch.addEventListener('input', (e) => {
             const val = e.target.value;
             const opts = document.getElementById('state-list').options;
             for (let i = 0; i < opts.length; i++) {
                 if (opts[i].value === val) {
-                    stateHidden.value = opts[i].getAttribute('data-value'); // ABBR
-                    // Load County Map for this state
-                    if(cachedData) renderCountyMap(cachedData.counties, opts[i].value);
+                    const abbr = opts[i].getAttribute('data-value');
+                    stateHidden.value = abbr;
+                    if(cachedData) renderCountyMap(cachedData.counties, abbr);
                     break;
                 }
             }
         });
     }
 
-
-    // --- 3. Main Data Loader ---
+    // --- Main Data Loader ---
     function loadStats() {
         const period = rangeSelect.value;
         let queryParams = '?period=' + period;
@@ -176,7 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json())
         .then(data => {
             if (data.error) { OC.dialogs.alert(data.error, 'Error'); return; }
-            cachedData = data; // Cache for sub-filters
+            cachedData = data; 
             updateUI(data);
         })
         .catch(err => console.error("Analysis Load Error:", err));
@@ -195,31 +189,52 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('val-overnight').innerText = data.travel.overnight_stays;
         document.getElementById('val-expenses').innerText = '$' + data.travel.total_expenses;
 
-        // Charts
+        // Render Basic Charts
         renderOverviewChart(data.trend);
         renderTravelCharts(data.states, data.counties); 
         
-        if (document.getElementById('chart-jobs')) renderJobCharts(data.jobs, data.total_hours);
-        if (document.getElementById('chart-profitability-gauge')) updateGauge(data.jobs, jobSearch ? jobSearch.value : 'All Jobs');
-        
-        // Maps
-        // We load US topology once
+        if (document.getElementById('chart-jobs')) {
+            renderJobCharts(data.jobs, data.total_hours);
+        }
+
+        // Render Profitability Gauge
+        const currentJobFilter = jobSearch ? jobSearch.value : 'All Jobs';
+        if (document.getElementById('chart-profitability-gauge')) {
+            updateGauge(data.jobs, currentJobFilter);
+        }
+
+        // Render Maps (Local Loading)
         if(!usTopology) {
-            fetch('https://unpkg.com/us-atlas/counties-10m.json')
+            // [FIX] Load from LOCAL app folder to satisfy CSP
+            fetch(OC.generateUrl('/apps/stech_timesheet/js/us-atlas.json'))
                 .then(r => r.json())
                 .then(topo => {
                     usTopology = topo;
                     renderStateMap(data.states);
-                    // If a state is already selected, render county
-                    if(stateHidden && stateHidden.value) renderCountyMap(data.counties, stateHidden.value);
-                });
+                    
+                    // Render County if State selected
+                    if(stateSearch && stateSearch.value) {
+                         const opts = document.getElementById('state-list').options;
+                         let abbr = '';
+                         for(let i=0; i<opts.length; i++) {
+                             if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
+                         }
+                         renderCountyMap(data.counties, abbr);
+                    }
+                })
+                .catch(e => console.error("Failed to load local US Map Topology:", e));
         } else {
             renderStateMap(data.states);
-            if(stateHidden && stateHidden.value) renderCountyMap(data.counties, stateHidden.value);
+            if(stateSearch && stateSearch.value) {
+                 const opts = document.getElementById('state-list').options;
+                 let abbr = '';
+                 for(let i=0; i<opts.length; i++) {
+                     if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
+                 }
+                 renderCountyMap(data.counties, abbr);
+            }
         }
     }
-
-    // --- 4. Chart Renderers ---
 
     function getTheme() {
         const isDark = document.body.classList.contains('theme--dark');
@@ -229,110 +244,190 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
+    // =========================================================
+    //  4. CHART RENDERERS (BASIC)
+    // =========================================================
+
+    // --- A. Overview Line Chart ---
     function renderOverviewChart(trend) {
         const ctx = document.getElementById('chart-daily').getContext('2d');
         if (charts.daily) charts.daily.destroy();
+        const theme = getTheme();
+
         charts.daily = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: trend.labels,
                 datasets: [{
-                    label: 'Hours', data: trend.values, borderColor: '#0082c9', backgroundColor: 'rgba(0,130,201,0.2)', fill: true, tension: 0.3
+                    label: 'Hours Worked',
+                    data: trend.values,
+                    borderColor: '#0082c9',
+                    backgroundColor: 'rgba(0, 130, 201, 0.2)',
+                    fill: true,
+                    tension: 0.3, // Curve the line
+                    pointRadius: 3,
+                    pointHoverRadius: 6
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, scales: { x: { grid: { display:false }, ticks:{ color:getTheme().text } }, y: { grid:{ color:getTheme().grid }, ticks:{ color:getTheme().text } } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: theme.grid }, ticks: { color: theme.text } },
+                    x: { grid: { display: false }, ticks: { color: theme.text } }
+                },
+                plugins: { legend: { display: false } }
+            }
         });
     }
 
+    // --- B. Travel Distribution (Mini Doughnuts) ---
     function renderTravelCharts(states, counties) {
         // State Pie
         const ctxS = document.getElementById('chart-travel-state');
-        if(ctxS) {
-            if(charts.travelState) charts.travelState.destroy();
+        if (ctxS) {
+            if (charts.travelState) charts.travelState.destroy();
             charts.travelState = new Chart(ctxS, {
-                type: 'doughnut', data: { labels: Object.keys(states), datasets: [{ data: Object.values(states), backgroundColor: ['#36A2EB','#FF6384','#FFCE56','#4BC0C0'] }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position:'right', labels:{ color:getTheme().text, boxWidth:10 } } } }
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(states),
+                    datasets: [{
+                        data: Object.values(states),
+                        backgroundColor: ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#9966FF']
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { color: getTheme().text, boxWidth: 10 } } }
+                }
             });
         }
         // County Pie
         const ctxC = document.getElementById('chart-travel-county');
-        if(ctxC) {
-            if(charts.travelCounty) charts.travelCounty.destroy();
+        if (ctxC) {
+            if (charts.travelCounty) charts.travelCounty.destroy();
             charts.travelCounty = new Chart(ctxC, {
-                type: 'doughnut', data: { labels: Object.keys(counties), datasets: [{ data: Object.values(counties), backgroundColor: ['#FF9F40','#9966FF','#4BC0C0','#36A2EB'] }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position:'right', labels:{ color:getTheme().text, boxWidth:10 } } } }
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(counties),
+                    datasets: [{
+                        data: Object.values(counties),
+                        backgroundColor: ['#FF9F40', '#9966FF', '#4BC0C0', '#36A2EB', '#FF6384']
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { color: getTheme().text, boxWidth: 10 } } }
+                }
             });
         }
     }
 
+    // --- C. Job Breakdown (Donut + Table) ---
     function renderJobCharts(jobs, total) {
         const ctx = document.getElementById('chart-jobs');
-        if(charts.job) charts.job.destroy();
-        charts.job = new Chart(ctx, {
+        if (charts.job) charts.job.destroy();
+        const theme = getTheme();
+
+        charts.job = new Chart(ctx.getContext('2d'), {
             type: 'doughnut',
-            data: { labels: jobs.map(j=>j.name), datasets: [{ data: jobs.map(j=>j.hours), backgroundColor: ['#FF6384','#36A2EB','#FFCE56','#4BC0C0','#9966FF','#FF9F40'] }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position:'right', labels:{ color:getTheme().text } } } }
+            data: {
+                labels: jobs.map(j => j.name),
+                datasets: [{
+                    data: jobs.map(j => j.hours),
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'right', labels: { color: theme.text } } }
+            }
         });
-        
+
+        // Update Table
         const tbody = document.getElementById('job-table-body');
         tbody.innerHTML = '';
+        if(jobs.length === 0) tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">No data available</td></tr>';
+        
         jobs.forEach(j => {
-            const pct = total > 0 ? ((j.hours/total)*100).toFixed(1) : 0;
+            const pct = total > 0 ? ((j.hours / total) * 100).toFixed(1) : 0;
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td>${j.name}</td><td>${j.hours}</td><td>${pct}%</td>`;
+            tr.innerHTML = `<td>${j.name}</td><td>${j.hours.toFixed(2)}</td><td>${pct}%</td>`;
             tbody.appendChild(tr);
         });
     }
 
-    // --- 5. Custom Gauge Logic ---
-    function updateGauge(jobs, filterName = 'All Jobs') {
+    // =========================================================
+    //  5. ADVANCED RENDERERS (GAUGE & MAPS)
+    // =========================================================
+
+    // --- D. Profitability Gauge (Reversed: Green -> Red) ---
+    function updateGauge(jobs, filterName) {
         const ctx = document.getElementById('chart-profitability-gauge');
-        if(!ctx) return;
+        if (!ctx) return;
         
-        let value = 0;
-        let max = 160; // Default budget baseline (4 weeks * 40h) - adjustable logic
-        
-        // Calculate Total or Specific
-        if (filterName === 'All Jobs' || filterName === '') {
-            value = jobs.reduce((acc, curr) => acc + curr.hours, 0);
-            max = Math.max(value * 1.2, 160); // Dynamic scale for total
+        let currentValue = 0;
+        let budgetLimit = 0;
+        let label = "";
+
+        // 1. Calculate Metric
+        if (filterName === 'All Jobs' || filterName === 'all' || filterName === '') {
+            // Overview: Sum of all hours vs Arbitrary Baseline (e.g. 160h)
+            currentValue = jobs.reduce((acc, curr) => acc + curr.hours, 0);
+            budgetLimit = 160 * (jobs.length > 0 ? 1 : 0); 
+            label = currentValue.toFixed(1) + " Total Hrs";
         } else {
-            const j = jobs.find(x => x.name === filterName);
-            value = j ? j.hours : 0;
-            // Dynamic budget logic: could come from DB, here we assume 80h buffer or dynamic
-            max = Math.max(value * 1.5, 80); 
+            // Specific Job
+            const job = jobs.find(x => x.name === filterName);
+            if (job) {
+                // Financial Mode?
+                if (job.hourly_cost > 0 && job.budget > 0) {
+                    currentValue = job.hours * job.hourly_cost;
+                    budgetLimit = job.budget;
+                    label = "$" + currentValue.toFixed(2) + " / $" + budgetLimit.toFixed(2);
+                } else {
+                    // Hours Mode (Fallback)
+                    currentValue = job.hours;
+                    budgetLimit = (job.budget > 0) ? job.budget : 80; 
+                    label = currentValue.toFixed(1) + " Hrs";
+                }
+            }
         }
 
-        // Update Text
-        document.getElementById('gauge-value-display').innerText = value.toFixed(1) + " Hrs";
+        if (budgetLimit <= 0) budgetLimit = Math.max(currentValue * 1.5, 100);
 
-        if(charts.gauge) charts.gauge.destroy();
+        document.getElementById('gauge-value-display').innerText = label;
 
-        // Needle Plugin
+        if (charts.gauge) charts.gauge.destroy();
+
+        // Custom Needle Logic
         const needlePlugin = {
             id: 'needle',
-            afterDatasetDraw(chart, args, options) {
-                const { ctx, config, data, chartArea: { top, bottom, left, right, width, height } } = chart;
+            afterDatasetDraw(chart) {
+                const { ctx, chartArea: { width, height } } = chart;
                 ctx.save();
                 
-                // Calculate Angle
-                const needleValue = value;
-                const dataTotal = max; 
-                const angle = Math.PI + (1 / dataTotal * needleValue * Math.PI);
+                // Calculate Ratio
+                let ratio = currentValue / budgetLimit;
+                if (ratio > 1) ratio = 1; 
+                
+                // Reversed Logic: Green is Left (0), Red is Right (1)
+                // Angle range: PI (Left) to 2*PI (Right)
+                const angle = Math.PI + (ratio * Math.PI);
                 
                 const cx = width / 2;
                 const cy = chart._metasets[0].data[0].y;
-                
+
                 // Draw Needle
                 ctx.translate(cx, cy);
                 ctx.rotate(angle);
                 ctx.beginPath();
                 ctx.moveTo(0, -2);
-                ctx.lineTo(height - (ctx.canvas.offsetTop + 40), 0); // Length based on radius
+                ctx.lineTo(height - (ctx.canvas.offsetTop + 40), 0);
                 ctx.lineTo(0, 2);
                 ctx.fillStyle = getTheme().text;
                 ctx.fill();
-                
+
                 // Draw Pivot
                 ctx.rotate(-angle);
                 ctx.beginPath();
@@ -346,12 +441,16 @@ document.addEventListener('DOMContentLoaded', function() {
         charts.gauge = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Good', 'Warning', 'Danger'],
+                labels: ['Profitable', 'Warning', 'Over Budget'],
                 datasets: [{
-                    data: [max*0.6, max*0.25, max*0.15], // 60% Green, 25% Yellow, 15% Red
-                    backgroundColor: ['#46ba6f', '#ffd60a', '#e9322d'],
+                    // Sections: Green (Left/Start) -> Red (Right/End)
+                    // Green: 0% to 60% of budget
+                    // Yellow: 60% to 85%
+                    // Red: 85% to 100%
+                    data: [budgetLimit * 0.6, budgetLimit * 0.25, budgetLimit * 0.15],
+                    backgroundColor: ['#46ba6f', '#ffd60a', '#e9322d'], 
                     borderWidth: 0,
-                    needleValue: value
+                    needleValue: currentValue
                 }]
             },
             options: {
@@ -366,19 +465,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- 6. Map Logic (ChartGeo) ---
+    // --- E. Maps (US & County Hotbeds) ---
     function renderStateMap(stateData) {
-        const ctx = document.getElementById('chart-state-map').getContext('2d');
-        if(charts.stateMap) charts.stateMap.destroy();
+        // [Safety Check] - Prevent crash if libs missing
+        if (typeof ChartGeo === 'undefined') {
+            console.warn('ChartGeo/TopoJSON not loaded. Skipping maps.');
+            return;
+        }
 
-        // Convert data { 'TX': 10 } to array for ChartGeo
-        // TopoJSON uses State Names mostly, we need to map ABBR -> Name if needed or match features
-        // usTopology.objects.states
+        const ctx = document.getElementById('chart-state-map').getContext('2d');
+        if (charts.stateMap) charts.stateMap.destroy();
+
         const states = ChartGeo.topojson.feature(usTopology, usTopology.objects.states).features;
         
-        // Map Data to Features
-        // Note: This relies on Name matching. State data from DB needs to match TopoJSON names.
-        // Assuming DB has Full Names "Texas". If Abbr, we need a lookup.
+        // Map Data by Name
         const data = states.map(d => ({
             feature: d,
             value: stateData[d.properties.name] || 0
@@ -392,76 +492,43 @@ document.addEventListener('DOMContentLoaded', function() {
                     label: 'Visits',
                     data: data,
                     backgroundColor: (ctx) => {
-                        // Color Scale: Light Blue to Dark Blue
                         const v = ctx.raw ? ctx.raw.value : 0;
-                        if(v === 0) return '#eee';
-                        const opacity = Math.min(0.3 + (v / 20), 1); // Dynamic Opacity
-                        return `rgba(0, 130, 201, ${opacity})`; 
+                        if (v === 0) return '#eee';
+                        // Blue Scale (Light -> Dark)
+                        return `rgba(0, 130, 201, ${Math.min(0.2 + (v / 10), 1)})`;
                     },
-                    borderColor: '#999',
-                    borderWidth: 0.5
                 }]
             },
             options: {
                 showOutline: true,
                 showGraticule: false,
                 plugins: { legend: { display: false } },
-                scales: { xy: { projection: 'albersUsa' } } 
+                scales: { xy: { projection: 'albersUsa' } }
             }
         });
     }
 
     function renderCountyMap(countyData, stateAbbr) {
-        // Hide placeholder
+        if (typeof ChartGeo === 'undefined') return;
+
         document.getElementById('county-map-placeholder').style.display = 'none';
         
         const ctx = document.getElementById('chart-county-map').getContext('2d');
-        if(charts.countyMap) charts.countyMap.destroy();
+        if (charts.countyMap) charts.countyMap.destroy();
 
-        // Filter Counties by State
-        // US Atlas Counties have IDs starting with State FIPS. 
-        // We need to map State Abbr to FIPS (Simple lookup or filter by geometry if using geojson)
-        // Simplified: Filter features where ID starts with State ID.
-        // Need State FIPS lookup. For now, we will render ALL counties but only highlight the ones in the list.
-        // Better: Zoom to state. 'albersUsa' doesn't zoom easily.
-        // Alternative: Just render, data will highlight the hot spots.
-        
         const counties = ChartGeo.topojson.feature(usTopology, usTopology.objects.counties).features;
         
-        // Map DB Data "State|County" -> TopoJSON Name match
-        // DB Key: "Texas|Harris"
-        // TopoJSON: properties.name = "Harris"
-        // We need to be careful about duplicate county names (Orange County CA vs FL).
-        // Strict matching is complex without FIPS codes in DB.
-        // Approximation: Match Name AND ensure parent state matches (requires hierarchy lookup).
-        
-        // VISUAL SHORTCUT: Just map raw county names from the filtered subset if possible.
-        // Since we only passed data for ONE state (via stateSearch filter in JS logic?), 
-        // countyData keys should just be "CountyName" or "State|County".
-        
-        // Let's rely on the passed countyData which is keyed by "State|County".
-        // We map features.
+        // Data Matching Logic: "StateName|CountyName"
         const data = counties.map(d => {
-            // Find if this county exists in our data
-            // We need the State Name of this county feature to construct the key.
-            // us-atlas doesn't give State Name in county properties easily.
-            // Fallback: Check if ANY key in countyData ends with "|"+d.properties.name
-            // This might cause collisions but is best without FIPS.
-            
-            const name = d.properties.name;
+            const countyName = d.properties.name;
             let val = 0;
-            for (const [k, v] of Object.entries(countyData)) {
-                // k = "Texas|Harris"
-                // Check if k starts with SelectedState and ends with CountyName
-                const [s, c] = k.split('|'); // Assuming "State Name|County Name"
-                // Match State Name from Dropdown (stateSearch.value is State Name usually)
-                // If stateAbbr passed is Abbr, we need name.
-                // Assuming visual matching:
-                if (c === name) {
-                     // Refine: Check if state matches. 
-                     // Hard without FIPS. For now, just map value.
-                     val = v;
-                     break; 
+            
+            // Check if this county name exists in our filtered data
+            for (const [key, visits] of Object.entries(countyData)) {
+                // key format: "Texas|Harris"
+                if (key.includes('|' + countyName)) {
+                    val = visits;
+                    break;
                 }
             }
             return { feature: d, value: val };
@@ -476,7 +543,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     data: data,
                     backgroundColor: (ctx) => {
                         const v = ctx.raw ? ctx.raw.value : 0;
-                        return v > 0 ? `rgba(233, 50, 45, ${Math.min(0.4 + (v/10), 1)})` : '#eee'; // Red Scale
+                        // Red Scale (Light -> Dark)
+                        return v > 0 ? `rgba(233, 50, 45, ${Math.min(0.4 + (v / 5), 1)})` : '#eee'; 
                     }
                 }]
             },
@@ -487,4 +555,5 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
 });

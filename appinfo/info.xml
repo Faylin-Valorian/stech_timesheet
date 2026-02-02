@@ -4,7 +4,7 @@
     <name>Stech Timesheet</name>
     <summary>Simple Test</summary>
     <description>Testing basic loading</description>
-    <version>1.1.4</version>
+    <version>1.1.6</version>
     <licence>agpl</licence>
     <author>You</author>
     <namespace>StechTimesheet</namespace>

@@ -2,14 +2,14 @@
 use OCP\Util;
 
 // [LIBRARIES]
-// Chart.js (Base)
+// 1. Chart.js (Base)
 Util::addScript('stech_timesheet', 'chart');
-?>
-<script src="https://unpkg.com/topojson-client@3"></script>
-<script src="https://unpkg.com/chartjs-chart-geo@4"></script>
 
-<?php
-// App Scripts
+// 2. Map Libraries (MUST be local for CSP compliance)
+Util::addScript('stech_timesheet', 'topojson-client.min');
+Util::addScript('stech_timesheet', 'chartjs-chart-geo.min');
+
+// 3. App Scripts
 Util::addScript('stech_timesheet', 'analysis');
 Util::addStyle('stech_timesheet', 'style');
 Util::addStyle('stech_timesheet', 'analysis');
@@ -156,8 +156,8 @@ Util::addStyle('stech_timesheet', 'analysis');
                             <canvas id="chart-profitability-gauge"></canvas>
                             <div id="gauge-value-display" style="position:absolute; bottom:20px; font-size:24px; font-weight:bold; color:var(--color-main-text);">0 Hrs</div>
                         </div>
-                        <p style="text-align:center; color:var(--color-text-light); margin-top:10px;">
-                            Green: Low Usage | Yellow: Moderate | Red: High Usage / Over Budget
+                        <p style="text-align:center; color:var(--color-text-light); margin-top:10px; font-size: 0.9em;">
+                            <strong>Meter Reading:</strong> Green (Profitable) &rarr; Red (Over Budget/High Cost)
                         </p>
                     </div>
                     <?php endif; ?>
@@ -183,7 +183,7 @@ Util::addStyle('stech_timesheet', 'analysis');
                         <div class="map-wrapper" style="height: 500px; width: 100%; position:relative;">
                             <canvas id="chart-county-map"></canvas>
                             <div id="county-map-placeholder" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:var(--color-text-light);">
-                                Please select a state to load the county heatmap.
+                                Please select a state above to load the county heatmap.
                             </div>
                         </div>
                     </div>

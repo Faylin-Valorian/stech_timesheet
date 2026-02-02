@@ -212,10 +212,10 @@
 }
 
 /* =========================================
-   5. NEW VISUALIZATIONS
+   5. VISUALIZATION SPECIFICS
    ========================================= */
 
-/* Gauge (Profitability) */
+/* Profitability Gauge */
 .gauge-container {
     background-color: var(--color-main-background);
     border-radius: var(--border-radius);
@@ -234,9 +234,9 @@
     box-shadow: 0 2px 4px var(--color-box-shadow);
 }
 
-/* Maps */
+/* Map Containers */
 .map-wrapper {
-    background-color: var(--color-background-hover);
+    background-color: var(--color-background-hover); /* Slight BG to see map bounds */
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     padding: 10px;
@@ -244,7 +244,7 @@
     position: relative;
 }
 
-/* Searchable Dropdowns (Datalist styling support) */
+/* Searchable Inputs */
 input[list] {
     cursor: pointer;
 }
@@ -252,7 +252,7 @@ input[list]:hover {
     background-color: var(--color-background-hover);
 }
 
-/* Travel Summary Grid */
+/* Travel Grid */
 .travel-summary-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
