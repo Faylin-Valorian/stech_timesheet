@@ -51,7 +51,7 @@ class PageController extends Controller {
         $user = $this->userSession->getUser();
         $uid = $user ? $user->getUID() : null;
 
-        // 1. Basic Access Check
+        // 1. Basic Access Check (Gatekeeper)
         if (!$this->checkAccess($uid, 'analysis_tab')) {
             $response = new TemplateResponse('stech_timesheet', 'error');
             $response->setParams(['msg' => 'You do not have permission to view the Analysis Dashboard.']);
@@ -59,15 +59,24 @@ class PageController extends Controller {
         }
 
         // 2. Sub-Feature Checks
-        $canViewJobBreakdown = $this->checkAccess($uid, 'analysis_job_breakdown');
-        
-        // [NEW] Check if user can view other employees' data
+        // We map these to rule keys in 'stech_access_rules' table
         $canViewOthers = $this->checkAccess($uid, 'analysis_view_others');
+        $canViewTravel = $this->checkAccess($uid, 'analysis_travel');
+        $canViewFinancial = $this->checkAccess($uid, 'analysis_financial'); // Covers Jobs & Profitability
+        $canViewLocation = $this->checkAccess($uid, 'analysis_location'); // Covers State & County Maps
+        
+        // Retain specific breakdown check if needed, or alias it to financial
+        $canViewJobBreakdown = $this->checkAccess($uid, 'analysis_job_breakdown'); 
+        // Logic: If they have generic 'financial' access, they can see breakdown too.
+        if ($canViewFinancial) $canViewJobBreakdown = true;
 
         $response = new TemplateResponse('stech_timesheet', 'analysis');
         $response->setParams([
-            'can_view_job_breakdown' => (bool)$canViewJobBreakdown,
-            'can_view_others' => (bool)$canViewOthers // Passed to template
+            'can_view_others' => (bool)$canViewOthers,
+            'can_view_travel_analytics' => (bool)$canViewTravel,
+            'can_view_financial_analytics' => (bool)$canViewFinancial,
+            'can_view_location_analytics' => (bool)$canViewLocation,
+            'can_view_job_breakdown' => (bool)$canViewJobBreakdown
         ]);
         
         return $response;

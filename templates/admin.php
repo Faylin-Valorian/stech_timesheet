@@ -97,9 +97,11 @@ Util::addStyle('stech_timesheet', 'admin');
                     <div class="split-panel left" style="width: 250px;">
                         <h4 class="panel-title">Features</h4>
                         <div class="access-tab active" data-target="panel-admin">Admin Panel</div>
-                        <div class="access-tab" data-target="panel-analysis">Analysis Tab</div>
-                        <div class="access-tab" data-target="panel-breakdown">Analysis: Job Breakdown</div>
+                        <div class="access-tab" data-target="panel-analysis">Analysis Tab (Main)</div>
                         <div class="access-tab" data-target="panel-view-others">Analysis: View All Users</div>
+                        <div class="access-tab" data-target="panel-travel">Analysis: Travel Tab</div>
+                        <div class="access-tab" data-target="panel-financial">Analysis: Financial Tab</div>
+                        <div class="access-tab" data-target="panel-location">Analysis: Location Maps</div>
                     </div>
 
                     <div class="split-panel right">
@@ -107,29 +109,37 @@ Util::addStyle('stech_timesheet', 'admin');
                         <div id="panel-admin" class="access-group-panel">
                             <h3 class="panel-title">Grant Access: Admin Panel</h3>
                             <p class="panel-desc">Groups allowed to see the "Admin Panel" link and access configuration.</p>
-                            <div id="list-admin-groups" class="group-toggle-list">
-                                </div>
+                            <div id="list-admin_panel-groups" class="group-toggle-list"></div>
                         </div>
 
                         <div id="panel-analysis" class="access-group-panel hidden">
                             <h3 class="panel-title">Grant Access: Analysis Tab</h3>
                             <p class="panel-desc">Groups allowed to see the "Time Analysis" tab on the main dashboard.</p>
-                            <div id="list-analysis-groups" class="group-toggle-list">
-                                </div>
-                        </div>
-
-                        <div id="panel-breakdown" class="access-group-panel hidden">
-                            <h3 class="panel-title">Grant Access: Job Breakdown</h3>
-                            <p class="panel-desc">Groups allowed to see granular Job Code data within the Analysis tab.</p>
-                            <div id="list-breakdown-groups" class="group-toggle-list">
-                                </div>
+                            <div id="list-analysis_tab-groups" class="group-toggle-list"></div>
                         </div>
 
                         <div id="panel-view-others" class="access-group-panel hidden">
                             <h3 class="panel-title">Grant Access: View All Data</h3>
                             <p class="panel-desc">Groups allowed to use the "Myself / All Employees" dropdown on the Analysis Dashboard.</p>
-                            <div id="list-view-others-groups" class="group-toggle-list">
-                                </div>
+                            <div id="list-analysis_view_others-groups" class="group-toggle-list"></div>
+                        </div>
+
+                        <div id="panel-travel" class="access-group-panel hidden">
+                            <h3 class="panel-title">Grant Access: Travel Tab</h3>
+                            <p class="panel-desc">Groups allowed to see the "Travel Activity" tab (Miles, Per Diem, Expenses).</p>
+                            <div id="list-analysis_travel-groups" class="group-toggle-list"></div>
+                        </div>
+
+                        <div id="panel-financial" class="access-group-panel hidden">
+                            <h3 class="panel-title">Grant Access: Financial Tab</h3>
+                            <p class="panel-desc">Groups allowed to see the "Job Breakdown" and "Profitability Meter" tabs.</p>
+                            <div id="list-analysis_financial-groups" class="group-toggle-list"></div>
+                        </div>
+
+                        <div id="panel-location" class="access-group-panel hidden">
+                            <h3 class="panel-title">Grant Access: Location Maps</h3>
+                            <p class="panel-desc">Groups allowed to see the "State Activity" and "County Activity" tabs.</p>
+                            <div id="list-analysis_location-groups" class="group-toggle-list"></div>
                         </div>
 
                     </div>

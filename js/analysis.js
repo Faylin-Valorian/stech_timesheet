@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function() {
         travelState: null,
         travelCounty: null,
         gauge: null
-        // Removed maps from here, storing separately
     };
     
     // Leaflet Instances
@@ -34,6 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Init ---
     initTabs();
+    initSearchInputs(); // New Helper
     loadFilters(); 
     loadStats();   
 
@@ -48,11 +48,29 @@ document.addEventListener('DOMContentLoaded', function() {
                 const target = e.target.dataset.tab;
                 document.getElementById(target).classList.add('active');
                 
-                // Leaflet Resize Fix: Maps need to invalidate size when tab opens
+                // Leaflet Resize Fix
                 if(target === 'tab-state' && mapState) setTimeout(() => mapState.invalidateSize(), 200);
                 if(target === 'tab-county' && mapCounty) setTimeout(() => mapCounty.invalidateSize(), 200);
             });
         });
+    }
+
+    // --- Search Input Logic (Click-to-Clear) ---
+    function initSearchInputs() {
+        // Helper to clear input on click so full datalist shows
+        const setupClear = (el, triggerInput = true) => {
+            if(!el) return;
+            el.addEventListener('click', function() {
+                if (this.value !== '') {
+                    this.value = '';
+                    if(triggerInput) this.dispatchEvent(new Event('input'));
+                }
+            });
+        };
+
+        setupClear(userSearch, false); // Don't trigger reload on click, just clear
+        setupClear(jobSearch, true);   // Trigger filter update
+        setupClear(stateSearch, false); // Don't trigger map zoom on clear
     }
 
     // --- Data Loading: Filters ---
@@ -103,6 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
         userSearch.addEventListener('input', (e) => {
             const val = e.target.value;
             const opts = document.getElementById('user-list').options;
+            // Robust check to avoid errors
             for (let i = 0; i < opts.length; i++) {
                 if (opts[i].value === val) {
                     userHidden.value = opts[i].getAttribute('data-value');
@@ -116,6 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (jobSearch) {
         jobSearch.addEventListener('input', (e) => {
             const val = e.target.value;
+            // Handle Empty
             if(val === "") {
                 jobHidden.value = 'all';
                 if(cachedData) updateGauge(cachedData.jobs, 'All Jobs');
@@ -175,20 +195,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateUI(data) {
-        // Cards & Travel
+        // Cards
         document.getElementById('stat-total-hours').innerText = data.total_hours;
         document.getElementById('stat-reg-hours').innerText = data.stats.regular_hours;
         document.getElementById('stat-pto-hours').innerText = data.stats.pto_hours;
-        document.getElementById('stat-overtime-hours').innerText = data.overtime_hours;
-        document.getElementById('val-total-miles').innerText = data.travel.total_miles;
-        document.getElementById('val-per-diem').innerText = data.travel.per_diem_days;
-        document.getElementById('val-overnight').innerText = data.travel.overnight_stays;
-        document.getElementById('val-expenses').innerText = '$' + data.travel.total_expenses;
+        
+        const ot = data.stats.overtime_hours !== undefined ? data.stats.overtime_hours : 0;
+        document.getElementById('stat-overtime-hours').innerText = ot;
+
+        // Travel
+        if(document.getElementById('val-total-miles')) {
+            document.getElementById('val-total-miles').innerText = data.travel.total_miles;
+            document.getElementById('val-per-diem').innerText = data.travel.per_diem_days;
+            document.getElementById('val-overnight').innerText = data.travel.overnight_stays;
+            document.getElementById('val-expenses').innerText = '$' + data.travel.total_expenses;
+        }
 
         // Render Basic Charts
         renderOverviewChart(data.trend);
         renderTravelCharts(data.states, data.counties); 
+        
         if (document.getElementById('chart-jobs')) renderJobCharts(data.jobs, data.total_hours);
+        
         if (document.getElementById('chart-profitability-gauge')) {
             const currentJobFilter = jobSearch ? jobSearch.value : 'All Jobs';
             updateGauge(data.jobs, currentJobFilter);
@@ -196,7 +224,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Render Maps (Leaflet Logic)
         if(!usTopology) {
-            // DIRECT LOCAL PATH
             const mapUrl = OC.webroot + '/apps/stech_timesheet/js/us-atlas.json';
             fetch(mapUrl)
                 .then(r => {
@@ -207,22 +234,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     usTopology = topo;
                     renderLeafletStateMap(data.states);
                     if(stateSearch && stateSearch.value) {
-                         // ... find abbr logic ...
                          const opts = document.getElementById('state-list').options;
                          let abbr = '';
                          for(let i=0; i<opts.length; i++) if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
                          renderLeafletCountyMap(data.counties, abbr);
+                    } else {
+                        // Render full map if no state selected
+                        renderLeafletCountyMap(data.counties, null);
                     }
                 })
                 .catch(e => console.error("Map Load Error:", e));
         } else {
             renderLeafletStateMap(data.states);
+            let abbr = null;
             if(stateSearch && stateSearch.value) {
                  const opts = document.getElementById('state-list').options;
-                 let abbr = '';
                  for(let i=0; i<opts.length; i++) if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
-                 renderLeafletCountyMap(data.counties, abbr);
             }
+            renderLeafletCountyMap(data.counties, abbr);
         }
     }
 
@@ -398,10 +427,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 ctx.save();
                 
                 // Ratio Logic:
-                // Left (Red) = Loss
-                // Middle (Yellow) = Low Margin
-                // Right (Green) = High Margin
-                
                 let ratio = 0;
                 
                 if (revenue > 0) {
@@ -469,7 +494,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // =========================================================
-    //  5. LEAFLET MAP RENDERERS (Interactive & Zoomable)
+    //  5. LEAFLET MAP RENDERERS (Fixed: Full US, Zoom, ResetStyle)
     // =========================================================
 
     // --- Helper: Color Scale (Grey -> Red) ---
@@ -480,7 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
                d > 5  ? '#FC4E2A' :
                d > 2  ? '#FD8D3C' :
                d > 0  ? '#FEB24C' :
-                        '#EEEEEE'; // Grey for 0
+                        '#EEEEEE'; 
     }
 
     // --- Helper: Style Function ---
@@ -501,25 +526,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const containerId = 'map-state-container';
         
-        // Initialize Map if needed
         if (!mapState) {
             mapState = L.map(containerId, {
                 center: [37.8, -96],
                 zoom: 4,
-                scrollWheelZoom: false // Enable only on focus/click if desired, or true
+                scrollWheelZoom: false 
             });
-            // Optional: Add a clean base tile layer (or leave blank for pure "hotbed" look)
-            // L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(mapState);
         }
 
-        // Clear previous layers
         mapState.eachLayer(layer => mapState.removeLayer(layer));
 
-        // Convert TopoJSON -> GeoJSON
         const geojson = topojson.feature(usTopology, usTopology.objects.states);
 
-        // Add Layer with Data
-        const layer = L.geoJson(geojson, {
+        // Define layer variable first so we can reference it in resetStyle
+        const geoJsonLayer = L.geoJson(geojson, {
             style: function(feature) {
                 const name = feature.properties.name;
                 const value = stateData[name] || 0;
@@ -529,12 +549,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const name = feature.properties.name;
                 const value = stateData[name] || 0;
                 
-                // Tooltip
                 layer.bindTooltip(`<strong>${name}</strong><br>Visits: ${value}`, {
                     direction: 'top', sticky: true
                 });
 
-                // Interaction
                 layer.on({
                     mouseover: (e) => {
                         const l = e.target;
@@ -542,11 +560,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         l.bringToFront();
                     },
                     mouseout: (e) => {
-                        layer.resetStyle(e.target);
+                        // FIX: Use the group layer reference
+                        geoJsonLayer.resetStyle(e.target);
                     },
                     click: (e) => {
-                        // Optional: Click state to filter county map?
-                        // For now just zoom
                         mapState.fitBounds(e.target.getBounds());
                     }
                 });
@@ -554,14 +571,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }).addTo(mapState);
     }
 
-    // --- B. County Map (Zoom to State + Collision Fix) ---
+    // --- B. County Map (Full US + Zoom + Collision Fix) ---
     function renderLeafletCountyMap(countyData, stateAbbr) {
         if (!L || !topojson || !usTopology) return;
 
-        // Hide placeholder
         document.getElementById('county-map-placeholder').style.display = 'none';
         
-        // Initialize Map
         if (!mapCounty) {
             mapCounty = L.map('map-county-container', {
                 center: [37.8, -96],
@@ -569,54 +584,101 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
         
-        // Clear previous
         mapCounty.eachLayer(layer => mapCounty.removeLayer(layer));
 
-        // 1. Resolve State Logic (Name & FIPS)
+        // 1. Resolve State Logic
         let selectedStateName = '';
         let selectedStateFips = '';
 
-        const opts = document.getElementById('state-list').options;
-        for(let i=0; i<opts.length; i++) {
-            if(opts[i].getAttribute('data-value') === stateAbbr) {
-                selectedStateName = opts[i].value; 
-                break;
+        if (stateAbbr) {
+            const opts = document.getElementById('state-list').options;
+            for(let i=0; i<opts.length; i++) {
+                if(opts[i].getAttribute('data-value') === stateAbbr) {
+                    selectedStateName = opts[i].value; 
+                    break;
+                }
             }
-        }
-        if(!selectedStateName) selectedStateName = stateAbbr;
+            if(!selectedStateName) selectedStateName = stateAbbr;
 
-        // Find FIPS ID
-        const allStates = usTopology.objects.states.geometries;
-        const targetStateGeo = allStates.find(s => s.properties.name === selectedStateName);
-        if(targetStateGeo) selectedStateFips = targetStateGeo.id;
+            // Find FIPS ID
+            const allStates = usTopology.objects.states.geometries;
+            const targetStateGeo = allStates.find(s => s.properties.name === selectedStateName);
+            if(targetStateGeo) selectedStateFips = targetStateGeo.id;
+        }
 
         // 2. Filter Geometry
-        // Get ALL counties
         let allCounties = topojson.feature(usTopology, usTopology.objects.counties).features;
-        
-        // Filter: Only counties matching State FIPS (e.g., "01" for AL)
-        const filteredFeatures = selectedStateFips 
-            ? allCounties.filter(f => f.id.startsWith(selectedStateFips))
-            : []; // If no state selected, show nothing (or all)
+        let filteredFeatures = [];
+
+        if (selectedStateFips) {
+            // Specific State: Filter by FIPS
+            filteredFeatures = allCounties.filter(f => f.id.startsWith(selectedStateFips));
+        } else {
+            // No State Selected: Show ALL Counties
+            filteredFeatures = allCounties;
+        }
 
         if (filteredFeatures.length === 0) return;
 
         // 3. Render
-        const layer = L.geoJson(filteredFeatures, {
+        const geoJsonLayer = L.geoJson(filteredFeatures, {
             style: function(feature) {
                 const name = feature.properties.name;
-                // Strict Key: "StateName|CountyName"
-                const dbKey = selectedStateName + '|' + name;
-                const value = countyData[dbKey] || 0;
+                let value = 0;
+
+                // Strict Key Matching
+                // If a state is selected, we prepend that state name.
+                // If NO state is selected (Full US View), we have a tricky situation 
+                // because multiple states have "Washington County".
+                // Ideally, your backend sends data like "Texas|Harris". 
+                // We need to match features to that key.
+                
+                // For Full View: We iterate data keys to find match? Too slow.
+                // Better: We need to know the State Name of this county feature.
+                // TopoJSON counties don't always have state properties attached easily without extra lookup.
+                // Fallback for Full View: Just match by County Name (Visual collision risk accepted for Full View speed)
+                // OR: Improved Logic below.
+
+                if (selectedStateName) {
+                    const dbKey = selectedStateName + '|' + name;
+                    value = countyData[dbKey] || 0;
+                } else {
+                    // FULL MAP MODE:
+                    // Try to find ANY key ending in "|CountyName"
+                    // This is imperfect but functional for overview.
+                    // Correct way requires joining State FIPS to County FIPS 
+                    // but that requires more complex topology handling.
+                    // Simple approach:
+                    for (const [k, v] of Object.entries(countyData)) {
+                        if (k.endsWith('|' + name)) {
+                            value += v; // Accumulate if multiple states have same county name (e.g. Washington)
+                        }
+                    }
+                }
                 
                 return getStyle(value);
             },
             onEachFeature: function(feature, layer) {
                 const name = feature.properties.name;
-                const dbKey = selectedStateName + '|' + name;
-                const value = countyData[dbKey] || 0;
+                
+                // Tooltip Content
+                let tooltipText = `<strong>${name} County</strong>`;
+                
+                // Retrieve value again for tooltip
+                let value = 0;
+                if (selectedStateName) {
+                    const dbKey = selectedStateName + '|' + name;
+                    value = countyData[dbKey] || 0;
+                } else {
+                    // Calc total for overview
+                    for (const [k, v] of Object.entries(countyData)) {
+                        if (k.endsWith('|' + name)) value += v;
+                    }
+                }
 
-                layer.bindTooltip(`<strong>${name} County</strong><br>Visits: ${value}`, {
+                tooltipText += `<br>Visits: ${value}`;
+
+                layer.bindTooltip(tooltipText, {
                     direction: 'top', sticky: true
                 });
 
@@ -627,14 +689,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         l.bringToFront();
                     },
                     mouseout: (e) => {
-                        layer.resetStyle(e.target);
+                        // FIX: Use group layer
+                        geoJsonLayer.resetStyle(e.target);
                     }
                 });
             }
         }).addTo(mapCounty);
 
-        // 4. Auto-Zoom to State
-        mapCounty.fitBounds(layer.getBounds());
+        // 4. Auto-Zoom
+        // If state selected, zoom to it. If not (Full US), zoom to show all.
+        mapCounty.fitBounds(geoJsonLayer.getBounds());
     }
 
 }); // END DOMContentLoaded

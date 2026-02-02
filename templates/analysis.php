@@ -2,17 +2,10 @@
 use OCP\Util;
 
 // [LIBRARIES]
-// 1. Chart.js (Keep for the Line Chart & Gauge)
 Util::addScript('stech_timesheet', 'chart');
-
-// 2. Leaflet (Map Library - LOCAL)
-Util::addStyle('stech_timesheet', 'leaflet'); // Loads css/leaflet.css
-Util::addScript('stech_timesheet', 'leaflet'); // Loads js/leaflet.js
-
-// 3. Topology (Keep for data conversion)
+Util::addStyle('stech_timesheet', 'leaflet');
+Util::addScript('stech_timesheet', 'leaflet');
 Util::addScript('stech_timesheet', 'topojson-client.min');
-
-// 4. App Scripts
 Util::addScript('stech_timesheet', 'analysis');
 Util::addStyle('stech_timesheet', 'style');
 Util::addStyle('stech_timesheet', 'analysis');
@@ -74,18 +67,26 @@ Util::addStyle('stech_timesheet', 'analysis');
             <div class="tabs-container">
                 <div class="tab-headers">
                     <button class="tab-btn active" data-tab="tab-overview">Overview</button>
+                    
+                    <?php if($_['can_view_travel_analytics']): ?>
                     <button class="tab-btn" data-tab="tab-travel">Travel Activity</button>
-                    <?php if($_['can_view_job_breakdown']): ?>
+                    <?php endif; ?>
+                    
+                    <?php if($_['can_view_financial_analytics']): ?>
                     <button class="tab-btn" data-tab="tab-jobs">Job Breakdown</button>
                     <button class="tab-btn" data-tab="tab-profitability">Job Profitability</button>
                     <?php endif; ?>
+                    
+                    <?php if($_['can_view_location_analytics']): ?>
                     <button class="tab-btn" data-tab="tab-state">State Activity</button>
                     <button class="tab-btn" data-tab="tab-county">County Activity</button>
+                    <?php endif; ?>
                 </div>
 
                 <div class="tab-content">
                     <div id="tab-overview" class="tab-pane active"><div class="chart-wrapper"><canvas id="chart-daily"></canvas></div></div>
 
+                    <?php if($_['can_view_travel_analytics']): ?>
                     <div id="tab-travel" class="tab-pane">
                          <div class="travel-summary-grid">
                             <div class="travel-stat-box"><h4>Total Miles</h4><span id="val-total-miles">0</span></div>
@@ -98,8 +99,9 @@ Util::addStyle('stech_timesheet', 'analysis');
                             <div class="chart-wrapper-half"><h3>Visits by County</h3><canvas id="chart-travel-county"></canvas></div>
                         </div>
                     </div>
+                    <?php endif; ?>
 
-                    <?php if($_['can_view_job_breakdown']): ?>
+                    <?php if($_['can_view_financial_analytics']): ?>
                     <div id="tab-jobs" class="tab-pane">
                         <div class="split-layout-analysis">
                             <div class="chart-wrapper-half"><canvas id="chart-jobs"></canvas></div>
@@ -125,6 +127,7 @@ Util::addStyle('stech_timesheet', 'analysis');
                     </div>
                     <?php endif; ?>
 
+                    <?php if($_['can_view_location_analytics']): ?>
                     <div id="tab-state" class="tab-pane">
                         <h3>US Activity Map (Hot Bed)</h3>
                         <div id="map-state-container" class="map-wrapper" style="height: 600px; width: 100%; z-index: 1;"></div>
@@ -144,6 +147,7 @@ Util::addStyle('stech_timesheet', 'analysis');
                             <div id="county-map-placeholder" style="display:flex; justify-content:center; align-items:center; height:100%; color:#888;">Select a state to view county heatmap.</div>
                         </div>
                     </div>
+                    <?php endif; ?>
 
                 </div>
             </div>
