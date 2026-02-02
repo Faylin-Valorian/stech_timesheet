@@ -43,6 +43,7 @@ Util::addStyle('stech_timesheet', 'analysis');
                         <span class="range-separator">to</span>
                         <input type="date" id="analysis-end" class="form-control">
                     </div>
+                    
                     <?php if($_['can_view_others']): ?>
                     <div class="control-group">
                         <input type="text" id="user-search" list="user-list" class="form-control" placeholder="Search Employee..." style="width: 200px;">
@@ -53,6 +54,7 @@ Util::addStyle('stech_timesheet', 'analysis');
                         <input type="hidden" id="analysis-target-user" value="self">
                     </div>
                     <?php endif; ?>
+                    
                     <button id="btn-refresh-analysis" class="primary-button">Update</button>
                 </div>
             </div>
@@ -72,7 +74,7 @@ Util::addStyle('stech_timesheet', 'analysis');
                     <button class="tab-btn" data-tab="tab-travel">Travel Activity</button>
                     <?php endif; ?>
                     
-                    <?php if($_['can_view_financial_analytics']): ?>
+                    <?php if($_['can_view_job_breakdown']): ?>
                     <button class="tab-btn" data-tab="tab-jobs">Job Breakdown</button>
                     <button class="tab-btn" data-tab="tab-profitability">Job Profitability</button>
                     <?php endif; ?>
@@ -101,7 +103,7 @@ Util::addStyle('stech_timesheet', 'analysis');
                     </div>
                     <?php endif; ?>
 
-                    <?php if($_['can_view_financial_analytics']): ?>
+                    <?php if($_['can_view_job_breakdown']): ?>
                     <div id="tab-jobs" class="tab-pane">
                         <div class="split-layout-analysis">
                             <div class="chart-wrapper-half"><canvas id="chart-jobs"></canvas></div>

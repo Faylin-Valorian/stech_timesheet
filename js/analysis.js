@@ -1,24 +1,16 @@
 document.addEventListener('DOMContentLoaded', function() {
     
     // --- Global State ---
-    let charts = {
-        daily: null,
-        job: null,
-        travelState: null,
-        travelCounty: null,
-        gauge: null
-    };
-    
-    // Leaflet Instances
+    let charts = { daily: null, job: null, travelState: null, travelCounty: null, gauge: null };
     let mapState = null;
     let mapCounty = null;
 
     let cachedData = null; 
     let usTopology = null; 
     
-    // State FIPS Lookup (Created dynamically)
+    // Lookup Maps
     let fipsToStateName = {}; 
-    let stateBounds = {}; // Cache for zooming
+    let stateBounds = {}; 
 
     // --- Elements ---
     const rangeSelect = document.getElementById('range-preset');
@@ -27,6 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const endInput = document.getElementById('analysis-end');
     const updateBtn = document.getElementById('btn-refresh-analysis');
     
+    // Inputs
     const userSearch = document.getElementById('user-search');
     const userHidden = document.getElementById('analysis-target-user');
     const jobSearch = document.getElementById('job-search');
@@ -36,11 +29,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Init ---
     initTabs();
-    initSearchInputs(); 
+    initSearchBehaviors(); // New Unified Logic
     loadFilters(); 
     loadStats();   
 
-    // --- Tab Logic ---
+    // --- 1. Tab Logic ---
     function initTabs() {
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -51,50 +44,128 @@ document.addEventListener('DOMContentLoaded', function() {
                 const target = e.target.dataset.tab;
                 document.getElementById(target).classList.add('active');
                 
-                // Resize Maps
+                // Resize Leaflet maps when tab becomes visible
                 if(target === 'tab-state' && mapState) setTimeout(() => mapState.invalidateSize(), 200);
                 if(target === 'tab-county' && mapCounty) setTimeout(() => mapCounty.invalidateSize(), 200);
             });
         });
     }
 
-    // --- Search Input Logic (Aggressive Clear) ---
-    function initSearchInputs() {
-        const setupClear = (el, hiddenInput, triggerLoad = true) => {
-            if(!el) return;
-            
-            // Clear on click to show full list
-            const clearFn = function() {
-                if (this.value !== '') {
-                    this.value = '';
-                    if (hiddenInput) hiddenInput.value = (triggerLoad && hiddenInput.id !== 'analysis-target-user') ? 'all' : ''; 
-                    
-                    // Trigger input event to reset datalist filtering
-                    const event = new Event('input', { bubbles: true });
-                    this.dispatchEvent(event);
+    // --- 2. Unified Search Behavior (Points 1, 2, 3, 4) ---
+    function initSearchBehaviors() {
+        
+        // Helper: Clear input on click to show full datalist
+        const attachClickToClear = (inputEl, hiddenEl, defaultHiddenVal) => {
+            if(!inputEl) return;
+            inputEl.addEventListener('click', function() {
+                // Save current valid value before clearing? 
+                // No, user wants to see full list.
+                if(this.value !== '') {
+                    this.value = ''; // Clear text
+                    // Reset hidden value temporarily or completely?
+                    // We don't trigger load immediately on click, only on selection/input
                 }
-            };
-
-            el.addEventListener('click', clearFn);
-            // Optional: clear on focus too, if desired
-            // el.addEventListener('focus', clearFn);
+            });
+            
+            // Handle "Blur" (Clicking away) - Restore default if empty
+            inputEl.addEventListener('change', function() {
+                if(this.value === '') {
+                    if(defaultHiddenVal !== null) {
+                        // Point 3: Default to "Myself" if empty
+                        if(inputEl.id === 'user-search') {
+                            this.value = "Myself"; // Visual
+                            hiddenEl.value = "self";
+                            loadStats();
+                        } else if(inputEl.id === 'job-search') {
+                            hiddenEl.value = "all";
+                            if(cachedData) updateGauge(cachedData.jobs, 'All Jobs');
+                        }
+                    }
+                }
+            });
         };
 
-        setupClear(userSearch, userHidden, true);
-        setupClear(jobSearch, jobHidden, true);
-        
-        // State is special: clearing it shouldn't trigger reload, just map reset
+        // A. User Search (Fixes "Myself", "All", and Defaulting)
+        if(userSearch) {
+            attachClickToClear(userSearch, userHidden, 'self');
+            
+            userSearch.addEventListener('input', function() {
+                const val = this.value;
+                const opts = document.getElementById('user-list').options;
+                let found = false;
+                
+                // 1. Check exact match in datalist
+                for(let i=0; i<opts.length; i++) {
+                    if(opts[i].value === val) {
+                        userHidden.value = opts[i].getAttribute('data-value'); // 'self', 'all', or UID
+                        loadStats();
+                        found = true;
+                        break;
+                    }
+                }
+                
+                // 2. If user clears box completely, set to self (Point 3)
+                if(val === "") {
+                    userHidden.value = 'self';
+                    // Optional: Wait for blur to reload or reload now? 
+                    // Let's wait for selection or blur to avoid flashing
+                }
+            });
+        }
+
+        // B. Job Search (Point 4 - Profitability Tab)
+        if(jobSearch) {
+            attachClickToClear(jobSearch, jobHidden, 'all');
+            
+            jobSearch.addEventListener('input', function() {
+                const val = this.value;
+                const opts = document.getElementById('job-list').options;
+                
+                if(val === "") {
+                    jobHidden.value = 'all';
+                    if(cachedData) updateGauge(cachedData.jobs, 'All Jobs');
+                    return;
+                }
+
+                for(let i=0; i<opts.length; i++) {
+                    if(opts[i].value === val) {
+                        jobHidden.value = opts[i].getAttribute('data-value');
+                        if(cachedData) updateGauge(cachedData.jobs, val);
+                        break;
+                    }
+                }
+            });
+        }
+
+        // C. State Search (Point 2 - County Map)
         if(stateSearch) {
+            // No default hidden value needed (defaults to full map)
             stateSearch.addEventListener('click', function() {
-                this.value = '';
-                stateHidden.value = '';
-                // Reset map to full view
-                if(cachedData) renderLeafletCountyMap(cachedData.counties, null);
+                if(this.value !== '') {
+                    this.value = '';
+                    stateHidden.value = '';
+                    // Reset map to full view immediately on clear
+                    if(cachedData) renderLeafletCountyMap(cachedData.counties, null);
+                }
+            });
+
+            stateSearch.addEventListener('input', function() {
+                const val = this.value;
+                const opts = document.getElementById('state-list').options;
+                
+                for(let i=0; i<opts.length; i++) {
+                    if(opts[i].value === val) {
+                        const abbr = opts[i].getAttribute('data-value');
+                        stateHidden.value = abbr;
+                        if(cachedData) renderLeafletCountyMap(cachedData.counties, abbr);
+                        break;
+                    }
+                }
             });
         }
     }
 
-    // --- Data Loading: Filters ---
+    // --- 3. Data Loading ---
     function loadFilters() {
         fetch(OC.generateUrl('/apps/stech_timesheet/api/analysis/filters'), { headers: { 'requesttoken': OC.requestToken } })
         .then(r => r.json())
@@ -102,7 +173,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const populate = (id, items, valKey, attrKey) => {
                 const list = document.getElementById(id);
                 if(!list) return;
-                list.innerHTML = ''; // Clear existing
+                list.innerHTML = ''; 
                 items.forEach(item => {
                     const opt = document.createElement('option');
                     opt.value = item[valKey];
@@ -110,86 +181,27 @@ document.addEventListener('DOMContentLoaded', function() {
                     list.appendChild(opt);
                 });
             };
-            
             populate('user-list', data.users, 'displayname', 'uid');
             populate('job-list', data.jobs, 'job_name', 'job_id');
             populate('state-list', data.states, 'state_name', 'state_abbr');
         });
     }
 
-    // --- Event Listeners ---
-    rangeSelect.addEventListener('change', () => {
-        if (rangeSelect.value === 'custom') customInputs.classList.remove('hidden');
-        else { customInputs.classList.add('hidden'); loadStats(); }
-    });
-    startInput.addEventListener('change', loadStats);
-    endInput.addEventListener('change', loadStats);
-    if (updateBtn) updateBtn.addEventListener('click', loadStats);
-
-    // Input Listeners (Selection Logic)
-    if (userSearch) {
-        userSearch.addEventListener('input', (e) => {
-            const val = e.target.value;
-            const opts = document.getElementById('user-list').options;
-            for (let i = 0; i < opts.length; i++) {
-                if (opts[i].value === val) {
-                    userHidden.value = opts[i].getAttribute('data-value');
-                    loadStats(); 
-                    break;
-                }
-            }
-        });
-    }
-
-    if (jobSearch) {
-        jobSearch.addEventListener('input', (e) => {
-            const val = e.target.value;
-            if(val === "") {
-                jobHidden.value = 'all';
-                if(cachedData) updateGauge(cachedData.jobs, 'All Jobs');
-                return;
-            }
-            const opts = document.getElementById('job-list').options;
-            for (let i = 0; i < opts.length; i++) {
-                if (opts[i].value === val) {
-                    jobHidden.value = opts[i].getAttribute('data-value');
-                    if(cachedData) updateGauge(cachedData.jobs, val);
-                    break;
-                }
-            }
-        });
-    }
-
-    if (stateSearch) {
-        stateSearch.addEventListener('input', (e) => {
-            const val = e.target.value;
-            const opts = document.getElementById('state-list').options;
-            for (let i = 0; i < opts.length; i++) {
-                if (opts[i].value === val) {
-                    const abbr = opts[i].getAttribute('data-value');
-                    stateHidden.value = abbr;
-                    // Just zoom/pan map, don't reload stats
-                    if(cachedData) renderLeafletCountyMap(cachedData.counties, abbr);
-                    break;
-                }
-            }
-        });
-    }
-
-    // --- Main Data Loader ---
+    // --- 4. Main Stats Loader ---
     function loadStats() {
         const period = rangeSelect.value;
         let queryParams = '?period=' + period;
         
         if (period === 'custom') {
-            const s = startInput.value;
-            const e = endInput.value;
+            const s = startInput.value; const e = endInput.value;
             if(!s || !e) return;
             queryParams += '&start=' + s + '&end=' + e;
         }
 
-        if (userHidden) queryParams += '&target_user=' + userHidden.value;
-        else queryParams += '&target_user=self';
+        // Ensure we send 'self', 'all', or UID
+        // If userHidden is empty (shouldn't be due to logic above), default to self
+        const target = userHidden && userHidden.value ? userHidden.value : 'self';
+        queryParams += '&target_user=' + target;
 
         const url = OC.generateUrl('/apps/stech_timesheet/api/analysis/stats') + queryParams;
         
@@ -203,13 +215,27 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(err => console.error("Analysis Load Error:", err));
     }
 
+    // Event Listeners for Range
+    rangeSelect.addEventListener('change', () => {
+        if (rangeSelect.value === 'custom') customInputs.classList.remove('hidden');
+        else { customInputs.classList.add('hidden'); loadStats(); }
+    });
+    startInput.addEventListener('change', loadStats);
+    endInput.addEventListener('change', loadStats);
+    if (updateBtn) updateBtn.addEventListener('click', loadStats);
+
+    // =========================================================
+    //  5. UI UPDATER
+    // =========================================================
     function updateUI(data) {
+        // A. Update Cards
         document.getElementById('stat-total-hours').innerText = data.total_hours;
         document.getElementById('stat-reg-hours').innerText = data.stats.regular_hours;
         document.getElementById('stat-pto-hours').innerText = data.stats.pto_hours;
         const ot = data.stats.overtime_hours !== undefined ? data.stats.overtime_hours : 0;
         document.getElementById('stat-overtime-hours').innerText = ot;
 
+        // B. Update Travel Summary
         if(document.getElementById('val-total-miles')) {
             document.getElementById('val-total-miles').innerText = data.travel.total_miles;
             document.getElementById('val-per-diem').innerText = data.travel.per_diem_days;
@@ -217,46 +243,63 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('val-expenses').innerText = '$' + data.travel.total_expenses;
         }
 
+        // C. Render Standard Charts
         renderOverviewChart(data.trend);
         renderTravelCharts(data.states, data.counties); 
         
         if (document.getElementById('chart-jobs')) renderJobCharts(data.jobs, data.total_hours);
+        
+        // D. Update Profitability Gauge (Point 4 Fix)
         if (document.getElementById('chart-profitability-gauge')) {
             const currentJobFilter = jobSearch ? jobSearch.value : 'All Jobs';
-            updateGauge(data.jobs, currentJobFilter);
+            // Handle the case where the input might be empty (default to 'All Jobs')
+            const filterToUse = currentJobFilter === '' ? 'All Jobs' : currentJobFilter;
+            updateGauge(data.jobs, filterToUse);
         }
 
-        // --- MAP LOADER ---
+        // E. Render Maps (With FIPS Setup)
+        // If topology isn't loaded, fetch it first.
         if(!usTopology) {
             const mapUrl = OC.webroot + '/apps/stech_timesheet/js/us-atlas.json';
             fetch(mapUrl)
-                .then(r => r.json())
+                .then(r => {
+                    if(!r.ok) throw new Error("File not found");
+                    return r.json();
+                })
                 .then(topo => {
                     usTopology = topo;
                     
-                    // 1. Build FIPS -> State Name Map (CRITICAL for Chambers County fix)
+                    // --- FIPS Lookup Creation (Critical for Point 5) ---
+                    // We map "01" -> "Alabama", "48" -> "Texas", etc.
                     const states = topojson.feature(topo, topo.objects.states).features;
                     states.forEach(s => {
                         fipsToStateName[s.id] = s.properties.name;
                     });
 
+                    // Initial Render
                     renderLeafletStateMap(data.states);
                     
-                    // Check if state is already selected
+                    // Check if a state is currently selected in the filter
                     let abbr = null;
                     if(stateSearch && stateSearch.value) {
                          const opts = document.getElementById('state-list').options;
-                         for(let i=0; i<opts.length; i++) if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
+                         for(let i=0; i<opts.length; i++) {
+                             if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
+                         }
                     }
                     renderLeafletCountyMap(data.counties, abbr);
                 })
                 .catch(e => console.error("Map Load Error:", e));
         } else {
+            // Topology already exists, just render
             renderLeafletStateMap(data.states);
+            
             let abbr = null;
             if(stateSearch && stateSearch.value) {
                  const opts = document.getElementById('state-list').options;
-                 for(let i=0; i<opts.length; i++) if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
+                 for(let i=0; i<opts.length; i++) {
+                     if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
+                 }
             }
             renderLeafletCountyMap(data.counties, abbr);
         }
@@ -271,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // =========================================================
-    //  4. CHART RENDERERS
+    //  6. CHART RENDERERS (Standard)
     // =========================================================
 
     function renderOverviewChart(trend) {
@@ -376,6 +419,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let revenue = 0, expenses = 0, laborCost = 0, profit = 0, label = "";
         
+        // Match logic: 'All Jobs', 'all', or empty string means calculate total
         if (filterName === 'All Jobs' || filterName === 'all' || filterName === '') {
             jobs.forEach(j => {
                 revenue += j.revenue; expenses += j.budget; laborCost += (j.hours * j.hourly_cost);
@@ -461,9 +505,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // =========================================================
-    //  5. LEAFLET MAP RENDERERS (Fixed)
+    //  7. LEAFLET MAP RENDERERS (Strict Matching & Auto-Zoom)
     // =========================================================
 
+    // --- Helper: Color Scale ---
     function getMapColor(d) {
         return d > 50 ? '#800026' :
                d > 20 ? '#BD0026' :
@@ -471,7 +516,7 @@ document.addEventListener('DOMContentLoaded', function() {
                d > 5  ? '#FC4E2A' :
                d > 2  ? '#FD8D3C' :
                d > 0  ? '#FEB24C' :
-                        '#EEEEEE'; 
+                        '#EEEEEE'; // Grey for 0
     }
 
     function getStyle(value) {
@@ -485,17 +530,24 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
+    // --- A. STATE MAP ---
     function renderLeafletStateMap(stateData) {
         if (!L || !topojson || !usTopology) return;
+
         const containerId = 'map-state-container';
         if (!mapState) {
-            mapState = L.map(containerId, { center: [37.8, -96], zoom: 4, scrollWheelZoom: false });
+            mapState = L.map(containerId, {
+                center: [37.8, -96],
+                zoom: 4,
+                scrollWheelZoom: false 
+            });
         }
 
+        // Clear previous layers
         mapState.eachLayer(layer => mapState.removeLayer(layer));
+
         const geojson = topojson.feature(usTopology, usTopology.objects.states);
 
-        // Store layer ref for resetStyle
         const geoJsonLayer = L.geoJson(geojson, {
             style: function(feature) {
                 const name = feature.properties.name;
@@ -506,14 +558,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 const name = feature.properties.name;
                 const value = stateData[name] || 0;
                 
-                // Save bounds for Zooming to this state later
+                // CACHE BOUNDS: Save this state's bounds for the County Map to use later
                 stateBounds[name] = layer.getBounds();
 
-                layer.bindTooltip(`<strong>${name}</strong><br>Visits: ${value}`, { direction: 'top', sticky: true });
+                layer.bindTooltip(`<strong>${name}</strong><br>Visits: ${value}`, {
+                    direction: 'top', sticky: true
+                });
+
                 layer.on({
                     mouseover: (e) => {
-                        e.target.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
-                        e.target.bringToFront();
+                        const l = e.target;
+                        l.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
+                        l.bringToFront();
                     },
                     mouseout: (e) => {
                         geoJsonLayer.resetStyle(e.target);
@@ -526,17 +582,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }).addTo(mapState);
     }
 
+    // --- B. COUNTY MAP (The Fix) ---
     function renderLeafletCountyMap(countyData, stateAbbr) {
         if (!L || !topojson || !usTopology) return;
+
         document.getElementById('county-map-placeholder').style.display = 'none';
         
         if (!mapCounty) {
-            mapCounty = L.map('map-county-container', { center: [37.8, -96], zoom: 4 });
+            mapCounty = L.map('map-county-container', {
+                center: [37.8, -96],
+                zoom: 4
+            });
         }
         
         mapCounty.eachLayer(layer => mapCounty.removeLayer(layer));
 
-        // 1. Resolve Selection
+        // 1. Resolve Selection Name (e.g. "TX" -> "Texas")
         let selectedStateName = null;
         if (stateAbbr) {
             const opts = document.getElementById('state-list').options;
@@ -546,51 +607,60 @@ document.addEventListener('DOMContentLoaded', function() {
                     break;
                 }
             }
-            if(!selectedStateName) selectedStateName = stateAbbr;
         }
 
-        // 2. Load ALL Features (Do NOT filter)
+        // 2. Load ALL Features (Full Map)
+        // We do NOT filter features anymore. We load everything.
         const allCounties = topojson.feature(usTopology, usTopology.objects.counties).features;
 
-        // 3. Render
         const geoJsonLayer = L.geoJson(allCounties, {
             style: function(feature) {
-                const name = feature.properties.name; // "Chambers"
+                const name = feature.properties.name; // e.g., "Chambers"
+                const fips = feature.id; // e.g., "01017" (Alabama) or "48071" (Texas)
                 
-                // DATA MATCHING LOGIC
-                // We must use FIPS to find the correct state for this county feature
-                const fips = feature.id; // "01017"
                 let value = 0;
 
+                // STRICT MATCHING: Use FIPS to determine State Name
                 if (fips) {
-                    const stateFips = fips.substring(0, 2); // "01"
-                    const stateName = fipsToStateName[stateFips]; // "Alabama"
+                    const stateFips = fips.substring(0, 2); // First 2 digits are State ID
+                    const stateName = fipsToStateName[stateFips]; // Lookup "Alabama"
                     
                     if (stateName) {
-                        const dbKey = stateName + '|' + name; // "Alabama|Chambers"
+                        // Construct exact key: "Alabama|Chambers"
+                        const dbKey = stateName + '|' + name;
                         value = countyData[dbKey] || 0;
                     }
                 }
-
+                
                 return getStyle(value);
             },
             onEachFeature: function(feature, layer) {
                 const name = feature.properties.name;
                 const fips = feature.id;
-                let stateName = "Unknown";
+                
+                // Determine State Name for Tooltip
+                let stateLabel = "Unknown State";
                 let value = 0;
 
-                if(fips && fipsToStateName[fips.substring(0,2)]) {
-                    stateName = fipsToStateName[fips.substring(0,2)];
-                    const dbKey = stateName + '|' + name;
-                    value = countyData[dbKey] || 0;
+                if (fips) {
+                    const stateFips = fips.substring(0, 2);
+                    const stateName = fipsToStateName[stateFips];
+                    if(stateName) {
+                        stateLabel = stateName;
+                        const dbKey = stateName + '|' + name;
+                        value = countyData[dbKey] || 0;
+                    }
                 }
 
-                layer.bindTooltip(`<strong>${name} County, ${stateName}</strong><br>Visits: ${value}`, { direction: 'top', sticky: true });
+                layer.bindTooltip(`<strong>${name} County, ${stateLabel}</strong><br>Visits: ${value}`, {
+                    direction: 'top', sticky: true
+                });
+
                 layer.on({
                     mouseover: (e) => {
-                        e.target.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
-                        e.target.bringToFront();
+                        const l = e.target;
+                        l.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
+                        l.bringToFront();
                     },
                     mouseout: (e) => {
                         geoJsonLayer.resetStyle(e.target);
@@ -599,14 +669,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }).addTo(mapCounty);
 
-        // 4. Smart Pan/Zoom
+        // 3. ZOOM LOGIC
+        // If a state is selected, pan/zoom to THAT state's bounds (using cached bounds from State Map)
         if (selectedStateName && stateBounds[selectedStateName]) {
-            // If state selected, zoom to cached bounds of that state
             mapCounty.fitBounds(stateBounds[selectedStateName]);
         } else {
-            // Full US View
+            // Otherwise, reset to full US view
             mapCounty.setView([37.8, -96], 4);
         }
     }
 
-});
+}); // END DOMContentLoaded
