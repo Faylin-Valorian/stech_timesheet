@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let cachedData = null; 
     let usTopology = null; 
     
-    // Lookup Maps
+    // Lookup Maps (Critical for correct County/State matching)
     let fipsToStateName = {}; 
     let stateBounds = {}; 
 
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const endInput = document.getElementById('analysis-end');
     const updateBtn = document.getElementById('btn-refresh-analysis');
     
-    // Inputs
+    // Search Inputs
     const userSearch = document.getElementById('user-search');
     const userHidden = document.getElementById('analysis-target-user');
     const jobSearch = document.getElementById('job-search');
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Init ---
     initTabs();
-    initSearchBehaviors(); // New Unified Logic
+    initSearchBehaviors(); 
     loadFilters(); 
     loadStats();   
 
@@ -44,39 +44,39 @@ document.addEventListener('DOMContentLoaded', function() {
                 const target = e.target.dataset.tab;
                 document.getElementById(target).classList.add('active');
                 
-                // Resize Leaflet maps when tab becomes visible
+                // Leaflet Resize (Prevents grey map blocks)
                 if(target === 'tab-state' && mapState) setTimeout(() => mapState.invalidateSize(), 200);
                 if(target === 'tab-county' && mapCounty) setTimeout(() => mapCounty.invalidateSize(), 200);
             });
         });
     }
 
-    // --- 2. Unified Search Behavior (Points 1, 2, 3, 4) ---
+    // --- 2. Unified Search Behavior (Click-to-Clear & Defaults) ---
     function initSearchBehaviors() {
         
         // Helper: Clear input on click to show full datalist
         const attachClickToClear = (inputEl, hiddenEl, defaultHiddenVal) => {
             if(!inputEl) return;
+            
             inputEl.addEventListener('click', function() {
-                // Save current valid value before clearing? 
-                // No, user wants to see full list.
                 if(this.value !== '') {
-                    this.value = ''; // Clear text
-                    // Reset hidden value temporarily or completely?
-                    // We don't trigger load immediately on click, only on selection/input
+                    this.value = ''; // Clear text to show datalist
+                    // Trigger input event to refresh list if needed
+                    const event = new Event('input', { bubbles: true });
+                    this.dispatchEvent(event);
                 }
             });
             
-            // Handle "Blur" (Clicking away) - Restore default if empty
+            // Handle "Blur" / Change: Restore default if left empty
             inputEl.addEventListener('change', function() {
                 if(this.value === '') {
                     if(defaultHiddenVal !== null) {
-                        // Point 3: Default to "Myself" if empty
                         if(inputEl.id === 'user-search') {
-                            this.value = "Myself"; // Visual
+                            this.value = "Myself"; 
                             hiddenEl.value = "self";
-                            loadStats();
+                            loadStats(); // Reload on default
                         } else if(inputEl.id === 'job-search') {
+                            this.value = "All Jobs";
                             hiddenEl.value = "all";
                             if(cachedData) updateGauge(cachedData.jobs, 'All Jobs');
                         }
@@ -85,35 +85,25 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         };
 
-        // A. User Search (Fixes "Myself", "All", and Defaulting)
+        // A. User Search
         if(userSearch) {
             attachClickToClear(userSearch, userHidden, 'self');
             
             userSearch.addEventListener('input', function() {
                 const val = this.value;
                 const opts = document.getElementById('user-list').options;
-                let found = false;
                 
-                // 1. Check exact match in datalist
                 for(let i=0; i<opts.length; i++) {
                     if(opts[i].value === val) {
-                        userHidden.value = opts[i].getAttribute('data-value'); // 'self', 'all', or UID
+                        userHidden.value = opts[i].getAttribute('data-value'); 
                         loadStats();
-                        found = true;
                         break;
                     }
-                }
-                
-                // 2. If user clears box completely, set to self (Point 3)
-                if(val === "") {
-                    userHidden.value = 'self';
-                    // Optional: Wait for blur to reload or reload now? 
-                    // Let's wait for selection or blur to avoid flashing
                 }
             });
         }
 
-        // B. Job Search (Point 4 - Profitability Tab)
+        // B. Job Search (Profitability)
         if(jobSearch) {
             attachClickToClear(jobSearch, jobHidden, 'all');
             
@@ -121,6 +111,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const val = this.value;
                 const opts = document.getElementById('job-list').options;
                 
+                // Allow empty to mean "All"
                 if(val === "") {
                     jobHidden.value = 'all';
                     if(cachedData) updateGauge(cachedData.jobs, 'All Jobs');
@@ -137,14 +128,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // C. State Search (Point 2 - County Map)
+        // C. State Search (County Map)
         if(stateSearch) {
-            // No default hidden value needed (defaults to full map)
             stateSearch.addEventListener('click', function() {
                 if(this.value !== '') {
                     this.value = '';
                     stateHidden.value = '';
-                    // Reset map to full view immediately on clear
+                    // Reset to full map
                     if(cachedData) renderLeafletCountyMap(cachedData.counties, null);
                 }
             });
@@ -174,6 +164,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 const list = document.getElementById(id);
                 if(!list) return;
                 list.innerHTML = ''; 
+                
+                // Special Case: Jobs needs an explicit "All" option
+                if (id === 'job-list') {
+                    const allOpt = document.createElement('option');
+                    allOpt.value = "All Jobs";
+                    allOpt.setAttribute('data-value', 'all');
+                    list.appendChild(allOpt);
+                }
+
                 items.forEach(item => {
                     const opt = document.createElement('option');
                     opt.value = item[valKey];
@@ -198,9 +197,8 @@ document.addEventListener('DOMContentLoaded', function() {
             queryParams += '&start=' + s + '&end=' + e;
         }
 
-        // Ensure we send 'self', 'all', or UID
-        // If userHidden is empty (shouldn't be due to logic above), default to self
-        const target = userHidden && userHidden.value ? userHidden.value : 'self';
+        // Default to 'self' if hidden value is missing
+        const target = (userHidden && userHidden.value) ? userHidden.value : 'self';
         queryParams += '&target_user=' + target;
 
         const url = OC.generateUrl('/apps/stech_timesheet/api/analysis/stats') + queryParams;
@@ -215,7 +213,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(err => console.error("Analysis Load Error:", err));
     }
 
-    // Event Listeners for Range
     rangeSelect.addEventListener('change', () => {
         if (rangeSelect.value === 'custom') customInputs.classList.remove('hidden');
         else { customInputs.classList.add('hidden'); loadStats(); }
@@ -228,14 +225,12 @@ document.addEventListener('DOMContentLoaded', function() {
     //  5. UI UPDATER
     // =========================================================
     function updateUI(data) {
-        // A. Update Cards
         document.getElementById('stat-total-hours').innerText = data.total_hours;
         document.getElementById('stat-reg-hours').innerText = data.stats.regular_hours;
         document.getElementById('stat-pto-hours').innerText = data.stats.pto_hours;
         const ot = data.stats.overtime_hours !== undefined ? data.stats.overtime_hours : 0;
         document.getElementById('stat-overtime-hours').innerText = ot;
 
-        // B. Update Travel Summary
         if(document.getElementById('val-total-miles')) {
             document.getElementById('val-total-miles').innerText = data.travel.total_miles;
             document.getElementById('val-per-diem').innerText = data.travel.per_diem_days;
@@ -243,22 +238,19 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('val-expenses').innerText = '$' + data.travel.total_expenses;
         }
 
-        // C. Render Standard Charts
         renderOverviewChart(data.trend);
         renderTravelCharts(data.states, data.counties); 
         
         if (document.getElementById('chart-jobs')) renderJobCharts(data.jobs, data.total_hours);
         
-        // D. Update Profitability Gauge (Point 4 Fix)
+        // Update Gauge
         if (document.getElementById('chart-profitability-gauge')) {
             const currentJobFilter = jobSearch ? jobSearch.value : 'All Jobs';
-            // Handle the case where the input might be empty (default to 'All Jobs')
             const filterToUse = currentJobFilter === '' ? 'All Jobs' : currentJobFilter;
             updateGauge(data.jobs, filterToUse);
         }
 
-        // E. Render Maps (With FIPS Setup)
-        // If topology isn't loaded, fetch it first.
+        // Render Maps (Ensure Topology is loaded)
         if(!usTopology) {
             const mapUrl = OC.webroot + '/apps/stech_timesheet/js/us-atlas.json';
             fetch(mapUrl)
@@ -269,17 +261,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(topo => {
                     usTopology = topo;
                     
-                    // --- FIPS Lookup Creation (Critical for Point 5) ---
-                    // We map "01" -> "Alabama", "48" -> "Texas", etc.
+                    // Build FIPS -> StateName Map
                     const states = topojson.feature(topo, topo.objects.states).features;
                     states.forEach(s => {
                         fipsToStateName[s.id] = s.properties.name;
                     });
 
-                    // Initial Render
                     renderLeafletStateMap(data.states);
                     
-                    // Check if a state is currently selected in the filter
+                    // Check selection
                     let abbr = null;
                     if(stateSearch && stateSearch.value) {
                          const opts = document.getElementById('state-list').options;
@@ -291,9 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch(e => console.error("Map Load Error:", e));
         } else {
-            // Topology already exists, just render
             renderLeafletStateMap(data.states);
-            
             let abbr = null;
             if(stateSearch && stateSearch.value) {
                  const opts = document.getElementById('state-list').options;
@@ -314,7 +302,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // =========================================================
-    //  6. CHART RENDERERS (Standard)
+    //  6. CHART RENDERERS
     // =========================================================
 
     function renderOverviewChart(trend) {
@@ -419,7 +407,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let revenue = 0, expenses = 0, laborCost = 0, profit = 0, label = "";
         
-        // Match logic: 'All Jobs', 'all', or empty string means calculate total
+        // Handle "All" selection
         if (filterName === 'All Jobs' || filterName === 'all' || filterName === '') {
             jobs.forEach(j => {
                 revenue += j.revenue; expenses += j.budget; laborCost += (j.hours * j.hourly_cost);
@@ -508,46 +496,26 @@ document.addEventListener('DOMContentLoaded', function() {
     //  7. LEAFLET MAP RENDERERS (Strict Matching & Auto-Zoom)
     // =========================================================
 
-    // --- Helper: Color Scale ---
     function getMapColor(d) {
-        return d > 50 ? '#800026' :
-               d > 20 ? '#BD0026' :
-               d > 10 ? '#E31A1C' :
-               d > 5  ? '#FC4E2A' :
-               d > 2  ? '#FD8D3C' :
-               d > 0  ? '#FEB24C' :
-                        '#EEEEEE'; // Grey for 0
+        return d > 50 ? '#800026' : d > 20 ? '#BD0026' : d > 10 ? '#E31A1C' : d > 5  ? '#FC4E2A' : d > 2  ? '#FD8D3C' : d > 0  ? '#FEB24C' : '#EEEEEE'; 
     }
 
     function getStyle(value) {
         return {
-            fillColor: getMapColor(value),
-            weight: 1,
-            opacity: 1,
-            color: 'white',
-            dashArray: '3',
-            fillOpacity: 0.7
+            fillColor: getMapColor(value), weight: 1, opacity: 1, color: 'white', dashArray: '3', fillOpacity: 0.7
         };
     }
 
-    // --- A. STATE MAP ---
     function renderLeafletStateMap(stateData) {
         if (!L || !topojson || !usTopology) return;
 
         const containerId = 'map-state-container';
         if (!mapState) {
-            mapState = L.map(containerId, {
-                center: [37.8, -96],
-                zoom: 4,
-                scrollWheelZoom: false 
-            });
+            mapState = L.map(containerId, { center: [37.8, -96], zoom: 4, scrollWheelZoom: false });
         }
-
-        // Clear previous layers
         mapState.eachLayer(layer => mapState.removeLayer(layer));
 
         const geojson = topojson.feature(usTopology, usTopology.objects.states);
-
         const geoJsonLayer = L.geoJson(geojson, {
             style: function(feature) {
                 const name = feature.properties.name;
@@ -558,46 +526,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 const name = feature.properties.name;
                 const value = stateData[name] || 0;
                 
-                // CACHE BOUNDS: Save this state's bounds for the County Map to use later
+                // Save bounds for County Map Zoom
                 stateBounds[name] = layer.getBounds();
 
-                layer.bindTooltip(`<strong>${name}</strong><br>Visits: ${value}`, {
-                    direction: 'top', sticky: true
-                });
-
+                layer.bindTooltip(`<strong>${name}</strong><br>Visits: ${value}`, { direction: 'top', sticky: true });
                 layer.on({
                     mouseover: (e) => {
-                        const l = e.target;
-                        l.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
-                        l.bringToFront();
+                        e.target.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
+                        e.target.bringToFront();
                     },
-                    mouseout: (e) => {
-                        geoJsonLayer.resetStyle(e.target);
-                    },
-                    click: (e) => {
-                        mapState.fitBounds(e.target.getBounds());
-                    }
+                    mouseout: (e) => { geoJsonLayer.resetStyle(e.target); },
+                    click: (e) => { mapState.fitBounds(e.target.getBounds()); }
                 });
             }
         }).addTo(mapState);
     }
 
-    // --- B. COUNTY MAP (The Fix) ---
     function renderLeafletCountyMap(countyData, stateAbbr) {
         if (!L || !topojson || !usTopology) return;
 
         document.getElementById('county-map-placeholder').style.display = 'none';
         
         if (!mapCounty) {
-            mapCounty = L.map('map-county-container', {
-                center: [37.8, -96],
-                zoom: 4
-            });
+            mapCounty = L.map('map-county-container', { center: [37.8, -96], zoom: 4 });
         }
-        
         mapCounty.eachLayer(layer => mapCounty.removeLayer(layer));
 
-        // 1. Resolve Selection Name (e.g. "TX" -> "Texas")
         let selectedStateName = null;
         if (stateAbbr) {
             const opts = document.getElementById('state-list').options;
@@ -609,36 +563,30 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // 2. Load ALL Features (Full Map)
-        // We do NOT filter features anymore. We load everything.
         const allCounties = topojson.feature(usTopology, usTopology.objects.counties).features;
 
         const geoJsonLayer = L.geoJson(allCounties, {
             style: function(feature) {
-                const name = feature.properties.name; // e.g., "Chambers"
-                const fips = feature.id; // e.g., "01017" (Alabama) or "48071" (Texas)
+                const name = feature.properties.name; // e.g. "Chambers"
+                const fips = feature.id; // e.g. "01017"
                 
                 let value = 0;
-
-                // STRICT MATCHING: Use FIPS to determine State Name
                 if (fips) {
-                    const stateFips = fips.substring(0, 2); // First 2 digits are State ID
-                    const stateName = fipsToStateName[stateFips]; // Lookup "Alabama"
-                    
+                    const stateFips = fips.substring(0, 2);
+                    const stateName = fipsToStateName[stateFips]; // "Alabama"
                     if (stateName) {
-                        // Construct exact key: "Alabama|Chambers"
+                        // Construct Exact Key: "Alabama|Chambers"
+                        // Backend strips " County", Frontend combines State|Name
                         const dbKey = stateName + '|' + name;
                         value = countyData[dbKey] || 0;
                     }
                 }
-                
                 return getStyle(value);
             },
             onEachFeature: function(feature, layer) {
                 const name = feature.properties.name;
                 const fips = feature.id;
                 
-                // Determine State Name for Tooltip
                 let stateLabel = "Unknown State";
                 let value = 0;
 
@@ -652,31 +600,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
 
-                layer.bindTooltip(`<strong>${name} County, ${stateLabel}</strong><br>Visits: ${value}`, {
-                    direction: 'top', sticky: true
-                });
-
+                layer.bindTooltip(`<strong>${name} County, ${stateLabel}</strong><br>Visits: ${value}`, { direction: 'top', sticky: true });
                 layer.on({
                     mouseover: (e) => {
-                        const l = e.target;
-                        l.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
-                        l.bringToFront();
+                        e.target.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
+                        e.target.bringToFront();
                     },
-                    mouseout: (e) => {
-                        geoJsonLayer.resetStyle(e.target);
-                    }
+                    mouseout: (e) => { geoJsonLayer.resetStyle(e.target); }
                 });
             }
         }).addTo(mapCounty);
 
-        // 3. ZOOM LOGIC
-        // If a state is selected, pan/zoom to THAT state's bounds (using cached bounds from State Map)
+        // Zoom Logic
         if (selectedStateName && stateBounds[selectedStateName]) {
             mapCounty.fitBounds(stateBounds[selectedStateName]);
         } else {
-            // Otherwise, reset to full US view
             mapCounty.setView([37.8, -96], 4);
         }
     }
 
-}); // END DOMContentLoaded
+});

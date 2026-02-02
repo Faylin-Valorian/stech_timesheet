@@ -22,7 +22,6 @@ class AnalysisController extends Controller {
         $this->groupManager = $groupManager;
     }
 
-    // Reuse the same checkAccess logic (duplicated for safety in API)
     private function checkAccess($uid, $ruleKey): bool {
         if (!$uid) return false;
         if ($this->groupManager->isAdmin($uid)) return true;
@@ -91,71 +90,101 @@ class AnalysisController extends Controller {
     }
 
     /**
+     * Helper: Calculate Dates based on Payroll Settings
+     */
+    private function getPayrollDateRange($period) {
+        $freq = 14; 
+        $refDateStr = '2024-01-01'; 
+        
+        try {
+            $qb = $this->db->getQueryBuilder();
+            $settings = $qb->select('*')->from('stech_settings')->executeQuery()->fetchAll();
+            foreach($settings as $s) {
+                if ($s['setting_key'] === 'pay_frequency') $freq = (int)$s['setting_value'];
+                if ($s['setting_key'] === 'pay_start_date') $refDateStr = $s['setting_value'];
+            }
+        } catch(\Exception $e) {}
+
+        $now = new \DateTime();
+        $refDate = new \DateTime($refDateStr);
+        
+        $diff = $now->diff($refDate)->days;
+        if ($now < $refDate) $diff = -$diff;
+        
+        // Calculate cycles
+        $cycles = floor($diff / $freq);
+        
+        // Start of CURRENT active cycle
+        $currentStart = clone $refDate;
+        $currentStart->modify('+' . ($cycles * $freq) . ' days');
+        $currentEnd = clone $currentStart;
+        $currentEnd->modify('+' . ($freq - 1) . ' days');
+
+        if ($period === 'this_pay_period') {
+            return [$currentStart, $currentEnd];
+        } elseif ($period === 'last_pay_period') {
+            $lastStart = clone $currentStart;
+            $lastStart->modify('-' . $freq . ' days');
+            $lastEnd = clone $currentStart;
+            $lastEnd->modify('-1 day');
+            return [$lastStart, $lastEnd];
+        }
+        
+        if ($period === 'this_month') return [new \DateTime('first day of this month'), new \DateTime('last day of this month')];
+        if ($period === 'last_month') return [new \DateTime('first day of last month'), new \DateTime('last day of last month')];
+        if ($period === 'ytd') return [new \DateTime('first day of January this year'), new \DateTime('now')];
+        
+        return [$currentStart, $currentEnd];
+    }
+
+    /**
      * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getStats(string $period, string $target_user = 'self'): DataResponse {
         $currentUser = $this->userSession->getUser()->getUID();
         
-        // Gatekeeper
         if (!$this->checkAccess($currentUser, 'analysis_tab')) {
             return new DataResponse(['error' => 'Access Denied'], 403);
         }
 
-        // Feature Permissions
         $canViewTravel = $this->checkAccess($currentUser, 'analysis_travel');
         $canViewFinancial = $this->checkAccess($currentUser, 'analysis_financial');
         $canViewLocation = $this->checkAccess($currentUser, 'analysis_location');
         $canViewJobBreakdown = $this->checkAccess($currentUser, 'analysis_job_breakdown');
-        
-        // Financial access implies Job Breakdown access
         if ($canViewFinancial) $canViewJobBreakdown = true;
 
-        // User Selection Logic
+        // User Selection
         $isAdmin = $this->groupManager->isAdmin($currentUser);
         $uid = $currentUser;
         if ($target_user !== 'self') {
             if ($isAdmin || $this->checkAccess($currentUser, 'analysis_view_others')) {
-                if ($target_user === 'all') $uid = null; 
-                else $uid = $target_user; 
+                $uid = ($target_user === 'all') ? null : $target_user;
             } else {
-                $uid = $currentUser; 
+                $uid = $currentUser;
             }
         }
 
-        // Date Logic
-        $endDate = new \DateTime();
-        $startDate = new \DateTime();
-        
-        if ($period === 'this_month') {
-            $startDate = new \DateTime('first day of this month');
-            $endDate = new \DateTime('last day of this month');
-        } elseif ($period === 'last_month') {
-            $startDate = new \DateTime('first day of last month');
-            $endDate = new \DateTime('last day of last month');
-        } elseif ($period === 'ytd') {
-            $startDate = new \DateTime('first day of January this year');
-        } elseif ($period === 'custom') {
+        // Date Range
+        if ($period === 'custom') {
             $s = $this->request->getParam('start');
             $e = $this->request->getParam('end');
-            if ($s && $e) {
-                $startDate = new \DateTime($s);
-                $endDate = new \DateTime($e);
-            }
-        } elseif ($period === 'last_pay_period') {
-             $startDate->modify('-28 days');
-             $endDate->modify('-14 days');
+            $startDate = ($s) ? new \DateTime($s) : new \DateTime();
+            $endDate = ($e) ? new \DateTime($e) : new \DateTime();
         } else {
-            $startDate->modify('-14 days'); 
+            list($startDate, $endDate) = $this->getPayrollDateRange($period);
         }
 
-        // Query
+        // QUERY
         $qb = $this->db->getQueryBuilder();
-        $qb->select('t.*', 'a.activity_description', 'a.activity_percent', 
-                    'j.job_id', 'j.job_name', 'j.job_revenue', 'j.job_expense_budget', 'j.job_hourly_cost')
+        $qb->select('t.*', 
+                    'a.activity_description', 'a.activity_percent', 
+                    'j.job_id', 'j.job_name', 'j.job_revenue', 'j.job_expense_budget', 'j.job_hourly_cost', 'j.is_pto',
+                    'st.state_name as full_state_name')
            ->from('stech_timesheets', 't')
            ->leftJoin('t', 'stech_activity', 'a', 't.timesheet_id = a.timesheet_id')
-           ->leftJoin('a', 'stech_jobs', 'j', 'a.activity_description = j.job_name') 
+           ->leftJoin('a', 'stech_jobs', 'j', 'a.activity_description = j.job_name')
+           ->leftJoin('t', 'stech_states', 'st', 't.travel_state = st.state_abbr')
            ->where($qb->expr()->gte('t.timesheet_date', $qb->createNamedParameter($startDate->format('Y-m-d'))))
            ->andWhere($qb->expr()->lte('t.timesheet_date', $qb->createNamedParameter($endDate->format('Y-m-d'))));
 
@@ -165,7 +194,7 @@ class AnalysisController extends Controller {
 
         $results = $qb->executeQuery()->fetchAll();
 
-        // Aggregation
+        // AGGREGATION
         $totalHours = 0;
         $ptoHours = 0;
         $trendData = []; 
@@ -181,99 +210,82 @@ class AnalysisController extends Controller {
             
             if (!in_array($tid, $processedTimesheets)) {
                 $totalHours += $hours;
-                
-                $isPto = (strpos($row['additional_comments'] ?? '', '[PTO]') !== false);
-                if ($isPto) $ptoHours += $hours;
-
                 if (!isset($trendData[$date])) $trendData[$date] = 0;
                 $trendData[$date] += $hours;
 
-                // Only process location data if allowed
+                // Location Logic
                 if ($canViewLocation) {
-                    $st = $row['travel_state'] ?? '';
-                    if ($st) {
-                        if (!isset($stateStats[$st])) $stateStats[$st] = 0;
-                        $stateStats[$st]++;
-                    }
-                    $ct = $row['travel_county'] ?? '';
-                    if ($ct && $st) {
-                        $key = $st . '|' . $ct;
-                        if (!isset($countyStats[$key])) $countyStats[$key] = 0;
-                        $countyStats[$key]++;
+                    $stateName = $row['full_state_name'] ?? $row['travel_state'] ?? '';
+                    if ($stateName) {
+                        if (!isset($stateStats[$stateName])) $stateStats[$stateName] = 0;
+                        $stateStats[$stateName]++;
+                        
+                        $county = $row['travel_county'] ?? '';
+                        if ($county) {
+                            // [FIX] Strip " County" from DB string so it matches Map Key "Chambers"
+                            $cleanCounty = trim(str_ireplace(' County', '', $county));
+                            $key = $stateName . '|' . $cleanCounty;
+                            if (!isset($countyStats[$key])) $countyStats[$key] = 0;
+                            $countyStats[$key]++;
+                        }
                     }
                 }
-                
                 $processedTimesheets[] = $tid;
             }
 
-            // Job Stats (Only if allowed)
-            if ($canViewJobBreakdown && !empty($row['activity_description'])) {
-                $jobName = $row['activity_description'];
+            // Activity Logic
+            if (!empty($row['activity_description'])) {
                 $percent = (float)$row['activity_percent'];
                 $jobHours = $hours * ($percent / 100);
 
-                if (!isset($jobStats[$jobName])) {
-                    $jobStats[$jobName] = [
-                        'name' => $jobName, 
-                        'hours' => 0,
-                        'revenue' => (float)($row['job_revenue'] ?? 0),
-                        'budget' => (float)($row['job_expense_budget'] ?? 0),
-                        'hourly_cost' => (float)($row['job_hourly_cost'] ?? 0)
-                    ];
+                // Check is_pto flag
+                if (isset($row['is_pto']) && $row['is_pto'] == 1) {
+                    $ptoHours += $jobHours;
                 }
-                $jobStats[$jobName]['hours'] += $jobHours;
+
+                if ($canViewJobBreakdown) {
+                    $jobName = $row['activity_description'];
+                    if (!isset($jobStats[$jobName])) {
+                        $jobStats[$jobName] = [
+                            'name' => $jobName, 
+                            'hours' => 0,
+                            'revenue' => (float)($row['job_revenue'] ?? 0),
+                            'budget' => (float)($row['job_expense_budget'] ?? 0),
+                            'hourly_cost' => (float)($row['job_hourly_cost'] ?? 0)
+                        ];
+                    }
+                    $jobStats[$jobName]['hours'] += $jobHours;
+                }
             }
         }
 
         ksort($trendData);
         arsort($stateStats);
         
-        // Travel Stats (Only if allowed)
-        $travelStats = [
-            'total_miles' => 0,
-            'per_diem_days' => 0,
-            'overnight_stays' => 0,
-            'total_expenses' => 0.0
-        ];
-
+        $travelStats = ['total_miles'=>0, 'per_diem_days'=>0, 'overnight_stays'=>0, 'total_expenses'=>0.0];
         if ($canViewTravel) {
-            $totalMiles = 0;
-            $perDiemDays = 0;
-            $overnightStays = 0;
-            $totalExpenses = 0.0;
             $uniqueRows = [];
-            
             foreach($results as $r) {
                 if(!in_array($r['timesheet_id'], $uniqueRows)) {
                     $uniqueRows[] = $r['timesheet_id'];
-                    $totalMiles += (int)($r['travel_miles'] ?? 0);
-                    if(($r['travel_per_diem'] ?? 0) == 1) $perDiemDays++;
-                    if(($r['travel_overnight'] ?? 0) == 1) $overnightStays++;
-                    $totalExpenses += (float)($r['travel_extra_expenses'] ?? 0);
+                    $travelStats['total_miles'] += (int)($r['travel_miles'] ?? 0);
+                    if(($r['travel_per_diem'] ?? 0) == 1) $travelStats['per_diem_days']++;
+                    if(($r['travel_overnight'] ?? 0) == 1) $travelStats['overnight_stays']++;
+                    $travelStats['total_expenses'] += (float)($r['travel_extra_expenses'] ?? 0);
                 }
             }
-            $travelStats = [
-                'total_miles' => $totalMiles,
-                'per_diem_days' => $perDiemDays,
-                'overnight_stays' => $overnightStays,
-                'total_expenses' => round($totalExpenses, 2)
-            ];
+            $travelStats['total_expenses'] = round($travelStats['total_expenses'], 2);
         }
 
-        // Return Data (Empty arrays where permission denied)
         return new DataResponse([
             'total_hours' => round($totalHours, 2),
             'stats' => [
                 'regular_hours' => round($totalHours - $ptoHours, 2),
                 'pto_hours' => round($ptoHours, 2),
-                // Fix for Overtime missing property
-                'overtime_hours' => 0 // or calculate if you have the logic
+                'overtime_hours' => 0 
             ],
-            'trend' => [
-                'labels' => array_keys($trendData),
-                'values' => array_values($trendData)
-            ],
-            'jobs' => $canViewFinancial ? array_values($jobStats) : [],
+            'trend' => ['labels' => array_keys($trendData), 'values' => array_values($trendData)],
+            'jobs' => array_values($jobStats),
             'travel' => $travelStats,
             'states' => $stateStats,
             'counties' => $countyStats
