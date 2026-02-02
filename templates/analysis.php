@@ -1,10 +1,8 @@
 <?php
 use OCP\Util;
-
-// [FIX] Load LOCAL Chart.js library (from js/chart.js)
+// Local Chart.js library
 Util::addScript('stech_timesheet', 'chart');
 
-// Load App Scripts
 Util::addScript('stech_timesheet', 'analysis');
 Util::addStyle('stech_timesheet', 'style');
 Util::addStyle('stech_timesheet', 'analysis');
@@ -79,18 +77,41 @@ Util::addStyle('stech_timesheet', 'analysis');
             <div class="tabs-container">
                 <div class="tab-headers">
                     <button class="tab-btn active" data-tab="tab-overview">Overview</button>
+                    <button class="tab-btn" data-tab="tab-travel">Travel Activity</button>
                     
                     <?php if($_['can_view_job_breakdown']): ?>
                     <button class="tab-btn" data-tab="tab-jobs">Job Breakdown</button>
+                    <button class="tab-btn" data-tab="tab-profitability">Job Profitability</button>
                     <?php endif; ?>
                     
-                    <button class="tab-btn" data-tab="tab-travel">Travel & Expenses</button>
+                    <button class="tab-btn" data-tab="tab-state">State Activity</button>
+                    <button class="tab-btn" data-tab="tab-county">County Activity</button>
                 </div>
 
                 <div class="tab-content">
+                    
                     <div id="tab-overview" class="tab-pane active">
                         <div class="chart-wrapper">
                             <canvas id="chart-daily"></canvas>
+                        </div>
+                    </div>
+
+                    <div id="tab-travel" class="tab-pane">
+                         <div class="travel-summary-grid">
+                            <div class="travel-stat-box"><h4>Total Miles</h4><span id="val-total-miles">0</span></div>
+                            <div class="travel-stat-box"><h4>Per Diem Days</h4><span id="val-per-diem">0</span></div>
+                            <div class="travel-stat-box"><h4>Overnight Stays</h4><span id="val-overnight">0</span></div>
+                            <div class="travel-stat-box"><h4>Expenses Claimed</h4><span id="val-expenses">$0.00</span></div>
+                        </div>
+                        <div class="split-layout-analysis" style="margin-top: 20px;">
+                            <div class="chart-wrapper-half">
+                                <h3>Visits by State</h3>
+                                <canvas id="chart-travel-state"></canvas>
+                            </div>
+                            <div class="chart-wrapper-half">
+                                <h3>Visits by County</h3>
+                                <canvas id="chart-travel-county"></canvas>
+                            </div>
                         </div>
                     </div>
 
@@ -102,52 +123,35 @@ Util::addStyle('stech_timesheet', 'analysis');
                             </div>
                             <div class="table-wrapper-half">
                                 <table class="analysis-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Job Code</th>
-                                            <th>Hours</th>
-                                            <th>Percent</th>
-                                        </tr>
-                                    </thead>
+                                    <thead><tr><th>Job Code</th><th>Hours</th><th>Percent</th></tr></thead>
                                     <tbody id="job-table-body"></tbody>
                                 </table>
                             </div>
                         </div>
                     </div>
+
+                    <div id="tab-profitability" class="tab-pane">
+                        <h3>Job Profitability (Total Hours Allocated)</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-profitability"></canvas>
+                        </div>
+                    </div>
                     <?php endif; ?>
 
-                    <div id="tab-travel" class="tab-pane">
-                        <div class="travel-summary-grid">
-                            <div class="travel-stat-box">
-                                <h4>Total Miles</h4>
-                                <span id="val-total-miles">0</span>
-                            </div>
-                            <div class="travel-stat-box">
-                                <h4>Per Diem Days</h4>
-                                <span id="val-per-diem">0</span>
-                            </div>
-                            <div class="travel-stat-box">
-                                <h4>Overnight Stays</h4>
-                                <span id="val-overnight">0</span>
-                            </div>
-                            <div class="travel-stat-box">
-                                <h4>Expenses Claimed</h4>
-                                <span id="val-expenses">$0.00</span>
-                            </div>
+                    <div id="tab-state" class="tab-pane">
+                        <h3>State Job Volume</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-state-activity"></canvas>
                         </div>
-                        
-                        <h3 style="margin-top:30px; margin-bottom:15px; border-bottom:1px solid var(--color-border); padding-bottom:10px;">Location Summary</h3>
-                        <table class="analysis-table">
-                            <thead>
-                                <tr>
-                                    <th>State</th>
-                                    <th>County</th>
-                                    <th>Visits</th>
-                                </tr>
-                            </thead>
-                            <tbody id="location-table-body"></tbody>
-                        </table>
                     </div>
+
+                    <div id="tab-county" class="tab-pane">
+                        <h3>County Job Volume</h3>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-county-activity"></canvas>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>

@@ -29,11 +29,11 @@
     color: var(--color-main-text);
 }
 
-/* --- Fix for Date Inputs Stacking --- */
+/* --- Controls Row --- */
 .date-range-selector {
     display: flex;
     align-items: center;
-    gap: 15px; /* Spacing between controls */
+    gap: 15px;
     flex-wrap: wrap; 
 }
 
@@ -49,9 +49,7 @@
     padding: 0 5px;
 }
 
-.hidden {
-    display: none !important;
-}
+.hidden { display: none !important; }
 
 /* =========================================
    2. STATS OVERVIEW CARDS
@@ -97,17 +95,18 @@
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     overflow: hidden; 
-    min-height: 500px;
+    min-height: 600px; /* Increased height for new charts */
 }
 
 .tab-headers {
     display: flex;
     background-color: var(--color-background-dark);
     border-bottom: 1px solid var(--color-border);
+    overflow-x: auto; /* Scroll horizontal if too many tabs */
 }
 
 .tab-btn {
-    padding: 15px 25px;
+    padding: 15px 20px;
     background: none;
     border: none;
     border-right: 1px solid var(--color-border);
@@ -115,6 +114,7 @@
     font-weight: 600;
     color: var(--color-text-light);
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .tab-btn:hover {
@@ -140,11 +140,10 @@
     display: none;
     height: 100%;
     width: 100%;
-}
-.tab-pane.active {
-    display: block;
     animation: fadeIn 0.3s ease;
 }
+.tab-pane.active { display: block; }
+.tab-pane h3 { margin-top: 0; margin-bottom: 20px; color: var(--color-text-light); font-size: 18px; }
 
 @keyframes fadeIn {
     from { opacity: 0; }
@@ -152,29 +151,43 @@
 }
 
 /* =========================================
-   4. CHARTS & TABLES
+   4. CHARTS & LAYOUTS
    ========================================= */
 .chart-wrapper {
     position: relative;
-    height: 400px; 
+    height: 450px; 
     width: 100%;
 }
 
+/* Split Layout (Side-by-Side Charts) */
 .split-layout-analysis {
     display: flex;
     gap: 30px;
-    height: 100%;
+    height: 400px;
+    width: 100%;
 }
 
 .chart-wrapper-half {
     flex: 1;
     position: relative;
+    display: flex;
+    flex-direction: column;
     min-height: 300px;
 }
 
+.chart-wrapper-half h3 {
+    text-align: center;
+    font-size: 15px;
+    margin-bottom: 10px;
+    color: var(--color-text-light);
+}
+
+/* Table Wrapper */
 .table-wrapper-half {
     flex: 1;
     overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
 }
 
 .analysis-table {
@@ -189,6 +202,8 @@
     border-bottom: 2px solid var(--color-border);
     color: var(--color-text-light);
     font-weight: 600;
+    background-color: var(--color-background-dark);
+    position: sticky; top: 0; /* Sticky Header */
 }
 
 .analysis-table td {
@@ -198,11 +213,11 @@
 }
 
 /* =========================================
-   5. TRAVEL TAB
+   5. TRAVEL SUMMARY GRID
    ========================================= */
 .travel-summary-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 15px;
     margin-bottom: 30px;
 }
@@ -219,6 +234,7 @@
     margin: 0 0 5px 0;
     font-size: 13px;
     color: var(--color-text-light);
+    text-transform: uppercase;
 }
 
 .travel-stat-box span {

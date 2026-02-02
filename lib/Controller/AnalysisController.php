@@ -23,17 +23,12 @@ class AnalysisController extends Controller {
     }
 
     /**
-     * Helper to check access rules (Centralized logic)
+     * Helper to check access rules
      */
     private function checkAccess($uid, $ruleKey): bool {
         if (!$uid) return false;
+        if ($this->groupManager->isAdmin($uid)) return true;
 
-        // 1. Nextcloud Admins ALWAYS have access
-        if ($this->groupManager->isAdmin($uid)) {
-            return true;
-        }
-
-        // 2. Check Custom Rules from Database
         try {
             $qb = $this->db->getQueryBuilder();
             $result = $qb->select('allowed_groups')
@@ -42,28 +37,17 @@ class AnalysisController extends Controller {
                          ->executeQuery()
                          ->fetch();
 
-            if (!$result) {
-                return false; // Closed by default
-            }
-
+            if (!$result) return false;
             $allowedGroups = json_decode($result['allowed_groups'], true);
-            if (!is_array($allowedGroups) || empty($allowedGroups)) {
-                return false;
-            }
-
-            // 3. Check if user is in any of the allowed groups
-            $userGroups = $this->groupManager->getUserGroupIds($this->userSession->getUser());
+            if (!is_array($allowedGroups) || empty($allowedGroups)) return false;
             
+            $userGroups = $this->groupManager->getUserGroupIds($this->userSession->getUser());
             foreach ($userGroups as $gid) {
-                if (in_array($gid, $allowedGroups)) {
-                    return true;
-                }
+                if (in_array($gid, $allowedGroups)) return true;
             }
-
         } catch (\Exception $e) {
             return false;
         }
-
         return false;
     }
 
@@ -74,17 +58,16 @@ class AnalysisController extends Controller {
     public function getStats(string $period, string $target_user = 'self'): DataResponse {
         $currentUser = $this->userSession->getUser()->getUID();
         
-        // [SECURITY] Check Basic Analysis Access
+        // [SECURITY] Basic Access Check
         if (!$this->checkAccess($currentUser, 'analysis_tab')) {
             return new DataResponse(['error' => 'Access Denied'], 403);
         }
 
         $isAdmin = $this->groupManager->isAdmin($currentUser);
-        
-        // [SECURITY] Check "View Others" Access if requesting someone else
         $uid = $currentUser;
+
+        // [SECURITY] "View Others" Logic
         if ($target_user !== 'self') {
-            // Check if user has permission to view others
             if ($isAdmin || $this->checkAccess($currentUser, 'analysis_view_others')) {
                 if ($target_user === 'all') {
                     $uid = null; // Fetch for all users
@@ -92,30 +75,13 @@ class AnalysisController extends Controller {
                     $uid = $target_user; // Fetch for specific user
                 }
             } else {
-                // If they tried to request someone else but don't have permission, force 'self'
-                $uid = $currentUser; 
+                $uid = $currentUser; // Force self if unauthorized
             }
         }
 
-        // Calculate Date Range
+        // --- Date Logic ---
         $endDate = new \DateTime();
         $startDate = new \DateTime();
-        
-        // Handle Presets vs Custom
-        // Note: The JS handles 'custom' by passing dates, but if we use simple presets here:
-        if ($period === 'this_pay_period') {
-             // Logic for pay period is complex, for now defaulting to 14 days or handling in JS
-             // Assuming JS might eventually pass exact dates for everything, but for now we handle days
-        }
-        
-        // Simple day offsets for now, or if JS passes explicit start/end in future
-        // For this specific error fix, we stick to the integer logic if passed as string number,
-        // OR handle the named presets if the JS sends them.
-        
-        // If the JS sends "this_month", "last_month" etc, we need to calculate dates here
-        // OR the JS sends the raw dates.
-        // Let's look at the previous JS: it sends "period=this_pay_period".
-        // We need to map these strings to dates.
         
         if ($period === 'this_month') {
             $startDate = new \DateTime('first day of this month');
@@ -126,22 +92,22 @@ class AnalysisController extends Controller {
         } elseif ($period === 'ytd') {
             $startDate = new \DateTime('first day of January this year');
         } elseif ($period === 'custom') {
-            // These should be passed as separate GET params
             $s = $this->request->getParam('start');
             $e = $this->request->getParam('end');
             if ($s && $e) {
                 $startDate = new \DateTime($s);
                 $endDate = new \DateTime($e);
             }
-        } elseif (is_numeric($period)) {
-             // Old fallback
-             $startDate->modify('-' . (int)$period . ' days');
+        } elseif ($period === 'last_pay_period') {
+             // Logic for last pay period (approx 2 weeks back from last cycle)
+             $startDate->modify('-28 days');
+             $endDate->modify('-14 days');
         } else {
-            // Default: This Pay Period (Logic placeholder - usually 14 days or calculated)
-            // For safety, defaulting to 14 days back
+            // Default: "this_pay_period" (Last 14 days)
             $startDate->modify('-14 days'); 
         }
 
+        // --- Main Query ---
         $qb = $this->db->getQueryBuilder();
         $qb->select('t.*', 'a.activity_description', 'a.activity_percent')
            ->from('stech_timesheets', 't')
@@ -155,14 +121,15 @@ class AnalysisController extends Controller {
 
         $results = $qb->executeQuery()->fetchAll();
 
-        // Data Aggregation
+        // --- Data Aggregation ---
         $totalHours = 0;
         $ptoHours = 0;
         $trendData = []; 
         $jobStats = []; 
-        $processedTimesheets = []; 
+        $stateStats = [];
+        $countyStats = [];
+        $processedTimesheets = []; // Track unique IDs
 
-        // [SECURITY] Check Job Breakdown Access
         $canSeeJobs = $this->checkAccess($currentUser, 'analysis_job_breakdown');
 
         foreach ($results as $row) {
@@ -170,6 +137,7 @@ class AnalysisController extends Controller {
             $hours = (float)$row['time_total'];
             $date = $row['timesheet_date'];
             
+            // Process Unique Timesheets (Trends, Totals, Location)
             if (!in_array($tid, $processedTimesheets)) {
                 $totalHours += $hours;
                 
@@ -178,12 +146,30 @@ class AnalysisController extends Controller {
                     $ptoHours += $hours;
                 }
 
+                // Trend Data (Date -> Hours)
                 if (!isset($trendData[$date])) $trendData[$date] = 0;
                 $trendData[$date] += $hours;
+
+                // State Activity (Count of entries)
+                $st = $row['travel_state'] ?? 'Unknown';
+                if ($st && $st !== 'Unknown') {
+                    if (!isset($stateStats[$st])) $stateStats[$st] = 0;
+                    $stateStats[$st]++;
+                }
+
+                // County Activity (Count of entries)
+                $ct = $row['travel_county'] ?? 'Unknown';
+                if ($ct && $ct !== 'Unknown') {
+                    // Combine with state to ensure uniqueness (e.g., "Orange (CA)" vs "Orange (FL)")
+                    $label = $ct . ($st ? " ($st)" : "");
+                    if (!isset($countyStats[$label])) $countyStats[$label] = 0;
+                    $countyStats[$label]++;
+                }
                 
                 $processedTimesheets[] = $tid;
             }
 
+            // Job Stats (Weighted by percent) - Used for Breakdown AND Profitability
             if ($canSeeJobs && !empty($row['activity_description'])) {
                 $jobName = $row['activity_description'];
                 $percent = (float)$row['activity_percent'];
@@ -194,9 +180,13 @@ class AnalysisController extends Controller {
             }
         }
 
+        // Sorting
         ksort($trendData);
         arsort($jobStats);
+        arsort($stateStats);
+        arsort($countyStats);
         
+        // Format Jobs
         $formattedJobs = [];
         if ($canSeeJobs) {
             foreach ($jobStats as $name => $h) {
@@ -204,41 +194,22 @@ class AnalysisController extends Controller {
             }
         }
         
-        // Travel Stats (Mockup/Basic Logic based on columns)
-        // Check if columns exist or if we need to aggregate them.
-        // Assuming fields: travel_miles, travel_per_diem, etc.
+        // Travel Summary Calculation (Re-loop unique rows to avoid JOIN duplication)
         $totalMiles = 0;
         $perDiemDays = 0;
         $overnightStays = 0;
         $totalExpenses = 0.0;
-        $locationStats = [];
-
-        // Re-loop for travel stats (efficient enough for small datasets)
-        // Or integrate into above loop. Let's integrate.
-        // We need to query travel columns. The SELECT t.* fetches them.
         
-        // Reset and loop distinct timesheets for travel
-        $processedTravel = [];
-        foreach ($results as $row) {
-             $tid = $row['timesheet_id'];
-             if(in_array($tid, $processedTravel)) continue;
-             $processedTravel[] = $tid;
-
-             $totalMiles += (int)($row['travel_miles'] ?? 0);
-             if(($row['travel_per_diem'] ?? 0) == 1) $perDiemDays++;
-             if(($row['travel_overnight'] ?? 0) == 1) $overnightStays++;
-             $totalExpenses += (float)($row['travel_extra_expenses'] ?? 0);
-
-             $state = $row['travel_state'] ?? '';
-             $county = $row['travel_county'] ?? '';
-             if($state && $county) {
-                 $key = "$state, $county";
-                 if(!isset($locationStats[$key])) $locationStats[$key] = ['state'=>$state, 'county'=>$county, 'visits'=>0];
-                 $locationStats[$key]['visits']++;
-             }
+        $uniqueRows = [];
+        foreach($results as $r) {
+            if(!in_array($r['timesheet_id'], $uniqueRows)) {
+                $uniqueRows[] = $r['timesheet_id'];
+                $totalMiles += (int)($r['travel_miles'] ?? 0);
+                if(($r['travel_per_diem'] ?? 0) == 1) $perDiemDays++;
+                if(($r['travel_overnight'] ?? 0) == 1) $overnightStays++;
+                $totalExpenses += (float)($r['travel_extra_expenses'] ?? 0);
+            }
         }
-        
-        $formattedLocations = array_values($locationStats);
 
         return new DataResponse([
             'total_hours' => round($totalHours, 2),
@@ -257,9 +228,10 @@ class AnalysisController extends Controller {
                 'total_miles' => $totalMiles,
                 'per_diem_days' => $perDiemDays,
                 'overnight_stays' => $overnightStays,
-                'total_expenses' => round($totalExpenses, 2),
-                'locations' => $formattedLocations
-            ]
+                'total_expenses' => round($totalExpenses, 2)
+            ],
+            'states' => $stateStats,
+            'counties' => $countyStats
         ]);
     }
 }
