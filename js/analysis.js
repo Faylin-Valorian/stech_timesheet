@@ -6,10 +6,13 @@ document.addEventListener('DOMContentLoaded', function() {
         job: null,
         travelState: null,
         travelCounty: null,
-        gauge: null,
-        stateMap: null,
-        countyMap: null
+        gauge: null
+        // Removed maps from here, storing separately
     };
+    
+    // Leaflet Instances
+    let mapState = null;
+    let mapCounty = null;
 
     let cachedData = null; 
     let usTopology = null; 
@@ -45,8 +48,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const target = e.target.dataset.tab;
                 document.getElementById(target).classList.add('active');
                 
-                if(target === 'tab-state' && charts.stateMap) charts.stateMap.resize();
-                if(target === 'tab-county' && charts.countyMap) charts.countyMap.resize();
+                // Leaflet Resize Fix: Maps need to invalidate size when tab opens
+                if(target === 'tab-state' && mapState) setTimeout(() => mapState.invalidateSize(), 200);
+                if(target === 'tab-county' && mapCounty) setTimeout(() => mapCounty.invalidateSize(), 200);
             });
         });
     }
@@ -136,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (opts[i].value === val) {
                     const abbr = opts[i].getAttribute('data-value');
                     stateHidden.value = abbr;
-                    if(cachedData) renderCountyMap(cachedData.counties, abbr);
+                    if(cachedData) renderLeafletCountyMap(cachedData.counties, abbr);
                     break;
                 }
             }
@@ -171,13 +175,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateUI(data) {
-        // Cards
+        // Cards & Travel
         document.getElementById('stat-total-hours').innerText = data.total_hours;
         document.getElementById('stat-reg-hours').innerText = data.stats.regular_hours;
         document.getElementById('stat-pto-hours').innerText = data.stats.pto_hours;
         document.getElementById('stat-overtime-hours').innerText = data.overtime_hours;
-        
-        // Travel
         document.getElementById('val-total-miles').innerText = data.travel.total_miles;
         document.getElementById('val-per-diem').innerText = data.travel.per_diem_days;
         document.getElementById('val-overnight').innerText = data.travel.overnight_stays;
@@ -186,55 +188,40 @@ document.addEventListener('DOMContentLoaded', function() {
         // Render Basic Charts
         renderOverviewChart(data.trend);
         renderTravelCharts(data.states, data.counties); 
-        
-        if (document.getElementById('chart-jobs')) {
-            renderJobCharts(data.jobs, data.total_hours);
-        }
-
-        // Render Gauge
-        const currentJobFilter = jobSearch ? jobSearch.value : 'All Jobs';
+        if (document.getElementById('chart-jobs')) renderJobCharts(data.jobs, data.total_hours);
         if (document.getElementById('chart-profitability-gauge')) {
+            const currentJobFilter = jobSearch ? jobSearch.value : 'All Jobs';
             updateGauge(data.jobs, currentJobFilter);
         }
 
-        // Render Maps (Local Loading FIXED)
+        // Render Maps (Leaflet Logic)
         if(!usTopology) {
-            // [FIX] Direct static path without index.php routing
+            // DIRECT LOCAL PATH
             const mapUrl = OC.webroot + '/apps/stech_timesheet/js/us-atlas.json';
-            
             fetch(mapUrl)
                 .then(r => {
-                    if(!r.ok) throw new Error("HTTP " + r.status + " - " + r.statusText);
+                    if(!r.ok) throw new Error("File not found");
                     return r.json();
                 })
                 .then(topo => {
                     usTopology = topo;
-                    renderStateMap(data.states);
-                    
+                    renderLeafletStateMap(data.states);
                     if(stateSearch && stateSearch.value) {
+                         // ... find abbr logic ...
                          const opts = document.getElementById('state-list').options;
                          let abbr = '';
-                         for(let i=0; i<opts.length; i++) {
-                             if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
-                         }
-                         renderCountyMap(data.counties, abbr);
+                         for(let i=0; i<opts.length; i++) if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
+                         renderLeafletCountyMap(data.counties, abbr);
                     }
                 })
-                .catch(e => {
-                    console.error("Failed to load local US Map:", e);
-                    // Provide visual feedback in the map container
-                    const mapContainer = document.getElementById('chart-state-map').parentNode;
-                    mapContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#888;">Map Data Not Found.<br>Please ensure js/us-atlas.json exists.</div>';
-                });
+                .catch(e => console.error("Map Load Error:", e));
         } else {
-            renderStateMap(data.states);
+            renderLeafletStateMap(data.states);
             if(stateSearch && stateSearch.value) {
                  const opts = document.getElementById('state-list').options;
                  let abbr = '';
-                 for(let i=0; i<opts.length; i++) {
-                     if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
-                 }
-                 renderCountyMap(data.counties, abbr);
+                 for(let i=0; i<opts.length; i++) if(opts[i].value === stateSearch.value) abbr = opts[i].getAttribute('data-value');
+                 renderLeafletCountyMap(data.counties, abbr);
             }
         }
     }
@@ -248,7 +235,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // =========================================================
-    //  4. CHART RENDERERS
+    //  4. CHART RENDERERS (Standard)
     // =========================================================
 
     // --- A. Overview Line Chart ---
@@ -387,8 +374,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // 2. Set Gauge Visual Scale (Max Revenue or Baseline)
-        // If Revenue is 0 (non-billable), set a baseline so the chart isn't empty
+        // 2. Set Visual Scale
         let scaleMax = revenue > 0 ? revenue : (Math.abs(profit) > 0 ? Math.abs(profit) * 1.5 : 1000);
 
         // 3. Update Text Display
@@ -411,39 +397,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 const { ctx, chartArea: { width, height } } = chart;
                 ctx.save();
                 
-                // --- Needle Position Logic ---
-                // Left (Red) = Loss or 0 Profit
-                // Middle (Yellow) = Break-even to low margin
+                // Ratio Logic:
+                // Left (Red) = Loss
+                // Middle (Yellow) = Low Margin
                 // Right (Green) = High Margin
                 
                 let ratio = 0;
                 
                 if (revenue > 0) {
-                    // Margin % Calculation
-                    const margin = profit / revenue; // e.g., 0.20 for 20%
-                    
+                    const margin = profit / revenue; 
                     if(margin < 0) {
-                        // Loss: Map -100% to 0% range -> Gauge 0.0 to 0.33 (Red Section)
-                        // Clamp loss at -50% for visual sanity
-                        let lossSeverity = Math.min(Math.abs(margin), 0.5) / 0.5; // 0 to 1 scale of "badness"
+                        // Loss -> Red Section (0.0 - 0.33)
+                        let lossSeverity = Math.min(Math.abs(margin), 0.5) / 0.5; 
                         ratio = 0.33 - (lossSeverity * 0.33); 
                     } else {
-                        // Profit: Map 0% to 50% range -> Gauge 0.33 to 1.0 (Yellow/Green)
-                        // 0% Margin = 0.33
-                        // 50%+ Margin = 1.0
+                        // Profit -> Yellow/Green Section (0.33 - 1.0)
                         let success = Math.min(margin, 0.5) / 0.5; 
                         ratio = 0.33 + (success * 0.67);
                     }
                 } else {
-                    // No revenue? If profit is negative (costs only), point Red.
                     ratio = profit < 0 ? 0.1 : 0.5;
                 }
-
-                // Clamp
                 if (ratio < 0) ratio = 0;
                 if (ratio > 1) ratio = 1;
 
-                // Convert to Angle (PI to 2PI)
                 const angle = Math.PI + (ratio * Math.PI);
                 const cx = width / 2;
                 const cy = chart._metasets[0].data[0].y;
@@ -492,110 +469,172 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // =========================================================
-    //  5. MAP RENDERERS (US & COUNTY)
+    //  5. LEAFLET MAP RENDERERS (Interactive & Zoomable)
     // =========================================================
 
-    function renderStateMap(stateData) {
-        // [Safety Check] - Prevent crash if libs missing or data not loaded
-        if (typeof ChartGeo === 'undefined' || !usTopology) {
-            console.warn('Map dependencies missing or Topology not loaded.');
-            return;
+    // --- Helper: Color Scale (Grey -> Red) ---
+    function getMapColor(d) {
+        return d > 50 ? '#800026' :
+               d > 20 ? '#BD0026' :
+               d > 10 ? '#E31A1C' :
+               d > 5  ? '#FC4E2A' :
+               d > 2  ? '#FD8D3C' :
+               d > 0  ? '#FEB24C' :
+                        '#EEEEEE'; // Grey for 0
+    }
+
+    // --- Helper: Style Function ---
+    function getStyle(value) {
+        return {
+            fillColor: getMapColor(value),
+            weight: 1,
+            opacity: 1,
+            color: 'white',
+            dashArray: '3',
+            fillOpacity: 0.7
+        };
+    }
+
+    // --- A. US State Map ---
+    function renderLeafletStateMap(stateData) {
+        if (!L || !topojson || !usTopology) return;
+
+        const containerId = 'map-state-container';
+        
+        // Initialize Map if needed
+        if (!mapState) {
+            mapState = L.map(containerId, {
+                center: [37.8, -96],
+                zoom: 4,
+                scrollWheelZoom: false // Enable only on focus/click if desired, or true
+            });
+            // Optional: Add a clean base tile layer (or leave blank for pure "hotbed" look)
+            // L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(mapState);
         }
 
-        const ctx = document.getElementById('chart-state-map').getContext('2d');
-        if (charts.stateMap) charts.stateMap.destroy();
+        // Clear previous layers
+        mapState.eachLayer(layer => mapState.removeLayer(layer));
 
-        // extract states features from TopoJSON
-        const states = ChartGeo.topojson.feature(usTopology, usTopology.objects.states).features;
-        
-        // Map DB Data (Key: State Name) to Map Features (Feature.properties.name)
-        const data = states.map(d => ({
-            feature: d,
-            value: stateData[d.properties.name] || 0
-        }));
+        // Convert TopoJSON -> GeoJSON
+        const geojson = topojson.feature(usTopology, usTopology.objects.states);
 
-        charts.stateMap = new Chart(ctx, {
-            type: 'choropleth',
-            data: {
-                labels: states.map(d => d.properties.name),
-                datasets: [{
-                    label: 'Visits',
-                    data: data,
-                    backgroundColor: (ctx) => {
-                        const v = ctx.raw ? ctx.raw.value : 0;
-                        if (v === 0) return '#eee'; // Grey for no data
-                        // Blue Scale (Light -> Dark)
-                        return `rgba(0, 130, 201, ${Math.min(0.2 + (v / 10), 1)})`;
-                    },
-                    borderColor: '#999',
-                    borderWidth: 0.5
-                }]
+        // Add Layer with Data
+        const layer = L.geoJson(geojson, {
+            style: function(feature) {
+                const name = feature.properties.name;
+                const value = stateData[name] || 0;
+                return getStyle(value);
             },
-            options: {
-                showOutline: true,
-                showGraticule: false,
-                plugins: { legend: { display: false } },
-                scales: { xy: { projection: 'albersUsa' } }
+            onEachFeature: function(feature, layer) {
+                const name = feature.properties.name;
+                const value = stateData[name] || 0;
+                
+                // Tooltip
+                layer.bindTooltip(`<strong>${name}</strong><br>Visits: ${value}`, {
+                    direction: 'top', sticky: true
+                });
+
+                // Interaction
+                layer.on({
+                    mouseover: (e) => {
+                        const l = e.target;
+                        l.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
+                        l.bringToFront();
+                    },
+                    mouseout: (e) => {
+                        layer.resetStyle(e.target);
+                    },
+                    click: (e) => {
+                        // Optional: Click state to filter county map?
+                        // For now just zoom
+                        mapState.fitBounds(e.target.getBounds());
+                    }
+                });
             }
-        });
+        }).addTo(mapState);
     }
 
-    function renderCountyMap(countyData, stateAbbr) {
-        // [Safety Check]
-        if (typeof ChartGeo === 'undefined' || !usTopology) return;
+    // --- B. County Map (Zoom to State + Collision Fix) ---
+    function renderLeafletCountyMap(countyData, stateAbbr) {
+        if (!L || !topojson || !usTopology) return;
 
-        // Hide placeholder text now that we are rendering
-        const placeholder = document.getElementById('county-map-placeholder');
-        if (placeholder) placeholder.style.display = 'none';
+        // Hide placeholder
+        document.getElementById('county-map-placeholder').style.display = 'none';
         
-        const ctx = document.getElementById('chart-county-map').getContext('2d');
-        if (charts.countyMap) charts.countyMap.destroy();
+        // Initialize Map
+        if (!mapCounty) {
+            mapCounty = L.map('map-county-container', {
+                center: [37.8, -96],
+                zoom: 4
+            });
+        }
+        
+        // Clear previous
+        mapCounty.eachLayer(layer => mapCounty.removeLayer(layer));
 
-        const counties = ChartGeo.topojson.feature(usTopology, usTopology.objects.counties).features;
-        
-        // Data Matching Logic: 
-        // DB Key format: "StateName|CountyName" (e.g., "Texas|Harris")
-        // Map Feature Name: "Harris"
-        // We match if the DB Key *contains* the county name.
-        
-        const data = counties.map(d => {
-            const countyName = d.properties.name;
-            let val = 0;
-            
-            // Loop through our DB data to find a match for this county
-            for (const [key, visits] of Object.entries(countyData)) {
-                // key format: "Texas|Harris"
-                // Check if key contains "|CountyName" to ensure we match the county part
-                if (key.includes('|' + countyName)) {
-                    val = visits;
-                    break; 
-                }
+        // 1. Resolve State Logic (Name & FIPS)
+        let selectedStateName = '';
+        let selectedStateFips = '';
+
+        const opts = document.getElementById('state-list').options;
+        for(let i=0; i<opts.length; i++) {
+            if(opts[i].getAttribute('data-value') === stateAbbr) {
+                selectedStateName = opts[i].value; 
+                break;
             }
-            return { feature: d, value: val };
-        });
+        }
+        if(!selectedStateName) selectedStateName = stateAbbr;
 
-        charts.countyMap = new Chart(ctx, {
-            type: 'choropleth',
-            data: {
-                labels: counties.map(d => d.properties.name),
-                datasets: [{
-                    label: 'Visits',
-                    data: data,
-                    backgroundColor: (ctx) => {
-                        const v = ctx.raw ? ctx.raw.value : 0;
-                        // Red Scale (Light -> Dark)
-                        return v > 0 ? `rgba(233, 50, 45, ${Math.min(0.4 + (v / 5), 1)})` : '#eee'; 
-                    },
-                    borderColor: '#ddd',
-                    borderWidth: 0.2
-                }]
+        // Find FIPS ID
+        const allStates = usTopology.objects.states.geometries;
+        const targetStateGeo = allStates.find(s => s.properties.name === selectedStateName);
+        if(targetStateGeo) selectedStateFips = targetStateGeo.id;
+
+        // 2. Filter Geometry
+        // Get ALL counties
+        let allCounties = topojson.feature(usTopology, usTopology.objects.counties).features;
+        
+        // Filter: Only counties matching State FIPS (e.g., "01" for AL)
+        const filteredFeatures = selectedStateFips 
+            ? allCounties.filter(f => f.id.startsWith(selectedStateFips))
+            : []; // If no state selected, show nothing (or all)
+
+        if (filteredFeatures.length === 0) return;
+
+        // 3. Render
+        const layer = L.geoJson(filteredFeatures, {
+            style: function(feature) {
+                const name = feature.properties.name;
+                // Strict Key: "StateName|CountyName"
+                const dbKey = selectedStateName + '|' + name;
+                const value = countyData[dbKey] || 0;
+                
+                return getStyle(value);
             },
-            options: {
-                showOutline: true,
-                plugins: { legend: { display: false } },
-                scales: { xy: { projection: 'albersUsa' } } 
+            onEachFeature: function(feature, layer) {
+                const name = feature.properties.name;
+                const dbKey = selectedStateName + '|' + name;
+                const value = countyData[dbKey] || 0;
+
+                layer.bindTooltip(`<strong>${name} County</strong><br>Visits: ${value}`, {
+                    direction: 'top', sticky: true
+                });
+
+                layer.on({
+                    mouseover: (e) => {
+                        const l = e.target;
+                        l.setStyle({ weight: 2, color: '#666', dashArray: '', fillOpacity: 0.9 });
+                        l.bringToFront();
+                    },
+                    mouseout: (e) => {
+                        layer.resetStyle(e.target);
+                    }
+                });
             }
-        });
+        }).addTo(mapCounty);
+
+        // 4. Auto-Zoom to State
+        mapCounty.fitBounds(layer.getBounds());
     }
 
-});
+}); // END DOMContentLoaded

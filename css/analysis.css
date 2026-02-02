@@ -8,7 +8,9 @@
     flex-direction: column;
     box-sizing: border-box;
     color: var(--color-main-text);
+    /* FIX: Scroll ability for the whole tab */
     overflow-y: auto; 
+    overflow-x: hidden;
 }
 
 .analysis-header {
@@ -95,7 +97,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     overflow: hidden; 
-    min-height: 600px; 
+    min-height: 800px; /* Increased min-height to prevent squashing */
 }
 
 .tab-headers {
@@ -133,7 +135,8 @@
     padding: 20px;
     flex: 1;
     position: relative;
-    overflow-y: auto;
+    /* FIX: Allow content within tabs to expand */
+    overflow-y: visible; 
 }
 
 .tab-pane {
@@ -236,12 +239,23 @@
 
 /* Map Containers */
 .map-wrapper {
-    background-color: var(--color-background-hover); /* Slight BG to see map bounds */
+    background-color: var(--color-background-hover); 
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     padding: 10px;
     overflow: hidden;
     position: relative;
+    /* FIX: Full Height and Flex Growth */
+    height: 70vh; 
+    min-height: 600px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+canvas#chart-state-map, canvas#chart-county-map {
+    width: 100% !important;
+    height: 100% !important;
 }
 
 /* Searchable Inputs */
