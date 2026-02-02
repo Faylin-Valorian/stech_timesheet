@@ -28,17 +28,22 @@ Util::addStyle('stech_timesheet', 'style');
                 </div>
             </li>
             <div class="app-navigation-separator"></div>
+            
             <li class="nav-item">
                 <a class="nav-link active" href="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.page.index')); ?>">
                     <span class="icon-history"></span><span>Timesheet</span>
                 </a>
             </li>
+
+            <?php if($_['can_view_analysis']): ?>
             <li class="nav-item">
                 <a class="nav-link" href="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.page.analysis')); ?>">
                     <span class="icon-category-monitoring"></span><span>Time Analysis</span>
                 </a>
             </li>
-            <?php if(\OC::$server->getGroupManager()->isAdmin(\OC::$server->getUserSession()->getUser()->getUID())): ?>
+            <?php endif; ?>
+
+            <?php if($_['can_view_admin']): ?>
             <li class="nav-item">
                 <a class="nav-link" href="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.index')); ?>">
                     <span class="icon-settings-dark"></span><span>Admin Panel</span>

@@ -1,6 +1,10 @@
 <?php
 use OCP\Util;
-Util::addScript('stech_timesheet', 'chart');
+// Use CDN for Chart.js to ensure it loads correctly
+?>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<?php
 Util::addScript('stech_timesheet', 'analysis');
 Util::addStyle('stech_timesheet', 'style');
 Util::addStyle('stech_timesheet', 'analysis');
@@ -11,93 +15,141 @@ Util::addStyle('stech_timesheet', 'analysis');
         <ul class="with-icon">
             <li class="nav-item">
                 <a class="nav-link" href="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.page.index')); ?>">
-                    <span class="icon-history"></span><span>Back to Timesheet</span>
+                    <span class="icon-history"></span>
+                    <span>Back to Timesheet</span>
                 </a>
             </li>
-            <div class="app-navigation-separator"></div>
-            
-            <li class="nav-section-header"><span>Analytics</span></li>
-            <li class="nav-item"><a class="nav-link active" href="#" id="nav-dashboard"><span class="icon-category-monitoring"></span><span>Dashboard</span></a></li>
-            <li class="nav-item"><a class="nav-link" href="#" id="nav-jobs"><span class="icon-category-office"></span><span>Job Breakdown</span></a></li>
         </ul>
     </div>
 
-    <div id="app-content" class="analysis-content">
-        
-        <div class="analysis-toolbar">
-            <div class="filter-group">
-                <label>Period:</label>
-                <select id="period-selector" class="form-control">
-                    <option value="7">Last 7 Days</option>
-                    <option value="30" selected>Last 30 Days</option>
-                    <option value="90">Last 3 Months</option>
-                    <option value="365">Last Year</option>
-                </select>
+    <div id="app-content">
+        <div class="analysis-container">
+            <div class="analysis-header">
+                <h2>Time Analysis Dashboard</h2>
+                <div class="date-range-selector">
+                    <div class="control-group">
+                        <select id="range-preset" class="form-control">
+                            <option value="this_pay_period">Current Pay Period</option>
+                            <option value="last_pay_period">Last Pay Period</option>
+                            <option value="this_month">This Month</option>
+                            <option value="last_month">Last Month</option>
+                            <option value="ytd">Year to Date</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
+
+                    <div id="custom-date-inputs" class="hidden control-group">
+                        <input type="date" id="analysis-start" class="form-control">
+                        <span class="range-separator">to</span>
+                        <input type="date" id="analysis-end" class="form-control">
+                    </div>
+                    
+                    <?php if($_['can_view_others']): ?>
+                    <div class="control-group">
+                        <select id="analysis-target-user" class="form-control">
+                            <option value="self">Myself</option>
+                            <option value="all">All Employees</option>
+                        </select>
+                    </div>
+                    <?php endif; ?>
+
+                    <button id="btn-refresh-analysis" class="primary-button">Update</button>
+                </div>
             </div>
 
-            <?php if(\OC::$server->getGroupManager()->isAdmin(\OC::$server->getUserSession()->getUser()->getUID())): ?>
-            <div class="filter-group">
-                <label>Employee:</label>
-                <select id="user-selector" class="form-control">
-                    <option value="self">Myself</option>
-                    <option value="all">All Employees (Aggregate)</option>
-                </select>
+            <div class="stats-overview">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-total-hours">0.00</div>
+                    <div class="stat-label">Total Hours</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-reg-hours">0.00</div>
+                    <div class="stat-label">Regular Work</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-pto-hours">0.00</div>
+                    <div class="stat-label">PTO / Vacation</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-overtime-hours">0.00</div>
+                    <div class="stat-label">Overtime (>40h)</div>
+                </div>
             </div>
-            <?php endif; ?>
 
-            <div class="filter-group">
-                <label>Search Jobs:</label>
-                <input type="text" id="job-search-input" class="job-search-box" placeholder="Filter job codes...">
-            </div>
-
-            <button id="btn-refresh" class="primary-button" style="margin-left: auto;">Refresh Data</button>
-        </div>
-
-        <div id="view-dashboard" class="analysis-view">
-            <div class="charts-grid">
-                
-                <div class="metric-card">
-                    <h3>Total Hours</h3>
-                    <div class="metric-value" id="metric-total-hours">0.0</div>
-                    <div class="metric-sub">Selected Period</div>
-                </div>
-                <div class="metric-card">
-                    <h3>Days Worked</h3>
-                    <div class="metric-value" id="metric-days-worked">0</div>
-                    <div class="metric-sub">Active Days</div>
-                </div>
-                <div class="metric-card">
-                    <h3>Overtime Est.</h3>
-                    <div class="metric-value" id="metric-overtime">0.0</div>
-                    <div class="metric-sub">> 40h / week</div>
+            <div class="tabs-container">
+                <div class="tab-headers">
+                    <button class="tab-btn active" data-tab="tab-overview">Overview</button>
+                    
+                    <?php if($_['can_view_job_breakdown']): ?>
+                    <button class="tab-btn" data-tab="tab-jobs">Job Breakdown</button>
+                    <?php endif; ?>
+                    
+                    <button class="tab-btn" data-tab="tab-travel">Travel & Expenses</button>
                 </div>
 
-                <div class="chart-container col-span-2">
-                    <h3>Hours Worked Trend</h3>
-                    <div class="chart-wrapper">
-                        <canvas id="chart-trend"></canvas>
+                <div class="tab-content">
+                    <div id="tab-overview" class="tab-pane active">
+                        <div class="chart-wrapper">
+                            <canvas id="chart-daily"></canvas>
+                        </div>
+                    </div>
+
+                    <?php if($_['can_view_job_breakdown']): ?>
+                    <div id="tab-jobs" class="tab-pane">
+                        <div class="split-layout-analysis">
+                            <div class="chart-wrapper-half">
+                                <canvas id="chart-jobs"></canvas>
+                            </div>
+                            <div class="table-wrapper-half">
+                                <table class="analysis-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Job Code</th>
+                                            <th>Hours</th>
+                                            <th>Percent</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="job-table-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
+                    <div id="tab-travel" class="tab-pane">
+                        <div class="travel-summary-grid">
+                            <div class="travel-stat-box">
+                                <h4>Total Miles</h4>
+                                <span id="val-total-miles">0</span>
+                            </div>
+                            <div class="travel-stat-box">
+                                <h4>Per Diem Days</h4>
+                                <span id="val-per-diem">0</span>
+                            </div>
+                            <div class="travel-stat-box">
+                                <h4>Overnight Stays</h4>
+                                <span id="val-overnight">0</span>
+                            </div>
+                            <div class="travel-stat-box">
+                                <h4>Expenses Claimed</h4>
+                                <span id="val-expenses">$0.00</span>
+                            </div>
+                        </div>
+                        
+                        <h3 style="margin-top:30px; margin-bottom:15px; border-bottom:1px solid var(--color-border); padding-bottom:10px;">Location Summary</h3>
+                        <table class="analysis-table">
+                            <thead>
+                                <tr>
+                                    <th>State</th>
+                                    <th>County</th>
+                                    <th>Visits</th>
+                                </tr>
+                            </thead>
+                            <tbody id="location-table-body"></tbody>
+                        </table>
                     </div>
                 </div>
-
-                <div class="chart-container">
-                    <h3>Job Code Distribution (Top 5)</h3>
-                    <div class="chart-wrapper">
-                        <canvas id="chart-jobs-simple"></canvas>
-                    </div>
-                </div>
             </div>
         </div>
-
-        <div id="view-jobs" class="analysis-view hidden">
-            <div class="charts-grid">
-                <div class="chart-container full-width">
-                    <h3>Detailed Job Code Allocation</h3>
-                    <div class="chart-wrapper" style="min-height: 600px;">
-                        <canvas id="chart-jobs-detailed"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-
     </div>
 </div>
