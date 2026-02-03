@@ -4,7 +4,7 @@
     <name>Stech Timesheet</name>
     <summary>Advanced timesheet and payroll tracking for Nextcloud</summary>
     <description>A modularized timesheet application featuring PTO tracking, holiday management, and automated payroll cycles.</description>
-    <version>1.5.4</version>
+    <version>1.6.9</version>
     <licence>agpl</licence>
     <author>Dakota Chandler</author>
     <namespace>StechTimesheet</namespace>

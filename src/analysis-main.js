@@ -40,10 +40,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 // Logic: Refresh Leaflet maps when the Travel Activity tab becomes visible
-                // This ensures maps calculate their container size correctly after the pane displays.
-                if (targetId === 'tab-travel') {
-                    AnalysisMaps.refresh('state');
-                    AnalysisMaps.refresh('county');
+                // FIX: Use a timeout to ensure the tab is rendered before refreshing maps
+                if (targetId === 'tab-travel' && cachedData) {
+                    setTimeout(() => {
+                        AnalysisMaps.refresh('state');
+                        AnalysisMaps.refresh('county');
+                        // Ensure maps render in 'full' mode immediately upon tab entry
+                        const currentFilter = stateHidden.value || 'full';
+                        AnalysisMaps.initAndRender(cachedData.states, cachedData.counties, currentFilter);
+                    }, 150); // Delay ensures display:block is processed by the browser
                 }
             });
         });
@@ -51,9 +56,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 3. Unified Search Logic ---
     function initSearchBehaviors() {
-        /**
-         * Clears input on click and handles default values on change
-         */
         const setupAutoClear = (inputEl, hiddenEl, defaultVal) => {
             if (!inputEl) return;
             inputEl.addEventListener('click', () => { 
@@ -109,9 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 4. Data Orchestration ---
 
-    /**
-     * Loads available filter options (Users, Jobs, States) from the API
-     */
     async function loadFilters() {
         try {
             const data = await StechAPI.request('get', '/api/analysis/filters');
@@ -129,9 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
         list.innerHTML = items.map(i => `<option value="${i[textKey]}" data-value="${i[valKey]}"></option>`).join('');
     }
 
-    /**
-     * Fetches reporting data based on the current date range and user filters
-     */
     async function loadStats() {
         const period = rangeSelect.value;
         let query = `?period=${period}&target_user=${userHidden.value || 'self'}`;
@@ -151,9 +147,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /**
-     * Updates all UI components with the fresh data object
-     */
     function updateUI(data) {
         // Overview Summary Cards
         document.getElementById('stat-total-hours').innerText = data.total_hours;
@@ -161,12 +154,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('stat-pto-hours').innerText = data.stats.pto_hours;
         document.getElementById('stat-overtime-hours').innerText = data.stats.overtime_hours || 0;
 
-        // Travel Activity Summary - Explicit mapping from backend
+        // Travel Activity Summary
         document.getElementById('val-total-miles').innerText = data.travel?.total_miles || 0;
         document.getElementById('val-per-diem').innerText = data.travel?.per_diem_days || 0;
         document.getElementById('val-overnight').innerText = data.travel?.overnight_stays || 0;
         
-        // Formatted currency display for expenses
         const expenses = parseFloat(data.travel?.total_expenses || 0).toFixed(2);
         document.getElementById('val-expenses').innerText = '$' + expenses;
 
@@ -179,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Maps: Pass state/county data and current filter for rendering
-        AnalysisMaps.initAndRender(data.states, data.counties, stateHidden.value);
+        AnalysisMaps.initAndRender(data.states, data.counties, stateHidden.value || 'full');
     }
 
     // --- 5. Global Event Listeners ---

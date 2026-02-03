@@ -47,6 +47,7 @@ export const TimesheetCalendar = {
             // Handle clicking an existing record
             eventClick: (info) => {
                 if (info.event.extendedProps.isVisual) {
+                    // Note: If OC.dialogs fails in production, OCP.Toast is the fallback.
                     OC.dialogs.info('This record is system generated (Holiday or Payroll) and cannot be edited manually.', 'System Record');
                     return;
                 }
@@ -97,7 +98,6 @@ export const TimesheetCalendar = {
 
         document.getElementById('view-today')?.addEventListener('click', () => {
             this.instance.today();
-            // Open modal for today's date automatically
             const todayStr = new Date().toISOString().split('T')[0];
             window.StechTimesheet.Form.open(todayStr, null);
         });
@@ -117,3 +117,7 @@ export const TimesheetCalendar = {
         this.instance.refetchEvents();
     }
 };
+
+// --- BUILD FIX ---
+// This alias ensures main.js and form.js can import { Calendar } without warnings.
+export const Calendar = TimesheetCalendar;

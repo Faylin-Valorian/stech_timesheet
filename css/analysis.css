@@ -8,7 +8,7 @@
     flex-direction: column;
     box-sizing: border-box;
     color: var(--color-main-text);
-    /* FIX: Scroll ability for the whole tab */
+    /* Allow scrolling for the entire dashboard */
     overflow-y: auto; 
     overflow-x: hidden;
 }
@@ -97,7 +97,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     overflow: hidden; 
-    min-height: 850px; /* Adjusted to accommodate side-by-side maps */
+    min-height: 850px; /* Provides room for side-by-side maps */
 }
 
 .tab-headers {
@@ -173,7 +173,7 @@
 .split-layout-analysis {
     display: flex;
     gap: 30px;
-    min-height: 550px; /* Hard minimum height to prevent squashing */
+    min-height: 550px; /* Prevents map squashing */
     width: 100%;
     align-items: stretch;
 }
@@ -252,10 +252,10 @@
     background-color: var(--color-background-hover); 
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
-    padding: 0; /* Clear padding for flush map display */
+    padding: 0;
     overflow: hidden;
     position: relative;
-    height: 500px; /* Enforce height for Leaflet instances */
+    height: 500px; /* Stable height for Leaflet */
     width: 100%;
     display: flex;
     justify-content: center;

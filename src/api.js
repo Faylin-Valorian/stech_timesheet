@@ -29,9 +29,10 @@ export const StechAPI = {
         }
 
         try {
+            // FIX: Using the imported 'axios' instance directly to solve ReferenceError
             const response = await axios({
-                method,
-                url,
+                method: method.toLowerCase(),
+                url: url,
                 // If it's a POST/PUT and we have data, send as URLSearchParams
                 data: (method.toLowerCase() !== 'get' && data) ? new URLSearchParams(data) : null,
                 // If it's a GET and we have data (params), axios handles it via 'params' key
@@ -39,7 +40,18 @@ export const StechAPI = {
             });
             return response.data;
         } catch (error) {
-            console.error(`API Error on ${endpoint}:`, error);
+            console.error(`StechAPI Error on ${endpoint}:`, error);
+            
+            // Modern Nextcloud notification system replacement for OC.dialogs
+            const errorMessage = error.response?.data?.error || error.response?.data?.message || "An unexpected error occurred.";
+            
+            if (window.OCP && window.OCP.Toast) {
+                window.OCP.Toast.error(errorMessage);
+            } else {
+                // Fallback for environments where OCP.Toast is not yet available
+                console.error("Critical API Failure: " + errorMessage);
+            }
+            
             throw error;
         }
     },
@@ -70,17 +82,10 @@ export const StechAPI = {
     // =========================================================
     //  2. ANALYSIS ENDPOINTS
     // =========================================================
-    /**
-     * Fetches filtering options (Users, Jobs, States) for Analysis
-     */
     getAnalysisFilters() {
         return this.request('get', '/api/analysis/filters');
     },
 
-    /**
-     * Fetches stats based on period and target user
-     * queryParams: { period, start, end, target_user }
-     */
     getAnalysisStats(params) {
         return this.request('get', '/api/analysis/stats', params);
     },
@@ -156,3 +161,6 @@ export const StechAPI = {
         return this.request('post', `/api/admin/counties/${id}/toggle`);
     }
 };
+
+// Global expose for transition during the build process
+window.StechAPI = StechAPI;
