@@ -52,38 +52,46 @@ class Application extends App implements IBootstrap {
 
         // --- Register Services ---
         $context->registerService(TimesheetService::class, function($c) {
-            return new TimesheetService($c->get(TimesheetMapper::class));
+            return new TimesheetService(
+                $c->get(TimesheetMapper::class),
+                $c->get(IDBConnection::class)
+            );
         });
 
         $context->registerService(AdminService::class, function($c) {
             return new AdminService(
                 $c->get(IUserManager::class),
-                $c->get(AdminMapper::class)
+                $c->get(AdminMapper::class),
+                $c->get(IAppData::class)
             );
         });
 
         $context->registerService(AnalysisService::class, function($c) {
-            return new AnalysisService($c->get(IDBConnection::class));
+            return new AnalysisService(
+                $c->get(AnalysisMapper::class),
+                $c->get(TimesheetMapper::class),
+                $c->get(IGroupManager::class),
+                $c->get(IUserSession::class)
+            );
         });
 
         // --- Register Controllers ---
-        // FIX: Argument #1 must be IRequest, Argument #2 must be string (AppName)
-        // lib/AppInfo/Application.php
-
         $context->registerService(PageController::class, function($c) {
             return new PageController(
-                $c->get(IRequest::class),      // Argument 1
-                $c->get(IUserSession::class),  // Argument 2
-                $c->get(IDBConnection::class), // Argument 3
-                $c->get(IGroupManager::class)  // Argument 4
+                $c->get(IRequest::class),
+                $c->get(IUserSession::class),
+                $c->get(IDBConnection::class),
+                $c->get(IGroupManager::class)
             );
         });
 
         $context->registerService(TimesheetController::class, function($c) {
             return new TimesheetController(
-                $c->get(IRequest::class),      // Argument 1: $request
-                $c->get(IDBConnection::class), // Argument 2: $db
-                $c->get(IUserSession::class)   // Argument 3: $userSession
+                $c->get(IRequest::class),
+                $c->get(IUserSession::class),
+                $c->get(TimesheetService::class),
+                $c->get(TimesheetMapper::class),
+                $c->get(IDBConnection::class)
             );
         });
 
@@ -91,31 +99,25 @@ class Application extends App implements IBootstrap {
             return new AdminController(
                 $c->get(IRequest::class),
                 $c->get(IDBConnection::class),
-                $c->get(IUserSession::class),
-                $c->get(IUserManager::class),
-                $c->get(IGroupManager::class),
-                $c->get(IAppData::class),
                 $c->get(AdminService::class),
-                $c->get(AdminMapper::class)
+                $c->get(AdminMapper::class),
+                $c->get(IGroupManager::class),
+                $c->get(IAppData::class)
             );
         });
 
         $context->registerService(AnalysisController::class, function($c) {
             return new AnalysisController(
                 $c->get(IRequest::class),
-                $c->get(IDBConnection::class),
-                $c->get(IUserSession::class),
-                $c->get(IGroupManager::class),
                 $c->get(AnalysisService::class),
-                $c->get(AnalysisMapper::class)
+                $c->get(TimesheetMapper::class),
+                $c->get(AnalysisMapper::class),
+                $c->get(IUserSession::class),
+                $c->get(IUserManager::class)
             );
         });
     }
 
-    /**
-     * Boot method for Nextcloud 32+
-     */
     public function boot(IBootContext $context): void {
-        // App-level initialization logic
     }
 }
