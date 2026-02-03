@@ -1,0 +1,4 @@
+/node_modules/*
+/dist/*
+webpack-vue-config-7.0.2.tar.gz
+package-lock.json
