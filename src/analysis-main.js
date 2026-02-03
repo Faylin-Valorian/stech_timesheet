@@ -4,7 +4,6 @@ import { AnalysisMaps } from './analysis/maps.js';
 import { AnalysisGauges } from './analysis/gauges.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    // UI Elements
     const rangeSelect = document.getElementById('range-preset');
     const userHidden = document.getElementById('analysis-target-user');
     const userSearch = document.getElementById('user-search');
@@ -15,13 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let cachedData = null;
 
-    // --- 1. Initialization ---
     initTabs();
     initSearchBehaviors();
     loadFilters();
     loadStats();
 
-    // --- 2. Tab Logic ---
     function initTabs() {
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -30,25 +27,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const targetId = e.target.dataset.tab;
                 document.getElementById(targetId).classList.add('active');
                 
-                // Refresh Leaflet maps when visible
-                if (targetId === 'tab-state') AnalysisMaps.refresh('state');
-                if (targetId === 'tab-county') AnalysisMaps.refresh('county');
+                // Refresh Maps on Travel Activity View
+                if (targetId === 'tab-travel') {
+                    AnalysisMaps.refresh('state');
+                    AnalysisMaps.refresh('county');
+                }
             });
         });
     }
 
-    // --- 3. Unified Search Logic ---
     function initSearchBehaviors() {
         const setupAutoClear = (inputEl, hiddenEl, defaultVal) => {
             if (!inputEl) return;
             inputEl.addEventListener('click', () => { if (inputEl.value !== '') inputEl.value = ''; });
-            inputEl.addEventListener('change', () => {
-                if (inputEl.value === '' && defaultVal === 'self') {
-                    inputEl.value = "Myself";
-                    hiddenEl.value = "self";
-                    loadStats();
-                }
-            });
         };
 
         setupAutoClear(userSearch, userHidden, 'self');
@@ -68,9 +59,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (cachedData) AnalysisGauges.update(cachedData.jobs, this.value);
             }
         });
+
+        // Fixed: State search reset behavior
+        stateSearch?.addEventListener('input', function() {
+            const opt = Array.from(document.getElementById('state-list').options).find(o => o.value === this.value);
+            
+            if (this.value === "") {
+                stateHidden.value = 'full';
+                AnalysisMaps.initAndRender(cachedData.states, cachedData.counties, 'full');
+            } else if (opt) {
+                stateHidden.value = opt.getAttribute('data-value');
+                AnalysisMaps.initAndRender(cachedData.states, cachedData.counties, stateHidden.value);
+            }
+        });
+        setupAutoClear(stateSearch, stateHidden, 'full');
     }
 
-    // --- 4. Data Orchestration ---
     async function loadFilters() {
         const data = await StechAPI.request('get', '/api/analysis/filters');
         populateDatalist('user-list', data.users, 'displayname', 'uid');
@@ -99,25 +103,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateUI(data) {
-        // Simple Card Updates
         document.getElementById('stat-total-hours').innerText = data.total_hours;
         document.getElementById('stat-reg-hours').innerText = data.stats.regular_hours;
         document.getElementById('stat-pto-hours').innerText = data.stats.pto_hours;
         document.getElementById('stat-overtime-hours').innerText = data.stats.overtime_hours || 0;
 
-        // Delegate to Modules
+        document.getElementById('val-total-miles').innerText = data.travel?.total_miles || 0;
+        document.getElementById('val-per-diem').innerText = data.travel?.per_diem_days || 0;
+        document.getElementById('val-overnight').innerText = data.travel?.overnight_stays || 0;
+        document.getElementById('val-expenses').innerText = '$' + (parseFloat(data.travel?.total_expenses || 0).toFixed(2));
+
         AnalysisCharts.renderOverview(data.trend);
-        AnalysisCharts.renderTravelDoughnuts(data.states, data.counties);
         AnalysisCharts.renderJobTable(data.jobs, data.total_hours);
-        
         AnalysisGauges.update(data.jobs, jobSearch?.value || 'All Jobs');
         
         AnalysisMaps.initAndRender(data.states, data.counties, stateHidden.value);
     }
-
-    document.getElementById('btn-refresh-analysis')?.addEventListener('click', loadStats);
-    rangeSelect.addEventListener('change', () => {
-        document.getElementById('custom-date-inputs').classList.toggle('hidden', rangeSelect.value !== 'custom');
-        if (rangeSelect.value !== 'custom') loadStats();
-    });
 });

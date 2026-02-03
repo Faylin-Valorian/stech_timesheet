@@ -7,8 +7,6 @@
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
-    color: var(--color-main-text);
-    /* FIX: Scroll ability for the whole tab */
     overflow-y: auto; 
     overflow-x: hidden;
 }
@@ -97,7 +95,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     overflow: hidden; 
-    min-height: 800px; /* Increased min-height to prevent squashing */
+    min-height: 850px; /* Adjusted to accommodate taller side-by-side maps */
 }
 
 .tab-headers {
@@ -135,7 +133,6 @@
     padding: 20px;
     flex: 1;
     position: relative;
-    /* FIX: Allow content within tabs to expand */
     overflow-y: visible; 
 }
 
@@ -146,7 +143,6 @@
     animation: fadeIn 0.3s ease;
 }
 .tab-pane.active { display: block; }
-.tab-pane h3 { margin-top: 0; margin-bottom: 20px; color: var(--color-text-light); font-size: 18px; }
 
 @keyframes fadeIn {
     from { opacity: 0; }
@@ -165,8 +161,9 @@
 .split-layout-analysis {
     display: flex;
     gap: 30px;
-    height: 400px;
+    min-height: 550px; /* Fix: prevents map squashing */
     width: 100%;
+    align-items: stretch;
 }
 
 .chart-wrapper-half {
@@ -174,7 +171,11 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    min-height: 300px;
+    min-height: 500px;
+    background: var(--color-main-background);
+    padding: 15px;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--color-border);
 }
 
 .chart-wrapper-half h3 {
@@ -242,28 +243,13 @@
     background-color: var(--color-background-hover); 
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
-    padding: 10px;
+    padding: 0;
     overflow: hidden;
     position: relative;
-    /* FIX: Full Height and Flex Growth */
-    height: 70vh; 
-    min-height: 600px;
+    height: 500px; /* Fix: ensure leaflet has hard height */
     width: 100%;
     display: flex;
-    justify-content: center;
-    align-items: center;
-}
-canvas#chart-state-map, canvas#chart-county-map {
-    width: 100% !important;
-    height: 100% !important;
-}
-
-/* Searchable Inputs */
-input[list] {
-    cursor: pointer;
-}
-input[list]:hover {
-    background-color: var(--color-background-hover);
+    z-index: 1;
 }
 
 /* Travel Grid */

@@ -69,19 +69,12 @@ Util::addStyle('stech_timesheet', 'analysis');
             <div class="tabs-container">
                 <div class="tab-headers">
                     <button class="tab-btn active" data-tab="tab-overview">Overview</button>
-                    
                     <?php if($_['can_view_travel_analytics']): ?>
                     <button class="tab-btn" data-tab="tab-travel">Travel Activity</button>
                     <?php endif; ?>
-                    
                     <?php if($_['can_view_job_breakdown']): ?>
                     <button class="tab-btn" data-tab="tab-jobs">Job Breakdown</button>
                     <button class="tab-btn" data-tab="tab-profitability">Job Profitability</button>
-                    <?php endif; ?>
-                    
-                    <?php if($_['can_view_location_analytics']): ?>
-                    <button class="tab-btn" data-tab="tab-state">State Activity</button>
-                    <button class="tab-btn" data-tab="tab-county">County Activity</button>
                     <?php endif; ?>
                 </div>
 
@@ -96,9 +89,24 @@ Util::addStyle('stech_timesheet', 'analysis');
                             <div class="travel-stat-box"><h4>Overnight Stays</h4><span id="val-overnight">0</span></div>
                             <div class="travel-stat-box"><h4>Expenses Claimed</h4><span id="val-expenses">$0.00</span></div>
                         </div>
-                        <div class="split-layout-analysis" style="margin-top: 20px;">
-                            <div class="chart-wrapper-half"><h3>Visits by State</h3><canvas id="chart-travel-state"></canvas></div>
-                            <div class="chart-wrapper-half"><h3>Visits by County</h3><canvas id="chart-travel-county"></canvas></div>
+                        <div class="split-layout-analysis" style="margin-top: 20px; display: flex; gap: 20px;">
+                            <div class="chart-wrapper-half" style="flex: 1;">
+                                <h3>State Activity</h3>
+                                <div id="map-state-container" class="map-wrapper" style="height: 500px; width: 100%;"></div>
+                            </div>
+                            <div class="chart-wrapper-half" style="flex: 1;">
+                                <div style="display:flex; justify-content:space-between; align-items:center;">
+                                    <h3>County Activity</h3>
+                                    <div class="control-group">
+                                        <input type="text" id="state-search" list="state-list" class="form-control" placeholder="Zoom to State..." style="width: 150px;">
+                                        <datalist id="state-list"></datalist>
+                                        <input type="hidden" id="analysis-state-filter" value="">
+                                    </div>
+                                </div>
+                                <div id="map-county-container" class="map-wrapper" style="height: 500px; width: 100%;">
+                                    <div id="county-map-placeholder" style="display:none;"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <?php endif; ?>
@@ -125,32 +133,8 @@ Util::addStyle('stech_timesheet', 'analysis');
                             <canvas id="chart-profitability-gauge"></canvas>
                             <div id="gauge-value-display" style="position:absolute; bottom:20px; font-size:24px; font-weight:bold; color:var(--color-main-text);">0 Hrs</div>
                         </div>
-                        <p style="text-align:center; color:var(--color-text-light); margin-top:10px; font-size: 0.9em;"><strong>Meter Reading:</strong> Left (Loss) &rarr; Right (Profit)</p>
                     </div>
                     <?php endif; ?>
-
-                    <?php if($_['can_view_location_analytics']): ?>
-                    <div id="tab-state" class="tab-pane">
-                        <h3>US Activity Map (Hot Bed)</h3>
-                        <div id="map-state-container" class="map-wrapper" style="height: 600px; width: 100%; z-index: 1;"></div>
-                    </div>
-
-                    <div id="tab-county" class="tab-pane">
-                        <div class="county-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-                            <h3>County Activity Map</h3>
-                            <div class="control-group">
-                                <label for="state-search" style="margin-right:10px; font-size:0.9em; color:var(--color-text-light);">Select State:</label>
-                                <input type="text" id="state-search" list="state-list" class="form-control" placeholder="Select State to Load..." style="width: 200px;">
-                                <datalist id="state-list"></datalist>
-                                <input type="hidden" id="analysis-state-filter" value="">
-                            </div>
-                        </div>
-                        <div id="map-county-container" class="map-wrapper" style="height: 600px; width: 100%; z-index: 1;">
-                            <div id="county-map-placeholder" style="display:flex; justify-content:center; align-items:center; height:100%; color:#888;">Select a state to view county heatmap.</div>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-
                 </div>
             </div>
         </div>

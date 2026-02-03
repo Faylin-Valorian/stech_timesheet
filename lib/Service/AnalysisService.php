@@ -21,9 +21,6 @@ class AnalysisService {
         $this->userSession = $userSession;
     }
 
-    /**
-     * Logic from original checkAccess method
-     */
     public function checkAccess(string $ruleKey): bool {
         $user = $this->userSession->getUser();
         if (!$user) return false;
@@ -39,9 +36,6 @@ class AnalysisService {
         return false;
     }
 
-    /**
-     * Logic from original getPayrollDateRange method
-     */
     public function getPayrollDateRange(string $period): array {
         $settings = $this->timesheetMapper->getAdminSettings();
         $freq = (int)($settings['pay_frequency'] ?? 14);
@@ -66,13 +60,15 @@ class AnalysisService {
         return [$currentStart, $currentEnd];
     }
 
-    /**
-     * Logic from original getStats aggregation loop
-     */
-    public function aggregateData(array $results, array $perms): array {
+public function aggregateData(array $results, array $perms): array {
         $totalHours = 0.0; $ptoHours = 0.0;
         $trend = []; $jobs = []; $states = []; $counties = []; $processed = [];
-        $travel = ['total_miles' => 0, 'per_diem_days' => 0, 'total_expenses' => 0.0];
+        $travel = [
+            'total_miles' => 0, 
+            'per_diem_days' => 0, 
+            'overnight_stays' => 0, 
+            'total_expenses' => 0.0
+        ];
 
         foreach ($results as $row) {
             $tid = $row['timesheet_id'];
@@ -91,6 +87,7 @@ class AnalysisService {
                 if ($perms['travel']) {
                     $travel['total_miles'] += (int)($row['travel_miles'] ?? 0);
                     if (($row['travel_per_diem'] ?? 0) == 1) $travel['per_diem_days']++;
+                    if (($row['travel_overnight'] ?? 0) == 1) $travel['overnight_stays']++;
                     $travel['total_expenses'] += (float)($row['travel_extra_expenses'] ?? 0);
                 }
                 $processed[] = $tid;

@@ -192,22 +192,13 @@ class AdminMapper extends QBMapper {
     }
 
     /**
-     * Fetch counties for a specific state for admin filters
+     * Fetch counties for a specific state using FIPS code
      */
-    public function getCountiesByState(string $stateAbbr): array {
-        $qbState = $this->db->getQueryBuilder();
-        $state = $qbState->select('fips_code')
-                ->from('stech_states')
-                ->where($qbState->expr()->eq('state_abbr', $qbState->createNamedParameter($stateAbbr)))
-                ->executeQuery()
-                ->fetch();
-
-        if (!$state) return [];
-
+    public function getCountiesByState(string $fips): array {
         $qb = $this->db->getQueryBuilder();
         return $qb->select('*')
                 ->from('stech_counties')
-                ->where($qb->expr()->eq('state_fips', $qb->createNamedParameter($state['fips_code'])))
+                ->where($qb->expr()->eq('state_fips', $qb->createNamedParameter($fips)))
                 ->orderBy('county_name', 'ASC')
                 ->executeQuery()
                 ->fetchAll();

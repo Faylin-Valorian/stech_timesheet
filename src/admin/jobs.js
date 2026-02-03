@@ -25,10 +25,20 @@ export const JobAdmin = {
             const item = document.createElement('div');
             item.className = 'list-item';
             item.style.opacity = active ? '1' : '0.6';
+
+            // PTO Tag logic restored
+            const ptoTag = j.is_pto == 1 ? '<span class="pto-tag" style="background: var(--color-primary); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; margin-left: 8px; font-weight: bold;">PTO</span>' : '';
+
             item.innerHTML = `
-                <span style="flex:1; cursor:pointer;">${j.job_name} ${j.is_pto == 1 ? '<span class="pto-tag">PTO</span>' : ''}</span>
-                <label class="admin-switch"><input type="checkbox" ${active ? 'checked' : ''}><span class="admin-slider"></span></label>
+                <span style="flex:1; cursor:pointer;">
+                    ${j.job_name} ${ptoTag}
+                </span>
+                <label class="admin-switch">
+                    <input type="checkbox" ${active ? 'checked' : ''}>
+                    <span class="admin-slider"></span>
+                </label>
             `;
+            
             item.querySelector('span').addEventListener('click', () => this.edit(j));
             item.querySelector('input').addEventListener('change', () => this.toggleArchive(j.job_id));
             list.appendChild(item);
@@ -55,10 +65,11 @@ export const JobAdmin = {
 
     async submit(e) {
         e.preventDefault();
+        // Corrected payload keys to match AdminController expectation
         const payload = {
-            id: document.getElementById('job-id').value,
-            name: document.getElementById('job-name').value,
-            description: document.getElementById('job-desc').value,
+            job_id: document.getElementById('job-id').value,
+            job_name: document.getElementById('job-name').value,
+            job_description: document.getElementById('job-desc').value,
             is_pto: document.getElementById('job-is-pto').checked ? 1 : 0
         };
         await StechAPI.request('post', '/api/admin/jobs', payload);

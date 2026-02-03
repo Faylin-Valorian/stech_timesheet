@@ -138,26 +138,28 @@ class AdminController extends Controller {
      * @NoCSRFRequired
      */
     public function saveHoliday(): DataResponse {
-        $data = $this->request->getParams();
-        $qb = $this->db->getQueryBuilder();
-        if (!empty($data['holiday_id'])) {
-            $qb->update('stech_holidays')
-               ->set('holiday_name', $qb->createNamedParameter($data['holiday_name']))
-               ->set('holiday_start_date', $qb->createNamedParameter($data['holiday_start_date']))
-               ->set('holiday_end_date', $qb->createNamedParameter($data['holiday_end_date']))
-               ->set('holiday_bg', $qb->createNamedParameter($data['holiday_bg'] ?? ''))
-               ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($data['holiday_id'])))
-               ->execute();
-        } else {
-            $qb->insert('stech_holidays')
-               ->values([
-                   'holiday_name' => $qb->createNamedParameter($data['holiday_name']),
-                   'holiday_start_date' => $qb->createNamedParameter($data['holiday_start_date']),
-                   'holiday_end_date' => $qb->createNamedParameter($data['holiday_end_date']),
-                   'holiday_bg' => $qb->createNamedParameter($data['holiday_bg'] ?? '')
-               ])->execute();
-        }
-        return new DataResponse(['status' => 'success']);
+            $data = $this->request->getParams();
+            $qb = $this->db->getQueryBuilder();
+            
+            // Match the key names used in src/admin/holidays.js
+            if (!empty($data['id'])) { 
+                $qb->update('stech_holidays')
+                ->set('holiday_name', $qb->createNamedParameter($data['name']))
+                ->set('holiday_start_date', $qb->createNamedParameter($data['start']))
+                ->set('holiday_end_date', $qb->createNamedParameter($data['end']))
+                ->set('holiday_bg', $qb->createNamedParameter($data['bg_style'] ?? ''))
+                ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($data['id'])))
+                ->execute();
+            } else {
+                $qb->insert('stech_holidays')
+                ->values([
+                    'holiday_name' => $qb->createNamedParameter($data['name']),
+                    'holiday_start_date' => $qb->createNamedParameter($data['start']),
+                    'holiday_end_date' => $qb->createNamedParameter($data['end']),
+                    'holiday_bg' => $qb->createNamedParameter($data['bg_style'] ?? '')
+                ])->execute();
+            }
+            return new DataResponse(['status' => 'success']);
     }
 
     /** * @AdminRequired
@@ -234,7 +236,7 @@ class AdminController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-        /** * @AdminRequired
+/** * @AdminRequired
      * @NoCSRFRequired
      */
     public function toggleHoliday(int $id): DataResponse {
@@ -249,10 +251,11 @@ class AdminController extends Controller {
 
         $newStatus = ((int)$holiday['holiday_archive'] === 1) ? 0 : 1;
 
-        $this->db->getQueryBuilder()
-                ->update('stech_holidays')
-                ->set('holiday_archive', $qb->createNamedParameter($newStatus))
-                ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($id)))
+        // Use a fresh QueryBuilder for the update to avoid parameter conflicts
+        $updateQb = $this->db->getQueryBuilder();
+        $updateQb->update('stech_holidays')
+                ->set('holiday_archive', $updateQb->createNamedParameter($newStatus))
+                ->where($updateQb->expr()->eq('holiday_id', $updateQb->createNamedParameter($id)))
                 ->execute();
 
         return new DataResponse(['status' => 'success', 'new_state' => $newStatus]);
@@ -273,10 +276,11 @@ class AdminController extends Controller {
 
         $newStatus = ((int)$job['job_archive'] === 1) ? 0 : 1;
 
-        $this->db->getQueryBuilder()
-                ->update('stech_jobs')
-                ->set('job_archive', $qb->createNamedParameter($newStatus))
-                ->where($qb->expr()->eq('job_id', $qb->createNamedParameter($id)))
+        // Use a fresh QueryBuilder for the update
+        $updateQb = $this->db->getQueryBuilder();
+        $updateQb->update('stech_jobs')
+                ->set('job_archive', $updateQb->createNamedParameter($newStatus))
+                ->where($updateQb->expr()->eq('job_id', $updateQb->createNamedParameter($id)))
                 ->execute();
 
         return new DataResponse(['status' => 'success', 'new_state' => $newStatus]);
