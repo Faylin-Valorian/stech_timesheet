@@ -60,15 +60,20 @@ class AnalysisService {
         return [$currentStart, $currentEnd];
     }
 
-public function aggregateData(array $results, array $perms): array {
+    public function aggregateData(array $results, array $perms): array {
         $totalHours = 0.0; $ptoHours = 0.0;
         $trend = []; $jobs = []; $states = []; $counties = []; $processed = [];
+        
         $travel = [
             'total_miles' => 0, 
             'per_diem_days' => 0, 
             'overnight_stays' => 0, 
             'total_expenses' => 0.0
         ];
+
+        // Fetch enabled states from Mapper
+        $enabledStateList = $this->timesheetMapper->getEnabledStates();
+        $enabledStates = array_column($enabledStateList, 'state_name');
 
         foreach ($results as $row) {
             $tid = $row['timesheet_id'];
@@ -78,11 +83,25 @@ public function aggregateData(array $results, array $perms): array {
             if (!in_array($tid, $processed)) {
                 $totalHours += $hours;
                 $trend[$date] = ($trend[$date] ?? 0) + $hours;
+
                 if ($perms['location']) {
                     $state = $row['full_state_name'] ?? $row['travel_state'] ?? 'Unknown';
-                    $states[$state] = ($states[$state] ?? 0) + 1;
+                    $isStateEnabled = in_array($state, $enabledStates);
+                    
+                    $states[$state] = [
+                        'count' => ($states[$state]['count'] ?? 0) + 1,
+                        'is_enabled' => $isStateEnabled
+                    ];
+
                     $county = trim(str_ireplace(' County', '', $row['travel_county'] ?? ''));
-                    if ($county) $counties[$state . '|' . $county] = ($counties[$state . '|' . $county] ?? 0) + 1;
+                    if ($county) {
+                        $key = $state . '|' . $county;
+                        $counties[$key] = [
+                            'count' => ($counties[$key]['count'] ?? 0) + 1,
+                            // County inherits state enablement
+                            'is_enabled' => $isStateEnabled 
+                        ];
+                    }
                 }
                 if ($perms['travel']) {
                     $travel['total_miles'] += (int)($row['travel_miles'] ?? 0);
