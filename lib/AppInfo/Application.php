@@ -85,7 +85,9 @@ class Application extends App implements IBootstrap {
             );
         });
 
-        $context->registerService(TimesheetController::class, function($c) {
+        // FIXED: Replaced $container->registerService with $context->registerService 
+        // and $c->query with $c->get for consistency.
+        $context->registerService(TimesheetController::class, function ($c) {
             return new TimesheetController(
                 $c->get(IRequest::class),
                 $c->get(IUserSession::class),
