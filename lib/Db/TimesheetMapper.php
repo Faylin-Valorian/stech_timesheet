@@ -7,11 +7,6 @@ use OCP\AppFramework\Db\QBMapper;
 use OCP\IDBConnection;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
-/**
- * TimesheetMapper
- * Modular database layer for stech_timesheets and related tables.
- * Restores 100% of original logic with modern DB compatibility patches.
- */
 class TimesheetMapper extends QBMapper {
     public function __construct(IDBConnection $db) {
         parent::__construct($db, 'stech_timesheets', Timesheet::class);
@@ -58,6 +53,13 @@ class TimesheetMapper extends QBMapper {
            ->executeQuery()->fetchAll();
     }
 
+    public function getActivitiesByTimesheet(int $id): array {
+        $qb = $this->db->getQueryBuilder();
+        return $qb->select('*')->from('stech_activity')
+           ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+           ->executeQuery()->fetchAll();
+    }
+
     public function getActivitiesGrouped(array $ids): array {
         if (empty($ids)) return [];
         $qbAct = $this->db->getQueryBuilder();
@@ -69,13 +71,6 @@ class TimesheetMapper extends QBMapper {
             $grouped[$a['timesheet_id']][] = $a;
         }
         return $grouped;
-    }
-
-    public function getActivitiesByTimesheet(int $id): array {
-        $qb = $this->db->getQueryBuilder();
-        return $qb->select('*')->from('stech_activity')
-           ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
-           ->executeQuery()->fetchAll();
     }
 
     public function getAdminSettings(): array {

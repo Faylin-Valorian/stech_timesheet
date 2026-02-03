@@ -11,10 +11,6 @@ use OCP\IDBConnection;
 use OCA\StechTimesheet\Service\TimesheetService;
 use OCA\StechTimesheet\Db\TimesheetMapper;
 
-/**
- * TimesheetController
- * Slim modular controller focusing on request handling and record persistence.
- */
 class TimesheetController extends Controller {
     private $userSession;
     private $service;
@@ -36,7 +32,7 @@ class TimesheetController extends Controller {
     }
 
     /**
-     * Get Jobs and States for form initialization.
+     * @NoAdminRequired
      */
     public function getAttributes(): DataResponse {
         return new DataResponse([
@@ -46,14 +42,14 @@ class TimesheetController extends Controller {
     }
 
     /**
-     * Get Counties for a specific State.
+     * @NoAdminRequired
      */
     public function getCounties(string $stateAbbr): DataResponse {
         return new DataResponse($this->mapper->getCountiesByState($stateAbbr));
     }
 
     /**
-     * Fetch calendar events via the Service.
+     * @NoAdminRequired
      */
     public function getTimesheets(string $start, string $end): DataResponse {
         $uid = $this->userSession->getUser()->getUID();
@@ -61,12 +57,11 @@ class TimesheetController extends Controller {
     }
 
     /**
-     * Retrieve details for a single record including activity rows.
+     * @NoAdminRequired
      */
     public function getTimesheet(int $id): DataResponse {
         $uid = $this->userSession->getUser()->getUID();
         $qb = $this->db->getQueryBuilder();
-        
         $ts = $qb->select('*')
             ->from('stech_timesheets')
             ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id)))
@@ -81,7 +76,7 @@ class TimesheetController extends Controller {
     }
 
     /**
-     * Save logic restored from original controller with MariaDB syntax fix.
+     * @NoAdminRequired
      */
     public function saveTimesheet(): DataResponse {
         $data = $this->request->getParams();
@@ -122,11 +117,11 @@ class TimesheetController extends Controller {
             foreach ($values as $c => $v) $qb->setValue($c, $qb->createNamedParameter($v));
             $qb->executeStatement();
             
-            // Standard lastInsertId for MariaDB
-            $tid = (int)$this->db->lastInsertId(); 
+            // FIX: Added explicit sequence name for ConnectionAdapter compatibility
+            $tid = (int)$this->db->lastInsertId('stech_timesheets_timesheet_id_seq'); 
         }
 
-        // PATCH: Replaced QueryBuilder delete with direct SQL to resolve SQLSTATE[42000]
+        // FIX: Positional placeholder for MariaDB DELETE compatibility
         $sqlDelete = "DELETE FROM `*PREFIX*stech_activity` WHERE `timesheet_id` = ?";
         $this->db->prepare($sqlDelete)->execute([$tid]);
 
@@ -140,17 +135,6 @@ class TimesheetController extends Controller {
             }
         }
 
-        return new DataResponse(['status' => 'success']);
-    }
-
-    /**
-     * Archive record instead of hard delete.
-     */
-    public function deleteTimesheet(int $id): DataResponse {
-        $uid = $this->userSession->getUser()->getUID();
-        $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 1 WHERE `timesheet_id` = ? AND `userid` = ?";
-        $this->db->prepare($sql)->execute([$id, $uid]);
-           
         return new DataResponse(['status' => 'success']);
     }
 }
