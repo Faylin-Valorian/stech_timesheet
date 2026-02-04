@@ -53,8 +53,11 @@ class TimesheetController extends Controller {
     /** @NoAdminRequired */
     public function saveTimesheet(): DataResponse {
         $data = $this->request->getParams();
-        // Ensure we map 'date' from the request to 'timesheet_date' for the DB
         $date = $data['date'] ?? null;
+        
+        if (!$date) {
+            return new DataResponse(['error' => 'Date is required.'], 400);
+        }
         
         if (empty($data['time_in']) && !isset($data['req_per_diem'])) {
             return new DataResponse(['error' => 'Start Time required unless Per Diem only.'], 400);
@@ -63,56 +66,64 @@ class TimesheetController extends Controller {
         $values = [
             'userid' => $this->userId,
             'timesheet_date' => $date,
-            'time_in' => $data['time_in'] ?: null,
-            'time_out' => $data['time_out'] ?: null,
+            'time_in' => !empty($data['time_in']) ? $data['time_in'] : null,
+            'time_out' => !empty($data['time_out']) ? $data['time_out'] : null,
             'time_break' => (int)($data['break_min'] ?? 0),
             'time_total' => (float)($data['total_hours'] ?? 0),
             'additional_comments' => $data['comments'] ?? '',
             'travel' => (isset($data['req_per_diem']) || !empty($data['miles'])) ? 1 : 0,
-            'travel_per_diem' => isset($data['req_per_diem']) ? 1 : 0,
-            'travel_state' => $data['state'] ?? '',
-            'travel_county' => $data['county'] ?? '',
+            'travel_per_diem' => (isset($data['req_per_diem']) && $data['req_per_diem'] == 1) ? 1 : 0,
+            'travel_state' => $data['state'] ?? null,
+            'travel_county' => $data['county'] ?? null,
             'travel_miles' => (int)($data['miles'] ?? 0),
             'travel_extra_expenses' => (float)($data['extra_expense'] ?? 0),
             'archive' => 0
         ];
 
-        $qb = $this->db->getQueryBuilder();
-        if (!empty($data['timesheet_id'])) {
-            $qb->update('stech_timesheets');
-            foreach ($values as $col => $val) { 
-                if ($col !== 'userid') $qb->set($col, $qb->createNamedParameter($val)); 
-            }
-            $qb->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($data['timesheet_id'])))->executeStatement();
-            $tid = (int)$data['timesheet_id'];
-        } else {
-            $qb->insert('stech_timesheets');
-            foreach ($values as $col => $val) $qb->setValue($col, $qb->createNamedParameter($val));
-            $qb->executeStatement();
-            
-            // FIX: Retrieve the ID from the connection, not the query builder
-            $tid = (int)$this->db->lastInsertId('*PREFIX*stech_timesheets');
-        }
-
-        // Standard Activity Refresh: Delete existing and insert new rows
-        $this->db->prepare("DELETE FROM `*PREFIX*stech_activity` WHERE `timesheet_id` = ?")->execute([$tid]);
-        
-        if (isset($data['work_desc']) && is_array($data['work_desc'])) {
-            $stmt = $this->db->prepare("INSERT INTO `*PREFIX*stech_activity` (`timesheet_id`, `activity_description`, `activity_percent`) VALUES (?, ?, ?)");
-            foreach ($data['work_desc'] as $idx => $desc) { 
-                if (!empty($desc)) {
-                    $percent = (int)($data['work_percent'][$idx] ?? 0);
-                    $stmt->execute([$tid, $desc, $percent]); 
+        try {
+            $qb = $this->db->getQueryBuilder();
+            if (!empty($data['timesheet_id'])) {
+                $tid = (int)$data['timesheet_id'];
+                $qb->update('stech_timesheets');
+                foreach ($values as $col => $val) { 
+                    if ($col !== 'userid') $qb->set($col, $qb->createNamedParameter($val)); 
                 }
+                $qb->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($tid)))
+                   ->executeStatement();
+            } else {
+                $qb->insert('stech_timesheets');
+                foreach ($values as $col => $val) {
+                    $qb->setValue($col, $qb->createNamedParameter($val));
+                }
+                $qb->executeStatement();
+                
+                // Use connection level lastInsertId with the table name to ensure valid ID
+                $tid = (int)$this->db->lastInsertId('*PREFIX*stech_timesheets');
             }
+
+            if ($tid > 0) {
+                $this->db->prepare("DELETE FROM `*PREFIX*stech_activity` WHERE `timesheet_id` = ?")->execute([$tid]);
+                if (isset($data['work_desc']) && is_array($data['work_desc'])) {
+                    $stmt = $this->db->prepare("INSERT INTO `*PREFIX*stech_activity` (`timesheet_id`, `activity_description`, `activity_percent`) VALUES (?, ?, ?)");
+                    foreach ($data['work_desc'] as $idx => $desc) { 
+                        if (!empty($desc)) {
+                            $stmt->execute([$tid, $desc, (int)($data['work_percent'][$idx] ?? 0)]);
+                        }
+                    }
+                }
+            } else {
+                throw new \Exception("Database failed to return a valid Timesheet ID.");
+            }
+
+            return new DataResponse(['status' => 'success', 'id' => $tid]);
+
+        } catch (\Exception $e) {
+            return new DataResponse(['error' => $e->getMessage()], 500);
         }
-        
-        return new DataResponse(['status' => 'success', 'id' => $tid]);
     }
 
     /** @NoAdminRequired */
     public function deleteTimesheet(int $id): DataResponse {
-        // Soft-delete by setting the archive flag
         $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 1 WHERE `timesheet_id` = ? AND `userid` = ?";
         $this->db->prepare($sql)->execute([$id, $this->userId]);
         return new DataResponse(['status' => 'success']);
