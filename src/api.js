@@ -33,7 +33,6 @@ export const StechAPI = {
 
             // FIX: Manual Array Handling for PHP
             // URLSearchParams flattens arrays, which breaks PHP's $_POST['array'] handling.
-            // We manually build the payload to append '[]' to array keys.
             if (method.toLowerCase() !== 'get' && data) {
                 payload = new URLSearchParams();
                 for (const key in data) {
@@ -66,7 +65,6 @@ export const StechAPI = {
             if (window.OCP && window.OCP.Toast) {
                 window.OCP.Toast.error(errorMessage);
             } else {
-                // Fallback for environments where OCP.Toast is not yet available
                 console.error("Critical API Failure: " + errorMessage);
             }
             
@@ -77,8 +75,10 @@ export const StechAPI = {
     // =========================================================
     //  1. TIMESHEET ENDPOINTS
     // =========================================================
-    getTimesheets(start, end) {
-        return this.request('get', '/api/timesheets', { start, end });
+    
+    // UPDATED: Added archive parameter (defaults to 0 for active)
+    getTimesheets(start, end, archive = 0) {
+        return this.request('get', '/api/timesheets', { start, end, archive });
     },
 
     getTimesheet(id) {

@@ -91,19 +91,22 @@ class TimesheetMapper extends QBMapper {
 
     /**
      * Find raw entries for a date range (used by Service layer)
+     * UPDATED: Accepts $archive parameter to filter active/archived records
      * @param string $userId
      * @param string $start
      * @param string $end
+     * @param int $archive (0 = Active, 1 = Archived)
      * @return array
      */
-    public function findRawEntries(string $userId, string $start, string $end): array {
+    public function findRawEntries(string $userId, string $start, string $end, int $archive = 0): array {
         $qb = $this->db->getQueryBuilder();
         return $qb->select('*')
            ->from('stech_timesheets')
            ->where($qb->expr()->eq('userid', $qb->createNamedParameter($userId)))
            ->andWhere($qb->expr()->gte('timesheet_date', $qb->createNamedParameter($start)))
            ->andWhere($qb->expr()->lte('timesheet_date', $qb->createNamedParameter($end)))
-           ->andWhere($qb->expr()->eq('archive', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)))
+           // Filter by archive status (default 0)
+           ->andWhere($qb->expr()->eq('archive', $qb->createNamedParameter($archive, IQueryBuilder::PARAM_INT)))
            ->executeQuery()
            ->fetchAll();
     }

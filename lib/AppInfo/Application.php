@@ -13,7 +13,6 @@ use OCP\IUserSession;
 use OCP\IUserManager;
 use OCP\IGroupManager;
 use OCP\Files\IAppData;
-use OCP\IConfig; // Added for Config access in Jobs
 
 // Controllers
 use OCA\StechTimesheet\Controller\PageController;
@@ -30,10 +29,7 @@ use OCA\StechTimesheet\Db\AnalysisMapper;
 use OCA\StechTimesheet\Service\TimesheetService;
 use OCA\StechTimesheet\Service\AdminService;
 use OCA\StechTimesheet\Service\AnalysisService;
-use OCA\StechTimesheet\Service\HolidayService; // Added HolidayService
-
-// Background Jobs
-use OCA\StechTimesheet\BackgroundJob\HolidayInsertJob;
+use OCA\StechTimesheet\Service\HolidayService;
 
 class Application extends App implements IBootstrap {
 
@@ -43,8 +39,8 @@ class Application extends App implements IBootstrap {
 
     public function register(IRegistrationContext $context): void {
         
-        // --- Register Background Jobs ---
-        $context->registerJob(HolidayInsertJob::class);
+        // --- REMOVED INCORRECT JOB REGISTRATION ---
+        // The job must be registered in appinfo/info.xml instead.
 
         // --- Register Mappers ---
         $context->registerService(TimesheetMapper::class, function($c) {
@@ -87,7 +83,7 @@ class Application extends App implements IBootstrap {
         $context->registerService(HolidayService::class, function($c) {
             return new HolidayService(
                 $c->get(IDBConnection::class),
-                $c->get(AdminMapper::class) // Assuming AdminMapper handles holiday DB interaction
+                $c->get(AdminMapper::class)
             );
         });
 
@@ -135,6 +131,6 @@ class Application extends App implements IBootstrap {
     }
 
     public function boot(IBootContext $context): void {
-        // No special boot logic needed for now
+        // No special boot logic needed
     }
 }

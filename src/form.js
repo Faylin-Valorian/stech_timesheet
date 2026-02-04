@@ -22,7 +22,7 @@ const Form = {
 
         document.getElementById('btn-delete').addEventListener('click', (e) => {
             e.preventDefault();
-            this.handleDelete();
+            this.handleDelete(); // Now opens custom modal
         });
 
         document.querySelectorAll('.close-modal, .secondary-button').forEach(btn => {
@@ -50,7 +50,7 @@ const Form = {
             });
         }
 
-        // NEW: PTO Auto-fill Logic
+        // PTO Auto-fill Logic
         const ptoToggle = document.getElementById('toggle-pto');
         if (ptoToggle) {
             ptoToggle.addEventListener('change', (e) => {
@@ -66,20 +66,15 @@ const Form = {
         const timeOut = document.getElementById('time-out');
         const breakMin = document.getElementById('break-min');
 
-        // Only trigger if user hasn't already started entering times
         if (!timeIn.value && !timeOut.value) {
             timeIn.value = "08:00";
             timeOut.value = "17:00";
             breakMin.value = "60";
 
-            // Find first PTO job from the global state
-            // Ensure window.StechTimesheet.state.jobs is populated via getAttributes
             const ptoJob = window.StechTimesheet.state.jobs ? window.StechTimesheet.state.jobs.find(j => parseInt(j.is_pto) === 1) : null;
             
             if (ptoJob) {
-                // clear existing rows
                 document.getElementById('work-rows-container').innerHTML = '';
-                // Add the PTO job row
                 window.StechTimesheet.ActivityRows.add(ptoJob.job_name, 100);
             }
         }
@@ -107,18 +102,17 @@ const Form = {
     },
 
     open(date, id = null) {
-        this.currentId = id;
         this.reset();
+        this.currentId = id;
         document.getElementById('timesheet-date').value = date;
         const deleteBtn = document.getElementById('btn-delete');
 
         if (id) {
             window.StechTimesheet.API.getTimesheetDetails(id).then(data => {
-                // CHECK FOR LOCK/PAYROLL STATUS
-                // Assuming data.archive > 0 means it's locked/payrolled
                 if (parseInt(data.archive) === 1) {
-                   this.showCenteredError("This record is locked by Payroll and cannot be edited.");
-                   return; // Stop opening the edit modal
+                   this.showCenteredError("This record is locked/archived and cannot be edited.");
+                   this.currentId = null;
+                   return; 
                 }
 
                 deleteBtn.style.display = 'block';
@@ -149,6 +143,44 @@ const Form = {
         overlay.style.display = 'flex';
     },
 
+    // NEW: Custom Confirmation Modal for Archiving
+    showConfirmArchive() {
+        let overlay = document.getElementById('stech-confirm-archive');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'stech-confirm-archive';
+            // Reuse the centered error style structure for consistency
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background: rgba(0,0,0,0.6); z-index: 10002; display: none;
+                align-items: center; justify-content: center; backdrop-filter: blur(2px);
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        overlay.innerHTML = `
+            <div class="stech-error-content" style="border-top-color: #e67e22;">
+                <h3 style="color: #e67e22;">Archive Record?</h3>
+                <p>Are you sure you want to archive this entry? It will be hidden from the main view.</p>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                    <button id="btn-confirm-archive-yes" class="primary-button">Yes, Archive It</button>
+                    <button id="btn-confirm-archive-no" class="secondary-button">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        // Bind events
+        document.getElementById('btn-confirm-archive-yes').onclick = () => {
+            overlay.style.display = 'none';
+            this.executeArchive();
+        };
+        document.getElementById('btn-confirm-archive-no').onclick = () => {
+            overlay.style.display = 'none';
+        };
+
+        overlay.style.display = 'flex';
+    },
+
     mapDataToForm(data) {
         document.getElementById('time-in').value = data.time_in || '';
         document.getElementById('time-out').value = data.time_out || '';
@@ -156,7 +188,6 @@ const Form = {
         document.getElementById('total-hours').value = data.time_total || 0;
         document.getElementById('additional-comments').value = data.additional_comments || '';
         
-        // Handle State/Travel mapping safely
         const stateRev = window.StechTimesheet.state.stateMapRev || {};
         document.getElementById('travel-state').value = stateRev[data.travel_state] || '';
         document.getElementById('travel-county').value = data.travel_county || '';
@@ -184,9 +215,6 @@ const Form = {
     async handleSubmit() {
         const formData = this.getFormData();
         
-        // --- VALIDATION LOGIC ---
-        
-        // 1. Must have Sign In Time OR Request Per Diem
         const hasTimeIn = !!formData.time_in;
         const hasPerDiem = !!formData.req_per_diem;
         
@@ -199,11 +227,9 @@ const Form = {
             return;
         }
 
-        // 2. If Clock Out exists, Job Description is MANDATORY
         const hasTimeOut = !!formData.time_out;
         let hasDescription = false;
         
-        // Check if at least one description is filled
         if (formData.work_desc && formData.work_desc.length > 0) {
             hasDescription = formData.work_desc.some(desc => desc.trim() !== '');
         }
@@ -217,8 +243,6 @@ const Form = {
             return;
         }
 
-        // --- END VALIDATION ---
-
         try {
             const res = await window.StechTimesheet.API.saveTimesheet(formData);
             if (res.status === 'success') {
@@ -230,15 +254,24 @@ const Form = {
         }
     },
 
-    async handleDelete() {
-        if (!this.currentId || !confirm('Archive this record?')) return;
+    // Triggered by the "Delete" button in the form
+    handleDelete() {
+        if (!this.currentId) return;
+        this.showConfirmArchive();
+    },
+
+    // Triggered by the "Yes" button in the custom modal
+    async executeArchive() {
         try {
             const res = await window.StechTimesheet.API.deleteTimesheet(this.currentId);
             if (res.status === 'success') {
                 this.close();
                 window.StechTimesheet.Calendar.refresh();
+                if (window.OCP && window.OCP.Toast) {
+                    window.OCP.Toast.info("Record archived.");
+                }
             }
-        } catch (err) { console.error('Delete failed', err); }
+        } catch (err) { console.error('Archive failed', err); }
     },
 
     getFormData() {
@@ -272,7 +305,6 @@ const Form = {
         document.getElementById('travel-fields-container').style.display = 'none';
         document.getElementById('toggle-travel').checked = false;
         
-        // Reset PTO toggle if it exists
         const ptoToggle = document.getElementById('toggle-pto');
         if (ptoToggle) ptoToggle.checked = false;
     },

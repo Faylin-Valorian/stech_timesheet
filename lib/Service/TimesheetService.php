@@ -24,20 +24,24 @@ class TimesheetService {
 
     /**
      * Rebuilds the calendar event list exactly as seen in the original controller.
+     * UPDATED: Added $archive parameter to support filtering.
      */
-    public function getCalendarEvents(string $userId, string $start, string $end): array {
+    public function getCalendarEvents(string $userId, string $start, string $end, int $archive = 0): array {
         $events = [];
         $settings = $this->mapper->getAdminSettings();
-        $holidayBgMap = $this->getHolidayBgMap();
         
-        // 1. Restore Payroll Markers logic
-        $events = array_merge($events, $this->generatePayrollMarkers($settings, $start, $end));
+        // 1. Only generate Payroll Markers if we are looking at ACTIVE records
+        if ($archive === 0) {
+            $events = array_merge($events, $this->generatePayrollMarkers($settings, $start, $end));
+        }
 
-        // 2. Fetch raw entries and activity rows using the new Mapper
-        $results = $this->mapper->findRawEntries($userId, $start, $end);
+        // 2. Fetch raw entries using the Mapper (passing the archive flag)
+        $results = $this->mapper->findRawEntries($userId, $start, $end, $archive);
+        
         $ids = array_column($results, 'timesheet_id');
         $activities = $this->mapper->getActivitiesGrouped($ids);
         $ptoJobMap = $this->getPtoJobMap();
+        $holidayBgMap = $this->getHolidayBgMap();
         $today = date('Y-m-d');
 
         foreach ($results as $row) {
@@ -46,6 +50,20 @@ class TimesheetService {
             $date = $row['timesheet_date'];
             $isClosed = !empty($row['time_out']);
             $comments = $row['additional_comments'] ?? '';
+
+            // Handle Archived Styling
+            if ($archive === 1) {
+                // Simplified view for archived records
+                $title = $isClosed ? $totalHours . 'h (Archived)' : 'Incomplete (Archived)';
+                $events[] = [
+                    'id' => $tid,
+                    'title' => $title,
+                    'start' => $date,
+                    'color' => '#777777', // Gray for archived
+                    'extendedProps' => ['isClosed' => true, 'archive' => 1]
+                ];
+                continue; 
+            }
 
             // Restore Holiday style logic
             if (strpos($comments, 'Holiday:') === 0) {
@@ -103,6 +121,7 @@ class TimesheetService {
                 if ($regHours > 0.01 || !$isClosed) {
                     $color = $isClosed ? '#28a745' : '#ffc107';
                     $title = $isClosed ? round($regHours, 2) . ' hrs' : 'Active';
+                    
                     if ($date < $today && !$isClosed) { 
                         $color = '#dc3545'; 
                         $title = 'Missing Out'; 
@@ -190,11 +209,13 @@ class TimesheetService {
             $nextPay->modify("+$daysToAdd days"); 
         } else { 
             $nextPay = clone $payStart; 
-            while ($nextPay > $viewStart) $nextPay->modify("-$freq days"); 
-            while ($nextPay < $viewStart) $nextPay->modify("+$freq days"); 
+            $whileSafe = 0;
+            while ($nextPay > $viewStart && $whileSafe < 1000) { $nextPay->modify("-$freq days"); $whileSafe++; }
+            while ($nextPay < $viewStart && $whileSafe < 1000) { $nextPay->modify("+$freq days"); $whileSafe++; }
         }
 
-        while ($nextPay <= $viewEnd) {
+        $whileSafe = 0;
+        while ($nextPay <= $viewEnd && $whileSafe < 1000) {
             $markers[] = [
                 'id' => 'paid-' . $nextPay->format('Ymd'), 
                 'title' => 'Payroll', 
@@ -203,6 +224,7 @@ class TimesheetService {
                 'extendedProps' => ['isVisual' => true, 'isClosed' => true, 'customBg' => $payBg]
             ];
             $nextPay->modify("+$freq days");
+            $whileSafe++;
         }
         return $markers;
     }
