@@ -7,18 +7,21 @@ use OCP\AppFramework\Db\Entity;
 
 class Timesheet extends Entity {
     protected $userid;
-    protected $timesheetDate; // Maps to timesheet_date
-    protected $timeIn;        // Maps to time_in
-    protected $timeOut;       // Maps to time_out
-    protected $timeBreak;     // Maps to time_break
-    protected $timeTotal;     // Maps to time_total
+    protected $timesheetDate;
+    protected $timeIn;
+    protected $timeOut;
+    protected $timeBreak;
+    protected $timeTotal;
+    
+    // Missing Travel Fields Added:
     protected $travel;
-    protected $travelPerDiem; // Maps to travel_per_diem
-    protected $travelState;   // Maps to travel_state
-    protected $travelCounty;  // Maps to travel_county
-    protected $travelMiles;   // Maps to travel_miles
-    protected $travelExtraExpenses; // Maps to travel_extra_expenses
-    protected $additionalComments;  // Maps to additional_comments
+    protected $travelPerDiem;
+    protected $travelState;
+    protected $travelCounty;
+    protected $travelMiles;
+    protected $travelExtraExpenses;
+    
+    protected $additionalComments;
     protected $archive;
 
     public function __construct() {

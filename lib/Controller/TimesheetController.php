@@ -53,8 +53,9 @@ class TimesheetController extends Controller {
     /** @NoAdminRequired */
     public function saveTimesheet(): DataResponse {
         $data = $this->request->getParams();
-        $date = $data['date'] ?? null;
         
+        // 1. Validation
+        $date = $data['date'] ?? null;
         if (!$date) {
             return new DataResponse(['error' => 'Date is required.'], 400);
         }
@@ -63,6 +64,7 @@ class TimesheetController extends Controller {
             return new DataResponse(['error' => 'Start Time required unless Per Diem only.'], 400);
         }
 
+        // 2. Map strict to database columns
         $values = [
             'userid' => $this->userId,
             'timesheet_date' => $date,
@@ -82,6 +84,8 @@ class TimesheetController extends Controller {
 
         try {
             $qb = $this->db->getQueryBuilder();
+            
+            // 3. Update or Insert
             if (!empty($data['timesheet_id'])) {
                 $tid = (int)$data['timesheet_id'];
                 $qb->update('stech_timesheets');
@@ -97,27 +101,32 @@ class TimesheetController extends Controller {
                 }
                 $qb->executeStatement();
                 
-                // Use connection level lastInsertId with the table name to ensure valid ID
+                // CRITICAL FIX: Get ID from Connection, not QueryBuilder
                 $tid = (int)$this->db->lastInsertId('*PREFIX*stech_timesheets');
             }
 
-            if ($tid > 0) {
-                $this->db->prepare("DELETE FROM `*PREFIX*stech_activity` WHERE `timesheet_id` = ?")->execute([$tid]);
-                if (isset($data['work_desc']) && is_array($data['work_desc'])) {
-                    $stmt = $this->db->prepare("INSERT INTO `*PREFIX*stech_activity` (`timesheet_id`, `activity_description`, `activity_percent`) VALUES (?, ?, ?)");
-                    foreach ($data['work_desc'] as $idx => $desc) { 
-                        if (!empty($desc)) {
-                            $stmt->execute([$tid, $desc, (int)($data['work_percent'][$idx] ?? 0)]);
-                        }
-                    }
-                }
-            } else {
+            // 4. Verify ID
+            if ($tid <= 0) {
                 throw new \Exception("Database failed to return a valid Timesheet ID.");
             }
 
+            // 5. Activities Sync
+            $this->db->prepare("DELETE FROM `*PREFIX*stech_activity` WHERE `timesheet_id` = ?")->execute([$tid]);
+            
+            if (isset($data['work_desc']) && is_array($data['work_desc'])) {
+                $stmt = $this->db->prepare("INSERT INTO `*PREFIX*stech_activity` (`timesheet_id`, `activity_description`, `activity_percent`) VALUES (?, ?, ?)");
+                foreach ($data['work_desc'] as $idx => $desc) { 
+                    if (!empty($desc)) {
+                        $percent = (int)($data['work_percent'][$idx] ?? 0);
+                        $stmt->execute([$tid, $desc, $percent]);
+                    }
+                }
+            }
+            
             return new DataResponse(['status' => 'success', 'id' => $tid]);
 
         } catch (\Exception $e) {
+            // Returns the ACTUAL error to your browser console
             return new DataResponse(['error' => $e->getMessage()], 500);
         }
     }

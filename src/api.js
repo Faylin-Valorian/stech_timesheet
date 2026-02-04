@@ -17,12 +17,13 @@ export const StechAPI = {
 
     /**
      * Core Request Handler
-     * FIX: Handles array serialization for PHP backends.
+     * Automatically handles URLs, Target Users, and Nextcloud Request Tokens.
      */
     async request(method, endpoint, data = null) {
         let url = generateUrl('/apps/stech_timesheet' + endpoint);
         const target = this.getTargetUser();
         
+        // Append target_user to query string if present
         if (target) {
             url += (url.includes('?') ? '&' : '?') + 'target_user=' + target;
         }
@@ -30,15 +31,20 @@ export const StechAPI = {
         try {
             let payload = null;
 
+            // FIX: Manual Array Handling for PHP
+            // URLSearchParams flattens arrays, which breaks PHP's $_POST['array'] handling.
+            // We manually build the payload to append '[]' to array keys.
             if (method.toLowerCase() !== 'get' && data) {
-                // Use URLSearchParams for POST/PUT requests
                 payload = new URLSearchParams();
                 for (const key in data) {
                     if (Array.isArray(data[key])) {
-                        // FIX: Append array keys with [] so PHP parses them as arrays
+                        // Append array values with [] so PHP recognizes them as an array
                         data[key].forEach(val => payload.append(`${key}[]`, val));
                     } else {
-                        payload.append(key, data[key]);
+                        // Append regular values
+                        if (data[key] !== null && data[key] !== undefined) {
+                            payload.append(key, data[key]);
+                        }
                     }
                 }
             }
@@ -46,7 +52,9 @@ export const StechAPI = {
             const response = await axios({
                 method: method.toLowerCase(),
                 url: url,
-                data: payload,
+                // If it's a POST/PUT and we have data, send our manually built payload
+                data: (method.toLowerCase() !== 'get') ? payload : null,
+                // If it's a GET and we have data, axios handles it via 'params'
                 params: (method.toLowerCase() === 'get' && data) ? data : null
             });
             return response.data;
@@ -58,6 +66,7 @@ export const StechAPI = {
             if (window.OCP && window.OCP.Toast) {
                 window.OCP.Toast.error(errorMessage);
             } else {
+                // Fallback for environments where OCP.Toast is not yet available
                 console.error("Critical API Failure: " + errorMessage);
             }
             
