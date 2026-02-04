@@ -97,6 +97,11 @@ export const StechAPI = {
         return this.request('delete', `/api/timesheets/${id}`);
     },
 
+    // NEW: Restore function
+    restoreTimesheet(id) {
+        return this.request('post', `/api/timesheets/${id}/restore`);
+    },
+
     getAttributes() {
         return this.request('get', '/api/attributes');
     },

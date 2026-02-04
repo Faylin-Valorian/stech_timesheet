@@ -38,12 +38,11 @@
 
 /* Main Content Area - Grow to Fill */
 #app-content {
+    overflow-x: auto !important; /* Allow horizontal scroll */
+    overflow-y: auto !important; /* Allow vertical scroll */
+    height: 100vh;
+    padding-right: 15px; /* Buffer for scrollbar */
     flex-grow: 1;
-    height: 100%;
-    overflow: hidden;
-    position: relative;
-    /* Default to grey, but overwritten by anti-glow below */
-    background-color: var(--color-background-hover); 
 }
 
 /* Wrapper */
@@ -58,13 +57,18 @@
 #calendar-container {
     height: 100%;
     width: 100%;
+    /* FIX: Force minimum width to prevent squishing */
+    min-width: 800px; 
     background: var(--color-main-background);
     border-radius: var(--border-radius-large);
     box-shadow: 0 0 10px var(--color-box-shadow);
     padding: 15px;
+    /* FIX: Add bottom padding so scrollbar doesn't cover content */
+    padding-bottom: 50px; 
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
+    margin-right: 10px;
 }
 
 /* The Calendar Instance */
@@ -249,12 +253,13 @@
     color: var(--color-main-text);
     width: 80%; 
     max-width: 95%; 
-    max-height: 90vh; 
+    max-height: 90vh; /* Ensure it fits vertically */
     border-radius: var(--border-radius-large);
     box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
     display: flex;
     flex-direction: column;
     overflow: hidden; 
+    margin: 20px auto; /* Ensure centering margin */
 }
 
 /* 3. The Form Container */

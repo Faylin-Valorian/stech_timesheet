@@ -8,6 +8,7 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IUserSession;
 use OCP\IDBConnection;
+use OCP\IGroupManager; // Added for permission checks
 use OCA\StechTimesheet\Service\TimesheetService;
 use OCA\StechTimesheet\Db\TimesheetMapper;
 
@@ -16,14 +17,22 @@ class TimesheetController extends Controller {
     private $service;
     private $mapper;
     private $db;
+    private $groupManager; // Added
     private $userId;
 
-    public function __construct(IRequest $request, IUserSession $userSession, TimesheetService $service, TimesheetMapper $mapper, IDBConnection $db) {
+    // UPDATED Constructor: Added IGroupManager
+    public function __construct(IRequest $request, 
+                                IUserSession $userSession, 
+                                TimesheetService $service, 
+                                TimesheetMapper $mapper, 
+                                IDBConnection $db,
+                                IGroupManager $groupManager) {
         parent::__construct('stech_timesheet', $request);
         $this->userSession = $userSession;
         $this->service = $service;
         $this->mapper = $mapper;
         $this->db = $db;
+        $this->groupManager = $groupManager;
         $this->userId = $userSession->getUser() ? $userSession->getUser()->getUID() : null;
     }
 
@@ -37,9 +46,7 @@ class TimesheetController extends Controller {
         return new DataResponse($this->mapper->getCountiesByState($stateAbbr));
     }
 
-    /** * @NoAdminRequired 
-     * UPDATED: Accepts 'archive' parameter to filter events
-     */
+    /** @NoAdminRequired */
     public function getTimesheets(string $start, string $end): DataResponse {
         $archive = (int)$this->request->getParam('archive', 0);
         return new DataResponse($this->service->getCalendarEvents($this->userId, $start, $end, $archive));
@@ -49,7 +56,17 @@ class TimesheetController extends Controller {
     public function getTimesheet(int $id): DataResponse {
         $ts = $this->mapper->getTimesheetById($id, $this->userId);
         if (!$ts) return new DataResponse([], 404);
+        
         $ts['activities'] = $this->mapper->getActivitiesByTimesheet($id);
+        
+        // NEW: Check if user is Admin and pass flag to frontend
+        $isAdmin = $this->groupManager->isAdmin($this->userId);
+        
+        // Example: If you want to add other groups later, do it here:
+        // if (!$isAdmin) $isAdmin = $this->groupManager->isInGroup($this->userId, 'Timesheet Admins');
+
+        $ts['is_admin'] = $isAdmin;
+
         return new DataResponse($ts);
     }
 
@@ -80,7 +97,7 @@ class TimesheetController extends Controller {
             'travel_county' => $data['county'] ?? null,
             'travel_miles' => (int)($data['miles'] ?? 0),
             'travel_extra_expenses' => (float)($data['extra_expense'] ?? 0),
-            'archive' => 0
+            'archive' => 0 // Saving always makes it active
         ];
 
         try {
@@ -100,7 +117,6 @@ class TimesheetController extends Controller {
                 }
                 $qb->executeStatement();
                 
-                // Use connection level lastInsertId with the table name to ensure valid ID
                 $tid = (int)$this->db->lastInsertId('*PREFIX*stech_timesheets');
             }
 
@@ -125,11 +141,18 @@ class TimesheetController extends Controller {
         }
     }
 
-    /** * @NoAdminRequired 
-     * Archives the record by setting archive = 1
-     */
+    /** @NoAdminRequired */
     public function deleteTimesheet(int $id): DataResponse {
         $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 1 WHERE `timesheet_id` = ? AND `userid` = ?";
+        $this->db->prepare($sql)->execute([$id, $this->userId]);
+        return new DataResponse(['status' => 'success']);
+    }
+
+    /** * @NoAdminRequired 
+     * NEW: Un-archives the record
+     */
+    public function restoreTimesheet(int $id): DataResponse {
+        $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 0 WHERE `timesheet_id` = ? AND `userid` = ?";
         $this->db->prepare($sql)->execute([$id, $this->userId]);
         return new DataResponse(['status' => 'success']);
     }

@@ -1,90 +1,93 @@
 import { StechAPI } from './api.js';
-import { ActivityRows } from './rows.js';
-import { Calendar } from './calendar.js';
 import { Form } from './form.js';
+import { Calendar } from './calendar.js';
+import { generateUrl } from '@nextcloud/router'; // Required for navigation
 
-/**
- * Main Application Orchestrator
- * Bootstraps the application and handles global state.
- */
-// FIX: Force immediate namespace initialization to prevent race conditions
 window.StechTimesheet = window.StechTimesheet || {};
+window.StechTimesheet.API = StechAPI;
+window.StechTimesheet.Form = Form;
+window.StechTimesheet.Calendar = Calendar;
+window.StechTimesheet.state = {
+    jobs: [],
+    stateMap: {},
+    stateMapRev: {}
+};
 
-Object.assign(window.StechTimesheet, {
-    API: StechAPI,
-    ActivityRows: ActivityRows,
-    Calendar: Calendar,
-    Form: Form,
-    state: {
-        jobOptions: [],
-        stateMap: {},
-        stateMapRev: {}
-    },
+document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Load Initial Data
+    try {
+        const attributes = await StechAPI.getAttributes();
+        window.StechTimesheet.state.jobs = attributes.jobs || [];
+        
+        attributes.states.forEach(s => {
+            window.StechTimesheet.state.stateMap[s.state_name] = s.state_abbr;
+            window.StechTimesheet.state.stateMapRev[s.state_abbr] = s.state_name;
+        });
 
-    /**
-     * Calculates total hours based on Time In, Time Out, and Break Duration.
-     */
-    calculateTotalHours() {
-        const timeInVal = document.getElementById("time-in").value;
-        const timeOutVal = document.getElementById("time-out").value;
-        const breakMin = parseInt(document.getElementById("break-min").value) || 0;
-        const totalDisplay = document.getElementById("total-hours");
-
-        if (timeInVal && timeOutVal) {
-            let start = new Date(`2000-01-01T${timeInVal}`);
-            let end = new Date(`2000-01-01T${timeOutVal}`);
-
-            // Handle overnight shifts
-            if (end < start) {
-                end.setDate(end.getDate() + 1);
-            }
-
-            const diffMinutes = Math.floor((end - start) / 60000) - breakMin;
-            totalDisplay.value = (diffMinutes > 0 ? diffMinutes / 60 : 0).toFixed(2);
-        } else {
-            totalDisplay.value = "0.00";
+        // Populate State Dropdown
+        const stateSelect = document.getElementById('travel-state');
+        if (stateSelect) {
+            stateSelect.innerHTML = '<option value="">Select State...</option>';
+            attributes.states.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.state_name;
+                opt.textContent = s.state_name;
+                stateSelect.appendChild(opt);
+            });
         }
+    } catch (e) {
+        console.error("Failed to load attributes", e);
     }
+
+    // 2. Initialize Components
+    Form.init();
+    Calendar.init(document.getElementById('calendar'));
+
+    // 3. FIX: Navigation Buttons
+    // These match the IDs in your sidebar templates
+    document.querySelector('a[href="/analysis"]')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.href = generateUrl('/apps/stech_timesheet/analysis');
+    });
+
+    document.querySelector('a[href="/admin"]')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.href = generateUrl('/apps/stech_timesheet/admin');
+    });
 });
 
-/**
- * Global Initialization
- */
-document.addEventListener("DOMContentLoaded", () => {
-    // Initialize Form listeners
-    window.StechTimesheet.Form.init();
+// 4. FIX: Activity Row Builder (Now uses <select>)
+window.StechTimesheet.ActivityRows = {
+    add: (desc = '', percent = 0) => {
+        const container = document.getElementById('work-rows-container');
+        if (!container) return;
 
-    // Fetch required attributes for form dropdowns
-    window.StechTimesheet.API.getAttributes().then(data => {
-        if (data.jobs) {
-            window.StechTimesheet.state.jobOptions = data.jobs;
-        }
-
-        const stateDatalist = document.getElementById("state-options");
-        if (stateDatalist && data.states) {
-            data.states.forEach(state => {
-                const opt = document.createElement("option");
-                opt.value = state.state_name;
-                stateDatalist.appendChild(opt);
-                
-                // Map state names to abbreviations for county lookups
-                window.StechTimesheet.state.stateMap[state.state_name] = state.state_abbr;
-                window.StechTimesheet.state.stateMapRev[state.state_abbr] = state.state_name;
+        const row = document.createElement('div');
+        row.className = 'work-row';
+        
+        // Build Job Options
+        let optionsHtml = '<option value="">Select Job...</option>';
+        if (window.StechTimesheet.state.jobs) {
+            window.StechTimesheet.state.jobs.forEach(job => {
+                // Check if this job matches the passed description (for editing)
+                const selected = job.job_name === desc ? 'selected' : '';
+                optionsHtml += `<option value="${job.job_name}" ${selected}>${job.job_name}</option>`;
             });
         }
 
-        // Initialize Calendar after attributes are ready
-        const calendarEl = document.getElementById("calendar");
-        if (calendarEl) {
-            window.StechTimesheet.Calendar.init(calendarEl);
-        }
-    }).catch(err => {
-        console.error("Failed to initialize application attributes:", err);
-    });
+        row.innerHTML = `
+            <select class="work-desc" style="flex-grow: 1; margin-right: 10px;">
+                ${optionsHtml}
+            </select>
+            <input type="number" class="work-percent" placeholder="%" value="${percent}" min="0" max="100" style="width: 80px;">
+            <button class="btn-remove-row" tabindex="-1">&times;</button>
+        `;
 
-    // FIX: Attach calculation listeners to correct IDs for real-time updates
-    const calcInputs = ["time-in", "time-out", "break-min"];
-    calcInputs.forEach(id => {
-        document.getElementById(id)?.addEventListener("input", () => window.StechTimesheet.calculateTotalHours());
-    });
-});
+        row.querySelector('.btn-remove-row').addEventListener('click', (e) => {
+            e.preventDefault();
+            row.remove();
+        });
+
+        container.appendChild(row);
+    }
+};

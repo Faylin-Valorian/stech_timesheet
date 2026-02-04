@@ -7,6 +7,7 @@ window.StechTimesheet = window.StechTimesheet || {};
 const Form = {
     currentId: null,
     isLocked: false,
+    isArchivedRecord: false, // State flag for Archive/Restore logic
 
     init() {
         this.setupEventListeners();
@@ -20,9 +21,14 @@ const Form = {
             this.handleSubmit();
         });
 
+        // Button handles both Delete and Restore based on state
         document.getElementById('btn-delete').addEventListener('click', (e) => {
             e.preventDefault();
-            this.handleDelete(); // Now opens custom modal
+            if (this.isArchivedRecord) {
+                this.handleRestore();
+            } else {
+                this.handleDelete();
+            }
         });
 
         document.querySelectorAll('.close-modal, .secondary-button').forEach(btn => {
@@ -32,12 +38,48 @@ const Form = {
             });
         });
         
-        // Close centered error on click
         const errorOverlay = document.getElementById('stech-centered-error');
         if(errorOverlay) {
             errorOverlay.addEventListener('click', () => {
                 errorOverlay.style.display = 'none';
             });
+        }
+
+        // NEW: Auto-Calculate Total Hours on Input Change
+        ['time-in', 'time-out', 'break-min'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.addEventListener('change', () => this.calculateTotal());
+            }
+        });
+    },
+
+    // NEW: Calculation Logic
+    calculateTotal() {
+        const tIn = document.getElementById('time-in').value;
+        const tOut = document.getElementById('time-out').value;
+        const breakMin = parseInt(document.getElementById('break-min').value) || 0;
+        const totalInput = document.getElementById('total-hours');
+
+        if (tIn && tOut) {
+            // Use a dummy date to compare times
+            const d1 = new Date(`2000-01-01T${tIn}`);
+            const d2 = new Date(`2000-01-01T${tOut}`);
+            
+            // Handle overnight shifts (if out is before in, assume next day)
+            if (d2 < d1) d2.setDate(d2.getDate() + 1);
+
+            let diffMs = d2 - d1;
+            let diffMins = Math.floor(diffMs / 60000);
+            
+            // Subtract break
+            diffMins -= breakMin;
+
+            if (diffMins < 0) diffMins = 0;
+
+            // Convert to decimal hours (e.g. 8.50)
+            const hours = (diffMins / 60).toFixed(2);
+            totalInput.value = hours;
         }
     },
 
@@ -50,7 +92,6 @@ const Form = {
             });
         }
 
-        // PTO Auto-fill Logic
         const ptoToggle = document.getElementById('toggle-pto');
         if (ptoToggle) {
             ptoToggle.addEventListener('change', (e) => {
@@ -66,15 +107,25 @@ const Form = {
         const timeOut = document.getElementById('time-out');
         const breakMin = document.getElementById('break-min');
 
+        // Only fill if empty (prevent overwriting user data)
         if (!timeIn.value && !timeOut.value) {
             timeIn.value = "08:00";
             timeOut.value = "17:00";
             breakMin.value = "60";
 
-            const ptoJob = window.StechTimesheet.state.jobs ? window.StechTimesheet.state.jobs.find(j => parseInt(j.is_pto) === 1) : null;
+            // FIX: Trigger calculation immediately so "Total Hours" updates
+            this.calculateTotal();
+
+            // FIX: Find the PTO job and select it in the dropdown
+            const ptoJob = window.StechTimesheet.state.jobs 
+                ? window.StechTimesheet.state.jobs.find(j => parseInt(j.is_pto) === 1) 
+                : null;
             
             if (ptoJob) {
+                // Clear existing rows
                 document.getElementById('work-rows-container').innerHTML = '';
+                // Add row with PTO job name
+                // Note: This relies on ActivityRows.add() creating a <select> with this value
                 window.StechTimesheet.ActivityRows.add(ptoJob.job_name, 100);
             }
         }
@@ -106,16 +157,39 @@ const Form = {
         this.currentId = id;
         document.getElementById('timesheet-date').value = date;
         const deleteBtn = document.getElementById('btn-delete');
+        
+        // Default Button State
+        deleteBtn.textContent = "Delete";
+        deleteBtn.style.backgroundColor = ''; // Reset color
+        this.isArchivedRecord = false;
 
         if (id) {
             window.StechTimesheet.API.getTimesheetDetails(id).then(data => {
-                if (parseInt(data.archive) === 1) {
-                   this.showCenteredError("This record is locked/archived and cannot be edited.");
-                   this.currentId = null;
-                   return; 
+                const isArchived = parseInt(data.archive) === 1;
+                const isAdmin = data.is_admin; // Flag from controller
+
+                if (isArchived) {
+                    if (!isAdmin) {
+                        // User is NOT admin -> Locked out
+                        this.showCenteredError("This record is locked/archived and cannot be edited.");
+                        this.currentId = null;
+                        return; 
+                    } else {
+                        // User IS admin -> Allow Access + Restore Mode
+                        this.isArchivedRecord = true;
+                        deleteBtn.textContent = "Restore Record";
+                        deleteBtn.style.backgroundColor = '#28a745'; // Green for restore
+                        deleteBtn.style.display = 'block';
+                        
+                        if (window.OCP && window.OCP.Toast) {
+                            window.OCP.Toast.info("Admin Override: Editing Archived Record");
+                        }
+                    }
+                } else {
+                    // Standard Active Record
+                    deleteBtn.style.display = 'block';
                 }
 
-                deleteBtn.style.display = 'block';
                 this.mapDataToForm(data);
                 document.getElementById('timesheet-modal').style.display = 'flex';
             }).catch(err => {
@@ -143,13 +217,12 @@ const Form = {
         overlay.style.display = 'flex';
     },
 
-    // NEW: Custom Confirmation Modal for Archiving
+    // Archive Confirmation
     showConfirmArchive() {
         let overlay = document.getElementById('stech-confirm-archive');
         if (!overlay) {
             overlay = document.createElement('div');
             overlay.id = 'stech-confirm-archive';
-            // Reuse the centered error style structure for consistency
             overlay.style.cssText = `
                 position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
                 background: rgba(0,0,0,0.6); z-index: 10002; display: none;
@@ -169,12 +242,48 @@ const Form = {
             </div>
         `;
 
-        // Bind events
+        // Bind events (using onclick to avoid duplicate listeners if overlay persists)
         document.getElementById('btn-confirm-archive-yes').onclick = () => {
             overlay.style.display = 'none';
             this.executeArchive();
         };
         document.getElementById('btn-confirm-archive-no').onclick = () => {
+            overlay.style.display = 'none';
+        };
+
+        overlay.style.display = 'flex';
+    },
+
+    // Restore Confirmation
+    showConfirmRestore() {
+        let overlay = document.getElementById('stech-confirm-restore');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'stech-confirm-restore';
+            overlay.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                background: rgba(0,0,0,0.6); z-index: 10002; display: none;
+                align-items: center; justify-content: center; backdrop-filter: blur(2px);
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        overlay.innerHTML = `
+            <div class="stech-error-content" style="border-top-color: #28a745;">
+                <h3 style="color: #28a745;">Restore Record?</h3>
+                <p>This will move the record back to the active list.</p>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                    <button id="btn-confirm-restore-yes" class="primary-button" style="background-color: #28a745;">Yes, Restore It</button>
+                    <button id="btn-confirm-restore-no" class="secondary-button">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('btn-confirm-restore-yes').onclick = () => {
+            overlay.style.display = 'none';
+            this.executeRestore();
+        };
+        document.getElementById('btn-confirm-restore-no').onclick = () => {
             overlay.style.display = 'none';
         };
 
@@ -254,13 +363,16 @@ const Form = {
         }
     },
 
-    // Triggered by the "Delete" button in the form
     handleDelete() {
         if (!this.currentId) return;
         this.showConfirmArchive();
     },
 
-    // Triggered by the "Yes" button in the custom modal
+    handleRestore() {
+        if (!this.currentId) return;
+        this.showConfirmRestore();
+    },
+
     async executeArchive() {
         try {
             const res = await window.StechTimesheet.API.deleteTimesheet(this.currentId);
@@ -272,6 +384,19 @@ const Form = {
                 }
             }
         } catch (err) { console.error('Archive failed', err); }
+    },
+
+    async executeRestore() {
+        try {
+            const res = await window.StechTimesheet.API.restoreTimesheet(this.currentId);
+            if (res.status === 'success') {
+                this.close();
+                window.StechTimesheet.Calendar.refresh();
+                if (window.OCP && window.OCP.Toast) {
+                    window.OCP.Toast.success("Record restored!");
+                }
+            }
+        } catch (err) { console.error('Restore failed', err); }
     },
 
     getFormData() {
@@ -300,6 +425,7 @@ const Form = {
 
     reset() {
         this.currentId = null;
+        this.isArchivedRecord = false; // Reset state
         document.getElementById('timesheet-form').reset();
         document.getElementById('work-rows-container').innerHTML = '';
         document.getElementById('travel-fields-container').style.display = 'none';

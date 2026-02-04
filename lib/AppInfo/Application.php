@@ -39,9 +39,6 @@ class Application extends App implements IBootstrap {
 
     public function register(IRegistrationContext $context): void {
         
-        // --- REMOVED INCORRECT JOB REGISTRATION ---
-        // The job must be registered in appinfo/info.xml instead.
-
         // --- Register Mappers ---
         $context->registerService(TimesheetMapper::class, function($c) {
             return new TimesheetMapper($c->get(IDBConnection::class));
@@ -97,13 +94,15 @@ class Application extends App implements IBootstrap {
             );
         });
 
+        // UPDATED: Added IGroupManager injection
         $context->registerService(TimesheetController::class, function ($c) {
             return new TimesheetController(
                 $c->get(IRequest::class),
                 $c->get(IUserSession::class),
                 $c->get(TimesheetService::class),
                 $c->get(TimesheetMapper::class),
-                $c->get(IDBConnection::class)
+                $c->get(IDBConnection::class),
+                $c->get(IGroupManager::class) 
             );
         });
 

@@ -14,9 +14,10 @@ return [
         ['name' => 'timesheet#getTimesheets', 'url' => '/api/timesheets', 'verb' => 'GET'],
         ['name' => 'timesheet#saveTimesheet', 'url' => '/api/timesheets', 'verb' => 'POST'],
         ['name' => 'timesheet#getTimesheet', 'url' => '/api/timesheets/{id}', 'verb' => 'GET'],
-        
-        // FIX: Explicitly allow DELETE verb for this route
         ['name' => 'timesheet#deleteTimesheet', 'url' => '/api/timesheets/{id}', 'verb' => 'DELETE'],
+        
+        // NEW: Route for restoring archived records
+        ['name' => 'timesheet#restoreTimesheet', 'url' => '/api/timesheets/{id}/restore', 'verb' => 'POST'],
 
         // API: Analysis
         ['name' => 'analysis#getFilters', 'url' => '/api/analysis/filters', 'verb' => 'GET'],
