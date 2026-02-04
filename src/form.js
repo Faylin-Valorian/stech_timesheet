@@ -31,6 +31,15 @@ const Form = {
             }
         });
 
+        // FIX: Added Listener for "Add Item" button to handle Percent logic
+        document.getElementById('btn-add-row')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            // If list is empty, default new row to 100%. Otherwise 0%.
+            const existingRows = document.querySelectorAll('.work-row').length;
+            const defaultPercent = existingRows === 0 ? 100 : 0;
+            window.StechTimesheet.ActivityRows.add('', defaultPercent);
+        });
+
         document.querySelectorAll('.close-modal, .secondary-button').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -45,7 +54,7 @@ const Form = {
             });
         }
 
-        // NEW: Auto-Calculate Total Hours on Input Change
+        // Auto-Calculate Total Hours on Input Change
         ['time-in', 'time-out', 'break-min'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
@@ -54,7 +63,7 @@ const Form = {
         });
     },
 
-    // NEW: Calculation Logic
+    // Calculation Logic
     calculateTotal() {
         const tIn = document.getElementById('time-in').value;
         const tOut = document.getElementById('time-out').value;
@@ -113,10 +122,10 @@ const Form = {
             timeOut.value = "17:00";
             breakMin.value = "60";
 
-            // FIX: Trigger calculation immediately so "Total Hours" updates
+            // Trigger calculation immediately so "Total Hours" updates
             this.calculateTotal();
 
-            // FIX: Find the PTO job and select it in the dropdown
+            // Find the PTO job and select it in the dropdown
             const ptoJob = window.StechTimesheet.state.jobs 
                 ? window.StechTimesheet.state.jobs.find(j => parseInt(j.is_pto) === 1) 
                 : null;
@@ -124,8 +133,7 @@ const Form = {
             if (ptoJob) {
                 // Clear existing rows
                 document.getElementById('work-rows-container').innerHTML = '';
-                // Add row with PTO job name
-                // Note: This relies on ActivityRows.add() creating a <select> with this value
+                // Add row with PTO job name and 100%
                 window.StechTimesheet.ActivityRows.add(ptoJob.job_name, 100);
             }
         }
@@ -160,17 +168,16 @@ const Form = {
         
         // Default Button State
         deleteBtn.textContent = "Delete";
-        deleteBtn.style.backgroundColor = ''; // Reset color
+        deleteBtn.style.backgroundColor = ''; 
         this.isArchivedRecord = false;
 
         if (id) {
             window.StechTimesheet.API.getTimesheetDetails(id).then(data => {
                 const isArchived = parseInt(data.archive) === 1;
-                const isAdmin = data.is_admin; // Flag from controller
+                const isAdmin = data.is_admin; 
 
                 if (isArchived) {
                     if (!isAdmin) {
-                        // User is NOT admin -> Locked out
                         this.showCenteredError("This record is locked/archived and cannot be edited.");
                         this.currentId = null;
                         return; 
@@ -178,7 +185,7 @@ const Form = {
                         // User IS admin -> Allow Access + Restore Mode
                         this.isArchivedRecord = true;
                         deleteBtn.textContent = "Restore Record";
-                        deleteBtn.style.backgroundColor = '#28a745'; // Green for restore
+                        deleteBtn.style.backgroundColor = '#28a745';
                         deleteBtn.style.display = 'block';
                         
                         if (window.OCP && window.OCP.Toast) {
@@ -186,7 +193,6 @@ const Form = {
                         }
                     }
                 } else {
-                    // Standard Active Record
                     deleteBtn.style.display = 'block';
                 }
 
@@ -196,8 +202,10 @@ const Form = {
                 console.error("Error fetching details", err);
             });
         } else {
+            // NEW ENTRY MODE
             deleteBtn.style.display = 'none';
-            window.StechTimesheet.ActivityRows.add();
+            // FIX: Default new row to 100%
+            window.StechTimesheet.ActivityRows.add('', 100);
             document.getElementById('timesheet-modal').style.display = 'flex';
         }
     },
@@ -217,7 +225,6 @@ const Form = {
         overlay.style.display = 'flex';
     },
 
-    // Archive Confirmation
     showConfirmArchive() {
         let overlay = document.getElementById('stech-confirm-archive');
         if (!overlay) {
@@ -242,7 +249,6 @@ const Form = {
             </div>
         `;
 
-        // Bind events (using onclick to avoid duplicate listeners if overlay persists)
         document.getElementById('btn-confirm-archive-yes').onclick = () => {
             overlay.style.display = 'none';
             this.executeArchive();
@@ -254,7 +260,6 @@ const Form = {
         overlay.style.display = 'flex';
     },
 
-    // Restore Confirmation
     showConfirmRestore() {
         let overlay = document.getElementById('stech-confirm-restore');
         if (!overlay) {
@@ -317,7 +322,8 @@ const Form = {
         if (activities && activities.length > 0) {
             activities.forEach(act => window.StechTimesheet.ActivityRows.add(act.activity_description, act.activity_percent));
         } else {
-            window.StechTimesheet.ActivityRows.add();
+            // Default 100% if opened but empty
+            window.StechTimesheet.ActivityRows.add('', 100);
         }
     },
 
@@ -425,7 +431,7 @@ const Form = {
 
     reset() {
         this.currentId = null;
-        this.isArchivedRecord = false; // Reset state
+        this.isArchivedRecord = false;
         document.getElementById('timesheet-form').reset();
         document.getElementById('work-rows-container').innerHTML = '';
         document.getElementById('travel-fields-container').style.display = 'none';

@@ -9,7 +9,6 @@ export const StechAPI = {
 
     /**
      * Retrieves the target user UID from the global hidden input.
-     * Used for Admin/Manager views to fetch another user's data.
      */
     getTargetUser() {
         return document.getElementById('global-target-user')?.value || null;
@@ -17,30 +16,34 @@ export const StechAPI = {
 
     /**
      * Core Request Handler
-     * Automatically handles URLs, Target Users, and Nextcloud Request Tokens.
      */
     async request(method, endpoint, data = null) {
         let url = generateUrl('/apps/stech_timesheet' + endpoint);
         const target = this.getTargetUser();
+        const isGet = method.toLowerCase() === 'get';
         
-        // Append target_user to query string if present
+        // FIX: Handle Target User injection correctly for GET vs POST
         if (target) {
-            url += (url.includes('?') ? '&' : '?') + 'target_user=' + target;
+            if (isGet) {
+                // For GET: Add to params object so Axios merges it into the Query String
+                data = data || {};
+                data['target_user'] = target;
+            } else {
+                // For POST/PUT: Append to URL string
+                url += (url.includes('?') ? '&' : '?') + 'target_user=' + target;
+            }
         }
 
         try {
             let payload = null;
 
-            // FIX: Manual Array Handling for PHP
-            // URLSearchParams flattens arrays, which breaks PHP's $_POST['array'] handling.
-            if (method.toLowerCase() !== 'get' && data) {
+            // Manual Array Handling for PHP (Only for non-GET)
+            if (!isGet && data) {
                 payload = new URLSearchParams();
                 for (const key in data) {
                     if (Array.isArray(data[key])) {
-                        // Append array values with [] so PHP recognizes them as an array
                         data[key].forEach(val => payload.append(`${key}[]`, val));
                     } else {
-                        // Append regular values
                         if (data[key] !== null && data[key] !== undefined) {
                             payload.append(key, data[key]);
                         }
@@ -51,23 +54,18 @@ export const StechAPI = {
             const response = await axios({
                 method: method.toLowerCase(),
                 url: url,
-                // If it's a POST/PUT and we have data, send our manually built payload
-                data: (method.toLowerCase() !== 'get') ? payload : null,
-                // If it's a GET and we have data, axios handles it via 'params'
-                params: (method.toLowerCase() === 'get' && data) ? data : null
+                // POST/PUT use 'data'
+                data: (!isGet) ? payload : null,
+                // GET uses 'params'
+                params: (isGet && data) ? data : null
             });
             return response.data;
         } catch (error) {
             console.error(`StechAPI Error on ${endpoint}:`, error);
-            
             const errorMessage = error.response?.data?.error || error.response?.data?.message || "An unexpected error occurred.";
-            
             if (window.OCP && window.OCP.Toast) {
                 window.OCP.Toast.error(errorMessage);
-            } else {
-                console.error("Critical API Failure: " + errorMessage);
             }
-            
             throw error;
         }
     },
@@ -76,7 +74,6 @@ export const StechAPI = {
     //  1. TIMESHEET ENDPOINTS
     // =========================================================
     
-    // UPDATED: Added archive parameter (defaults to 0 for active)
     getTimesheets(start, end, archive = 0) {
         return this.request('get', '/api/timesheets', { start, end, archive });
     },
@@ -97,7 +94,6 @@ export const StechAPI = {
         return this.request('delete', `/api/timesheets/${id}`);
     },
 
-    // NEW: Restore function
     restoreTimesheet(id) {
         return this.request('post', `/api/timesheets/${id}/restore`);
     },

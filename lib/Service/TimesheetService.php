@@ -117,8 +117,10 @@ class TimesheetService {
                     'extendedProps' => ['isClosed' => true]
                 ];
             } else {
-                // Regular Entry Marker
-                if ($regHours > 0.01 || !$isClosed) {
+                // Regular Entry Marker (Green/Yellow Tab)
+                // FIX: Added condition to show event if Total Hours are 0 but record exists.
+                // This prevents "Ghost Records" that are closed but have 0.00 hours.
+                if ($regHours > 0.01 || !$isClosed || ($totalHours < 0.01 && $ptoHours < 0.01)) {
                     $color = $isClosed ? '#28a745' : '#ffc107';
                     $title = $isClosed ? round($regHours, 2) . ' hrs' : 'Active';
                     

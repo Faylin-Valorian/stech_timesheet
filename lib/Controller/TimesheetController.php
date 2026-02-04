@@ -8,7 +8,7 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IUserSession;
 use OCP\IDBConnection;
-use OCP\IGroupManager; // Added for permission checks
+use OCP\IGroupManager;
 use OCA\StechTimesheet\Service\TimesheetService;
 use OCA\StechTimesheet\Db\TimesheetMapper;
 
@@ -17,10 +17,8 @@ class TimesheetController extends Controller {
     private $service;
     private $mapper;
     private $db;
-    private $groupManager; // Added
-    private $userId;
+    private $groupManager;
 
-    // UPDATED Constructor: Added IGroupManager
     public function __construct(IRequest $request, 
                                 IUserSession $userSession, 
                                 TimesheetService $service, 
@@ -33,7 +31,29 @@ class TimesheetController extends Controller {
         $this->mapper = $mapper;
         $this->db = $db;
         $this->groupManager = $groupManager;
-        $this->userId = $userSession->getUser() ? $userSession->getUser()->getUID() : null;
+    }
+
+    /**
+     * Helper: Determines if we should load the logged-in user OR the target user.
+     */
+    private function getEffectiveUserId(): string {
+        $currentUser = $this->userSession->getUser();
+        if (!$currentUser) {
+            return ''; 
+        }
+        
+        $currentUid = $currentUser->getUID();
+        $targetUid = $this->request->getParam('target_user');
+
+        // If target is requested and is different from current user
+        if ($targetUid && $targetUid !== $currentUid) {
+            // Security Check: Only Admins can swap view
+            if ($this->groupManager->isAdmin($currentUid)) {
+                return $targetUid;
+            }
+        }
+        
+        return $currentUid;
     }
 
     /** @NoAdminRequired */
@@ -48,23 +68,23 @@ class TimesheetController extends Controller {
 
     /** @NoAdminRequired */
     public function getTimesheets(string $start, string $end): DataResponse {
+        $uid = $this->getEffectiveUserId(); // FIX: Use effective ID
         $archive = (int)$this->request->getParam('archive', 0);
-        return new DataResponse($this->service->getCalendarEvents($this->userId, $start, $end, $archive));
+        return new DataResponse($this->service->getCalendarEvents($uid, $start, $end, $archive));
     }
 
     /** @NoAdminRequired */
     public function getTimesheet(int $id): DataResponse {
-        $ts = $this->mapper->getTimesheetById($id, $this->userId);
+        $uid = $this->getEffectiveUserId(); // FIX: Use effective ID
+        $ts = $this->mapper->getTimesheetById($id, $uid);
+        
         if (!$ts) return new DataResponse([], 404);
         
         $ts['activities'] = $this->mapper->getActivitiesByTimesheet($id);
         
-        // NEW: Check if user is Admin and pass flag to frontend
-        $isAdmin = $this->groupManager->isAdmin($this->userId);
-        
-        // Example: If you want to add other groups later, do it here:
-        // if (!$isAdmin) $isAdmin = $this->groupManager->isInGroup($this->userId, 'Timesheet Admins');
-
+        // Pass admin flag to frontend
+        $currentUser = $this->userSession->getUser();
+        $isAdmin = $currentUser && $this->groupManager->isAdmin($currentUser->getUID());
         $ts['is_admin'] = $isAdmin;
 
         return new DataResponse($ts);
@@ -72,6 +92,7 @@ class TimesheetController extends Controller {
 
     /** @NoAdminRequired */
     public function saveTimesheet(): DataResponse {
+        $uid = $this->getEffectiveUserId(); // FIX: Use effective ID (saves to target user's calendar)
         $data = $this->request->getParams();
         $date = $data['date'] ?? null;
         
@@ -84,7 +105,7 @@ class TimesheetController extends Controller {
         }
 
         $values = [
-            'userid' => $this->userId,
+            'userid' => $uid, 
             'timesheet_date' => $date,
             'time_in' => !empty($data['time_in']) ? $data['time_in'] : null,
             'time_out' => !empty($data['time_out']) ? $data['time_out'] : null,
@@ -97,7 +118,7 @@ class TimesheetController extends Controller {
             'travel_county' => $data['county'] ?? null,
             'travel_miles' => (int)($data['miles'] ?? 0),
             'travel_extra_expenses' => (float)($data['extra_expense'] ?? 0),
-            'archive' => 0 // Saving always makes it active
+            'archive' => 0 
         ];
 
         try {
@@ -143,17 +164,17 @@ class TimesheetController extends Controller {
 
     /** @NoAdminRequired */
     public function deleteTimesheet(int $id): DataResponse {
+        $uid = $this->getEffectiveUserId(); // FIX: Use effective ID
         $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 1 WHERE `timesheet_id` = ? AND `userid` = ?";
-        $this->db->prepare($sql)->execute([$id, $this->userId]);
+        $this->db->prepare($sql)->execute([$id, $uid]);
         return new DataResponse(['status' => 'success']);
     }
 
-    /** * @NoAdminRequired 
-     * NEW: Un-archives the record
-     */
+    /** * @NoAdminRequired */
     public function restoreTimesheet(int $id): DataResponse {
+        $uid = $this->getEffectiveUserId(); // FIX: Use effective ID
         $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 0 WHERE `timesheet_id` = ? AND `userid` = ?";
-        $this->db->prepare($sql)->execute([$id, $this->userId]);
+        $this->db->prepare($sql)->execute([$id, $uid]);
         return new DataResponse(['status' => 'success']);
     }
 }
