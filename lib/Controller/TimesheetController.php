@@ -18,6 +18,7 @@ class TimesheetController extends Controller {
     private $mapper;
     private $db;
     private $groupManager;
+    private $userId;
 
     public function __construct(IRequest $request, 
                                 IUserSession $userSession, 
@@ -68,14 +69,14 @@ class TimesheetController extends Controller {
 
     /** @NoAdminRequired */
     public function getTimesheets(string $start, string $end): DataResponse {
-        $uid = $this->getEffectiveUserId(); // FIX: Use effective ID
+        $uid = $this->getEffectiveUserId(); 
         $archive = (int)$this->request->getParam('archive', 0);
         return new DataResponse($this->service->getCalendarEvents($uid, $start, $end, $archive));
     }
 
     /** @NoAdminRequired */
     public function getTimesheet(int $id): DataResponse {
-        $uid = $this->getEffectiveUserId(); // FIX: Use effective ID
+        $uid = $this->getEffectiveUserId();
         $ts = $this->mapper->getTimesheetById($id, $uid);
         
         if (!$ts) return new DataResponse([], 404);
@@ -92,7 +93,7 @@ class TimesheetController extends Controller {
 
     /** @NoAdminRequired */
     public function saveTimesheet(): DataResponse {
-        $uid = $this->getEffectiveUserId(); // FIX: Use effective ID (saves to target user's calendar)
+        $uid = $this->getEffectiveUserId();
         $data = $this->request->getParams();
         $date = $data['date'] ?? null;
         
@@ -104,6 +105,13 @@ class TimesheetController extends Controller {
             return new DataResponse(['error' => 'Start Time required unless Per Diem only.'], 400);
         }
 
+        // Determine if any travel options are selected
+        $hasRoadScanning = (isset($data['road_scanning']) && $data['road_scanning'] == 1);
+        $hasFirstLast = (isset($data['first_last_day']) && $data['first_last_day'] == 1);
+        $hasOvernight = (isset($data['overnight']) && $data['overnight'] == 1);
+        $hasPerDiem = (isset($data['req_per_diem']) && $data['req_per_diem'] == 1);
+        $hasMiles = !empty($data['miles']);
+
         $values = [
             'userid' => $uid, 
             'timesheet_date' => $date,
@@ -112,8 +120,17 @@ class TimesheetController extends Controller {
             'time_break' => (int)($data['break_min'] ?? 0),
             'time_total' => (float)($data['total_hours'] ?? 0),
             'additional_comments' => $data['comments'] ?? '',
-            'travel' => (isset($data['req_per_diem']) || !empty($data['miles'])) ? 1 : 0,
-            'travel_per_diem' => (isset($data['req_per_diem']) && $data['req_per_diem'] == 1) ? 1 : 0,
+            
+            // FIX: Main Travel flag now checks ALL travel sub-options
+            'travel' => ($hasPerDiem || $hasMiles || $hasRoadScanning || $hasFirstLast || $hasOvernight) ? 1 : 0,
+            
+            'travel_per_diem' => $hasPerDiem ? 1 : 0,
+            
+            // FIX: Map new fields to database columns
+            'travel_road_scanning' => $hasRoadScanning ? 1 : 0,
+            'travel_first_last_day' => $hasFirstLast ? 1 : 0,
+            'travel_overnight' => $hasOvernight ? 1 : 0,
+
             'travel_state' => $data['state'] ?? null,
             'travel_county' => $data['county'] ?? null,
             'travel_miles' => (int)($data['miles'] ?? 0),
@@ -164,7 +181,7 @@ class TimesheetController extends Controller {
 
     /** @NoAdminRequired */
     public function deleteTimesheet(int $id): DataResponse {
-        $uid = $this->getEffectiveUserId(); // FIX: Use effective ID
+        $uid = $this->getEffectiveUserId(); 
         $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 1 WHERE `timesheet_id` = ? AND `userid` = ?";
         $this->db->prepare($sql)->execute([$id, $uid]);
         return new DataResponse(['status' => 'success']);
@@ -172,7 +189,7 @@ class TimesheetController extends Controller {
 
     /** * @NoAdminRequired */
     public function restoreTimesheet(int $id): DataResponse {
-        $uid = $this->getEffectiveUserId(); // FIX: Use effective ID
+        $uid = $this->getEffectiveUserId();
         $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 0 WHERE `timesheet_id` = ? AND `userid` = ?";
         $this->db->prepare($sql)->execute([$id, $uid]);
         return new DataResponse(['status' => 'success']);

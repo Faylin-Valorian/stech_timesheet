@@ -31,7 +31,7 @@ const Form = {
             }
         });
 
-        // FIX: Added Listener for "Add Item" button to handle Percent logic
+        // Add Listener for "Add Item" button to handle Percent logic
         document.getElementById('btn-add-row')?.addEventListener('click', (e) => {
             e.preventDefault();
             // If list is empty, default new row to 100%. Otherwise 0%.
@@ -174,10 +174,11 @@ const Form = {
         if (id) {
             window.StechTimesheet.API.getTimesheetDetails(id).then(data => {
                 const isArchived = parseInt(data.archive) === 1;
-                const isAdmin = data.is_admin; 
+                const isAdmin = data.is_admin; // Flag from controller
 
                 if (isArchived) {
                     if (!isAdmin) {
+                        // User is NOT admin -> Locked out
                         this.showCenteredError("This record is locked/archived and cannot be edited.");
                         this.currentId = null;
                         return; 
@@ -185,7 +186,7 @@ const Form = {
                         // User IS admin -> Allow Access + Restore Mode
                         this.isArchivedRecord = true;
                         deleteBtn.textContent = "Restore Record";
-                        deleteBtn.style.backgroundColor = '#28a745';
+                        deleteBtn.style.backgroundColor = '#28a745'; // Green for restore
                         deleteBtn.style.display = 'block';
                         
                         if (window.OCP && window.OCP.Toast) {
@@ -193,6 +194,7 @@ const Form = {
                         }
                     }
                 } else {
+                    // Standard Active Record
                     deleteBtn.style.display = 'block';
                 }
 
@@ -204,7 +206,7 @@ const Form = {
         } else {
             // NEW ENTRY MODE
             deleteBtn.style.display = 'none';
-            // FIX: Default new row to 100%
+            // Default new row to 100%
             window.StechTimesheet.ActivityRows.add('', 100);
             document.getElementById('timesheet-modal').style.display = 'flex';
         }
@@ -225,6 +227,7 @@ const Form = {
         overlay.style.display = 'flex';
     },
 
+    // Archive Confirmation
     showConfirmArchive() {
         let overlay = document.getElementById('stech-confirm-archive');
         if (!overlay) {
@@ -249,6 +252,7 @@ const Form = {
             </div>
         `;
 
+        // Bind events (using onclick to avoid duplicate listeners if overlay persists)
         document.getElementById('btn-confirm-archive-yes').onclick = () => {
             overlay.style.display = 'none';
             this.executeArchive();
@@ -260,6 +264,7 @@ const Form = {
         overlay.style.display = 'flex';
     },
 
+    // Restore Confirmation
     showConfirmRestore() {
         let overlay = document.getElementById('stech-confirm-restore');
         if (!overlay) {
@@ -309,7 +314,17 @@ const Form = {
         document.getElementById('travel-extra-expense').value = data.travel_extra_expenses || 0;
         document.getElementById('req-per-diem').checked = data.travel_per_diem == 1;
 
-        if (data.travel_state || data.travel_miles > 0) {
+        // FIX: Map new toggle fields
+        document.getElementById('road-scanning').checked = parseInt(data.travel_road_scanning) === 1;
+        document.getElementById('first-last-day').checked = parseInt(data.travel_first_last_day) === 1;
+        document.getElementById('overnight').checked = parseInt(data.travel_overnight) === 1;
+
+        // Show Travel Section if relevant data exists
+        if (data.travel_state || data.travel_miles > 0 || 
+            data.travel_road_scanning == 1 || 
+            data.travel_first_last_day == 1 || 
+            data.travel_overnight == 1) {
+            
             document.getElementById('toggle-travel').checked = true;
             document.getElementById('travel-fields-container').style.display = 'block';
         }
@@ -424,6 +439,12 @@ const Form = {
             miles: document.getElementById('travel-miles').value,
             extra_expense: document.getElementById('travel-extra-expense').value,
             req_per_diem: document.getElementById('req-per-diem').checked ? 1 : 0,
+            
+            // FIX: Collect new toggle fields
+            road_scanning: document.getElementById('road-scanning').checked ? 1 : 0,
+            first_last_day: document.getElementById('first-last-day').checked ? 1 : 0,
+            overnight: document.getElementById('overnight').checked ? 1 : 0,
+
             work_desc: workDesc,
             work_percent: workPercent
         };
@@ -431,7 +452,7 @@ const Form = {
 
     reset() {
         this.currentId = null;
-        this.isArchivedRecord = false;
+        this.isArchivedRecord = false; // Reset state
         document.getElementById('timesheet-form').reset();
         document.getElementById('work-rows-container').innerHTML = '';
         document.getElementById('travel-fields-container').style.display = 'none';
