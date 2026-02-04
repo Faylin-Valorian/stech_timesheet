@@ -8,7 +8,6 @@ use OCP\IDBConnection;
 
 class AdminMapper extends QBMapper {
     public function __construct(IDBConnection $db) {
-        // Updated constructor to target the core settings table as primary
         parent::__construct($db, 'stech_admin_settings');
     }
 
@@ -129,9 +128,6 @@ class AdminMapper extends QBMapper {
         }
     }
 
-    /**
-     * Restores SQL logic for archiving entries on holiday dates for disabled users
-     */
     public function archiveUserHolidayEntries(string $uid): void {
         $sql = "UPDATE `*PREFIX*stech_timesheets` AS t 
                 SET t.`archive` = 1 
@@ -191,9 +187,15 @@ class AdminMapper extends QBMapper {
                  ->execute();
     }
 
-    /**
-     * Fetch counties for a specific state using FIPS code
-     */
+    // FIX: Added missing method to support toggling a single county
+    public function toggleCounty(int $id, int $newState): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('stech_counties')
+           ->set('is_enabled', $qb->createNamedParameter($newState))
+           ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+           ->execute();
+    }
+
     public function getCountiesByState(string $fips): array {
         $qb = $this->db->getQueryBuilder();
         return $qb->select('*')

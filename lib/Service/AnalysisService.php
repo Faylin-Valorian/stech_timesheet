@@ -21,6 +21,9 @@ class AnalysisService {
         $this->userSession = $userSession;
     }
 
+    /**
+     * Checks if the current user has access based on Admin Settings rules
+     */
     public function checkAccess(string $ruleKey): bool {
         $user = $this->userSession->getUser();
         if (!$user) return false;
@@ -36,6 +39,9 @@ class AnalysisService {
         return false;
     }
 
+    /**
+     * Calculates start/end dates based on pay frequency settings
+     */
     public function getPayrollDateRange(string $period): array {
         $settings = $this->timesheetMapper->getAdminSettings();
         $freq = (int)($settings['pay_frequency'] ?? 14);
@@ -60,9 +66,21 @@ class AnalysisService {
         return [$currentStart, $currentEnd];
     }
 
+    /**
+     * Aggregates raw DB rows into statistics for the frontend
+     */
     public function aggregateData(array $results, array $perms): array {
-        $totalHours = 0.0; $ptoHours = 0.0;
-        $trend = []; $jobs = []; $states = []; $counties = []; $processed = [];
+        $totalHours = 0.0; 
+        $ptoHours = 0.0;
+        $trend = []; 
+        $jobs = []; 
+        $states = []; 
+        $counties = []; 
+        $processed = [];
+        
+        // Financial tracking
+        $totalGross = 0.0;
+        $totalRevenue = 0.0;
         
         $travel = [
             'total_miles' => 0, 
@@ -71,7 +89,7 @@ class AnalysisService {
             'total_expenses' => 0.0
         ];
 
-        // Fetch enabled states from Mapper
+        // Fetch enabled states from Mapper to flag them in UI
         $enabledStateList = $this->timesheetMapper->getEnabledStates();
         $enabledStates = array_column($enabledStateList, 'state_name');
 
@@ -80,10 +98,12 @@ class AnalysisService {
             $hours = (float)$row['time_total'];
             $date = $row['timesheet_date'];
             
+            // Process Timesheet-Level Data (Avoid duplicates if multiple activities exist per timesheet)
             if (!in_array($tid, $processed)) {
                 $totalHours += $hours;
                 $trend[$date] = ($trend[$date] ?? 0) + $hours;
 
+                // Handle Locations
                 if ($perms['location']) {
                     $state = $row['full_state_name'] ?? $row['travel_state'] ?? 'Unknown';
                     $isStateEnabled = in_array($state, $enabledStates);
@@ -98,36 +118,79 @@ class AnalysisService {
                         $key = $state . '|' . $county;
                         $counties[$key] = [
                             'count' => ($counties[$key]['count'] ?? 0) + 1,
-                            // County inherits state enablement
                             'is_enabled' => $isStateEnabled 
                         ];
                     }
                 }
+
+                // Handle Travel Stats
                 if ($perms['travel']) {
                     $travel['total_miles'] += (int)($row['travel_miles'] ?? 0);
                     if (($row['travel_per_diem'] ?? 0) == 1) $travel['per_diem_days']++;
                     if (($row['travel_overnight'] ?? 0) == 1) $travel['overnight_stays']++;
-                    $travel['total_expenses'] += (float)($row['travel_extra_expenses'] ?? 0);
+                    
+                    $expense = (float)($row['travel_extra_expenses'] ?? 0);
+                    $travel['total_expenses'] += $expense;
                 }
                 $processed[] = $tid;
             }
 
+            // Process Activity-Level Data
             if (!empty($row['activity_description'])) {
-                $jobHours = $hours * ((float)$row['activity_percent'] / 100);
-                if (($row['is_pto'] ?? 0) == 1) $ptoHours += $jobHours;
+                $percent = (float)($row['activity_percent'] ?? 0);
+                $jobHours = $hours * ($percent / 100);
+
+                // Accumulate PTO if this job is flagged as PTO
+                if (($row['is_pto'] ?? 0) == 1) {
+                    $ptoHours += $jobHours;
+                }
+
                 if ($perms['jobs']) {
                     $name = $row['activity_description'];
+                    $revenueRate = (float)($row['job_revenue'] ?? 0);
+                    $hourlyCost = (float)($row['job_hourly_cost'] ?? 0);
+
                     if (!isset($jobs[$name])) {
-                        $jobs[$name] = ['name' => $name, 'hours' => 0, 'revenue' => (float)($row['job_revenue'] ?? 0)];
+                        $jobs[$name] = [
+                            'name' => $name, 
+                            'hours' => 0.0, 
+                            'revenue' => 0.0,
+                            'cost' => 0.0
+                        ];
                     }
                     $jobs[$name]['hours'] += $jobHours;
+                    $jobs[$name]['revenue'] += ($jobHours * $revenueRate);
+                    $jobs[$name]['cost'] += ($jobHours * $hourlyCost);
+                    
+                    $totalRevenue += ($jobHours * $revenueRate);
+                    $totalGross += ($jobHours * $hourlyCost);
                 }
             }
         }
+
+        // --- FIX: Overtime Calculation (80 Hour Threshold) ---
+        // Overtime is calculated on WORKED hours (Total - PTO).
+        $workedHours = $totalHours - $ptoHours;
+        $regularHours = $workedHours;
+        $overtimeHours = 0.0;
+
+        if ($workedHours > 80) {
+            $regularHours = 80.0;
+            $overtimeHours = $workedHours - 80.0;
+        }
+
         ksort($trend);
+
         return [
             'total_hours' => round($totalHours, 2),
-            'stats' => ['regular_hours' => round($totalHours - $ptoHours, 2), 'pto_hours' => round($ptoHours, 2)],
+            'stats' => [
+                'regular_hours' => round($regularHours, 2),
+                'overtime_hours' => round($overtimeHours, 2),
+                'pto_hours' => round($ptoHours, 2),
+                'gross_pay' => round($totalGross, 2),
+                'revenue' => round($totalRevenue, 2),
+                'profit' => round($totalRevenue - ($totalGross + $travel['total_expenses']), 2)
+            ],
             'trend' => ['labels' => array_keys($trend), 'values' => array_values($trend)],
             'jobs' => array_values($jobs),
             'travel' => $travel,

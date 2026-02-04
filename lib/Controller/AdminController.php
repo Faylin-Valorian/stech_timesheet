@@ -141,7 +141,6 @@ class AdminController extends Controller {
             $data = $this->request->getParams();
             $qb = $this->db->getQueryBuilder();
             
-            // Match the key names used in src/admin/holidays.js
             if (!empty($data['id'])) { 
                 $qb->update('stech_holidays')
                 ->set('holiday_name', $qb->createNamedParameter($data['name']))
@@ -236,7 +235,29 @@ class AdminController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-/** * @AdminRequired
+    /** * @AdminRequired
+     * @NoCSRFRequired
+     */
+    public function toggleCounty(int $id): DataResponse {
+        // FIX: Look up the county first to determine current status
+        $qb = $this->db->getQueryBuilder();
+        $county = $qb->select('is_enabled')
+                ->from('stech_counties')
+                ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+                ->executeQuery()
+                ->fetch();
+
+        if (!$county) return new DataResponse(['error' => 'Not found'], 404);
+
+        $newStatus = ((int)$county['is_enabled'] === 1) ? 0 : 1;
+        
+        // Call the mapper to perform the update
+        $this->adminMapper->toggleCounty($id, $newStatus);
+
+        return new DataResponse(['status' => 'success', 'new_state' => $newStatus]);
+    }
+
+    /** * @AdminRequired
      * @NoCSRFRequired
      */
     public function toggleHoliday(int $id): DataResponse {
@@ -251,7 +272,6 @@ class AdminController extends Controller {
 
         $newStatus = ((int)$holiday['holiday_archive'] === 1) ? 0 : 1;
 
-        // Use a fresh QueryBuilder for the update to avoid parameter conflicts
         $updateQb = $this->db->getQueryBuilder();
         $updateQb->update('stech_holidays')
                 ->set('holiday_archive', $updateQb->createNamedParameter($newStatus))
@@ -276,7 +296,6 @@ class AdminController extends Controller {
 
         $newStatus = ((int)$job['job_archive'] === 1) ? 0 : 1;
 
-        // Use a fresh QueryBuilder for the update
         $updateQb = $this->db->getQueryBuilder();
         $updateQb->update('stech_jobs')
                 ->set('job_archive', $updateQb->createNamedParameter($newStatus))
