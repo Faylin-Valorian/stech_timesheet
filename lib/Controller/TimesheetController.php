@@ -11,6 +11,10 @@ use OCP\IDBConnection;
 use OCA\StechTimesheet\Service\TimesheetService;
 use OCA\StechTimesheet\Db\TimesheetMapper;
 
+/**
+ * TimesheetController
+ * Handles orchestration between the UI and the database/service layers.
+ */
 class TimesheetController extends Controller {
     private $userSession;
     private $service;
@@ -117,7 +121,7 @@ class TimesheetController extends Controller {
             foreach ($values as $c => $v) $qb->setValue($c, $qb->createNamedParameter($v));
             $qb->executeStatement();
             
-            // FIX: Added explicit sequence name for ConnectionAdapter compatibility
+            // FIX: Added explicit sequence for ConnectionAdapter compatibility
             $tid = (int)$this->db->lastInsertId('stech_timesheets_timesheet_id_seq'); 
         }
 
@@ -135,6 +139,18 @@ class TimesheetController extends Controller {
             }
         }
 
+        return new DataResponse(['status' => 'success']);
+    }
+
+    /**
+     * @NoAdminRequired
+     * Soft delete: sets archive = 1 so the record remains in DB but is hidden.
+     */
+    public function deleteTimesheet(int $id): DataResponse {
+        $uid = $this->userSession->getUser()->getUID();
+        $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 1 WHERE `timesheet_id` = ? AND `userid` = ?";
+        $this->db->prepare($sql)->execute([$id, $uid]);
+           
         return new DataResponse(['status' => 'success']);
     }
 }

@@ -1,171 +1,184 @@
-import { StechAPI } from './api.js';
-import { ActivityRows } from './rows.js';
-import { Calendar } from './calendar.js';
-
 /**
- * Timesheet Entry Form Module
- * Handles modal state, data population, and submission.
+ * StechTimesheet.Form
+ * Handles modal interactions, dynamic dropdowns, and data mapping.
  */
-export const Form = {
-    overlay: null,
-    form: null,
+window.StechTimesheet.Form = {
+    currentId: null,
 
     init() {
-        this.overlay = document.getElementById("timesheet-modal-overlay");
-        this.form = document.getElementById("timesheet-form");
-        this.setupListeners();
+        this.setupEventListeners();
+        this.setupStateListener();
     },
 
-    setupListeners() {
-        document.getElementById("btn-cancel")?.addEventListener("click", () => this.close());
-        document.getElementById("modal-close-btn")?.addEventListener("click", () => this.close());
-        document.getElementById("btn-add-row")?.addEventListener("click", () => ActivityRows.add());
-        
-        document.getElementById("toggle-travel")?.addEventListener("change", function() {
-            const container = document.getElementById("travel-fields-container");
-            this.checked ? container.classList.add("visible") : container.classList.remove("visible");
-        });
+    setupEventListeners() {
+        // Save Button
+        document.getElementById('btn-save').addEventListener('click', () => this.handleSubmit());
 
-        document.getElementById("travel-state")?.addEventListener("change", async (e) => {
-            const stateName = e.target.value;
-            const stateAbbr = window.StechTimesheet.state.stateMap[stateName];
-            const countyList = document.getElementById("county-options");
+        // Delete (Archive) Button
+        document.getElementById('btn-delete').addEventListener('click', () => this.handleDelete());
+
+        // Close Modal
+        document.querySelectorAll('.close-modal').forEach(btn => {
+            btn.addEventListener('click', () => this.close());
+        });
+    },
+
+    /**
+     * FIX: Listens for state changes to populate counties.
+     */
+    setupStateListener() {
+        const stateInput = document.getElementById('travel-state');
+        const countyInput = document.getElementById('travel-county');
+        const countyList = document.getElementById('county-options');
+
+        stateInput.addEventListener('change', (e) => {
+            const stateAbbr = e.target.value;
             
-            if (countyList) {
-                countyList.innerHTML = "";
-                if (stateAbbr) {
-                    try {
-                        const counties = await StechAPI.getCounties(stateAbbr);
-                        counties.forEach(c => {
-                            const opt = document.createElement("option");
-                            opt.value = c.county_name;
-                            countyList.appendChild(opt);
-                        });
-                    } catch (err) {
-                        console.error("Failed to fetch counties", err);
-                    }
-                }
+            // Clear existing counties
+            countyList.innerHTML = '';
+            countyInput.value = '';
+
+            if (stateAbbr) {
+                window.StechTimesheet.API.getCounties(stateAbbr).then(counties => {
+                    counties.forEach(county => {
+                        const option = document.createElement('option');
+                        option.value = county.county_name;
+                        countyList.appendChild(option);
+                    });
+                });
             }
         });
-
-        document.getElementById("toggle-pto")?.addEventListener("change", (e) => this.handlePTOToggle(e.target));
-        this.form?.addEventListener("submit", (e) => this.handleSubmit(e));
     },
 
-    open(date, data) {
-        this.form.reset();
-        document.getElementById("entry-date").value = date;
-        ActivityRows.clear();
-        document.getElementById("travel-fields-container").classList.remove("visible");
-        document.getElementById("timesheet_id").value = data ? data.timesheet_id : "";
-
-        const checkboxes = ["toggle-pto", "toggle-travel", "req-per-diem", "road-scanning", "first-last-day", "overnight"];
-        checkboxes.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.checked = false;
-        });
-
-        if (data) {
-            this.populateExistingData(data);
-        } else {
-            ActivityRows.add();
-        }
+    /**
+     * Opens the modal and populates data for existing records.
+     */
+    open(date, id = null) {
+        this.currentId = id;
+        this.reset();
         
-        if (this.overlay) this.overlay.style.display = "flex";
+        document.getElementById('timesheet-date').value = date;
+        const deleteBtn = document.getElementById('btn-delete');
+
+        if (id) {
+            deleteBtn.style.display = 'block';
+            window.StechTimesheet.API.getTimesheet(id).then(data => {
+                this.mapDataToForm(data);
+            });
+        } else {
+            deleteBtn.style.display = 'none';
+            window.StechTimesheet.Rows.add(); // Start with one empty row
+        }
+
+        document.getElementById('timesheet-modal').style.display = 'flex';
+    },
+
+    mapDataToForm(data) {
+        document.getElementById('time-in').value = data.time_in || '';
+        document.getElementById('time-out').value = data.time_out || '';
+        document.getElementById('break-min').value = data.time_break || 0;
+        document.getElementById('total-hours').value = data.time_total || 0;
+        document.getElementById('additional-comments').value = data.additional_comments || '';
+        document.getElementById('travel-state').value = data.travel_state || '';
+        document.getElementById('travel-miles').value = data.travel_miles || 0;
+        document.getElementById('travel-extra-expense').value = data.travel_extra_expenses || 0;
+        document.getElementById('req-per-diem').checked = data.travel_per_diem == 1;
+
+        // Populate County Options and Value
+        if (data.travel_state) {
+            window.StechTimesheet.API.getCounties(data.travel_state).then(counties => {
+                const countyList = document.getElementById('county-options');
+                countyList.innerHTML = '';
+                counties.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.county_name;
+                    countyList.appendChild(opt);
+                });
+                document.getElementById('travel-county').value = data.travel_county || '';
+            });
+        }
+
+        // FIX: Render Activity Rows (Job Description and Percent)
+        this.renderActivities(data.activities);
+    },
+
+    /**
+     * FIX: Correctly pulls and adds activity rows to the UI.
+     */
+    renderActivities(activities) {
+        const container = document.getElementById('work-rows-container');
+        container.innerHTML = '';
+        
+        if (activities && activities.length > 0) {
+            activities.forEach(act => {
+                // Mapping activity_description and activity_percent from DB
+                window.StechTimesheet.Rows.add(act.activity_description, act.activity_percent);
+            });
+        } else {
+            window.StechTimesheet.Rows.add();
+        }
+    },
+
+    async handleSubmit() {
+        const formData = this.getFormData();
+        try {
+            await window.StechTimesheet.API.saveTimesheet(formData);
+            this.close();
+            window.StechTimesheet.Calendar.refresh();
+        } catch (err) {
+            console.error('Submission failed', err);
+            alert('Error saving timesheet: ' + (err.response?.data?.error || 'Internal Server Error'));
+        }
+    },
+
+    /**
+     * Handles the Archiving (Soft Delete) of the record.
+     */
+    async handleDelete() {
+        if (!this.currentId || !confirm('Are you sure you want to delete this entry?')) return;
+
+        try {
+            await window.StechTimesheet.API.deleteTimesheet(this.currentId);
+            this.close();
+            window.StechTimesheet.Calendar.refresh();
+        } catch (err) {
+            console.error('Delete failed', err);
+            alert('Error deleting entry.');
+        }
+    },
+
+    getFormData() {
+        const workDesc = [];
+        const workPercent = [];
+        document.querySelectorAll('.work-desc').forEach(el => workDesc.push(el.value));
+        document.querySelectorAll('.work-percent').forEach(el => workPercent.push(el.value));
+
+        return {
+            timesheet_id: this.currentId,
+            date: document.getElementById('timesheet-date').value,
+            time_in: document.getElementById('time-in').value,
+            time_out: document.getElementById('time-out').value,
+            break_min: document.getElementById('break-min').value,
+            total_hours: document.getElementById('total-hours').value,
+            comments: document.getElementById('additional-comments').value,
+            state: document.getElementById('travel-state').value,
+            county: document.getElementById('travel-county').value,
+            miles: document.getElementById('travel-miles').value,
+            extra_expense: document.getElementById('travel-extra-expense').value,
+            req_per_diem: document.getElementById('req-per-diem').checked ? 1 : 0,
+            work_desc: workDesc,
+            work_percent: workPercent
+        };
+    },
+
+    reset() {
+        this.currentId = null;
+        document.getElementById('timesheet-form').reset();
+        document.getElementById('work-rows-container').innerHTML = '';
+        document.getElementById('county-options').innerHTML = '';
     },
 
     close() {
-        if (this.overlay) this.overlay.style.display = "none";
-    },
-
-    populateExistingData(data) {
-        document.getElementById("time-in").value = data.time_in || "";
-        document.getElementById("time-out").value = data.time_out || "";
-        document.getElementById("break-min").value = data.time_break || 0;
-        document.getElementById("total-hours").value = data.time_total || 0;
-
-        let comments = data.additional_comments || "";
-        if (comments.includes("[PTO]")) {
-            document.getElementById("toggle-pto").checked = true;
-            comments = comments.replace("[PTO]", "").trim();
-        }
-        document.getElementById("comments").value = comments;
-
-        if (parseInt(data.travel) === 1 || parseInt(data.travel_per_diem) === 1 || data.travel_miles > 0) {
-            document.getElementById("toggle-travel").checked = true;
-            document.getElementById("travel-fields-container").classList.add("visible");
-            document.getElementById("req-per-diem").checked = parseInt(data.travel_per_diem) === 1;
-            document.getElementById("miles").value = data.travel_miles;
-            document.getElementById("extra-expense").value = data.travel_extra_expenses;
-
-            let stateName = data.travel_state || "";
-            if (stateName.length === 2) {
-                stateName = window.StechTimesheet.state.stateMapRev[stateName] || stateName;
-            }
-            document.getElementById("travel-state").value = stateName;
-            document.getElementById("travel-county").value = data.travel_county;
-            document.getElementById("travel-state").dispatchEvent(new Event("change"));
-        }
-
-        if (data.activities && data.activities.length > 0) {
-            data.activities.forEach(a => ActivityRows.add(a.activity_description, a.activity_percent));
-        } else {
-            ActivityRows.add();
-        }
-    },
-
-    handlePTOToggle(el) {
-        if (el.checked) {
-            const timeIn = document.getElementById("time-in");
-            const timeOut = document.getElementById("time-out");
-            if (!timeIn.value && !timeOut.value) {
-                timeIn.value = "08:00";
-                timeOut.value = "17:00";
-                document.getElementById("break-min").value = "60";
-                window.StechTimesheet.calculateTotalHours();
-                
-                const ptoJob = window.StechTimesheet.state.jobOptions.find(j => parseInt(j.is_pto) === 1);
-                if (ptoJob) {
-                    ActivityRows.clear();
-                    ActivityRows.add(ptoJob.job_name, 100);
-                }
-            }
-        }
-    },
-
-    async handleSubmit(e) {
-        e.preventDefault();
-        
-        let totalPercent = 0;
-        document.querySelectorAll(".work-percent-input").forEach(el => {
-            totalPercent += parseInt(el.value) || 0;
-        });
-
-        if (totalPercent > 100) {
-            if (window.OCP?.Toast) window.OCP.Toast.error("Total activity cannot exceed 100%.");
-            return;
-        }
-
-        const formData = new FormData(this.form);
-        if (document.getElementById("toggle-pto").checked) {
-            let comments = formData.get("comments") || "";
-            if (!comments.includes("[PTO]")) formData.set("comments", "[PTO] " + comments);
-        }
-
-        const timeIn = formData.get("time_in");
-        const isPerDiem = document.getElementById("req-per-diem").checked;
-
-        if (timeIn || isPerDiem) {
-            try {
-                await StechAPI.saveTimesheet(formData);
-                this.close();
-                Calendar.refetch();
-            } catch (err) {
-                // StechAPI already handles the OCP.Toast error notification
-                console.error("Submission failed", err);
-            }
-        } else {
-            if (window.OCP?.Toast) window.OCP.Toast.error("Please enter a Start Time or select 'Request Per Diem'.");
-        }
+        document.getElementById('timesheet-modal').style.display = 'none';
     }
 };

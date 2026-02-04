@@ -1,4 +1,5 @@
 <?php
+/** @var array $_ */
 use OCP\Util;
 
 // Load Dependencies
@@ -67,17 +68,17 @@ Util::addStyle('stech_timesheet', 'style');
             </div>
         </div>
 
-        <div id="timesheet-modal-overlay" class="modal-overlay" style="display: none;">
+        <div id="timesheet-modal" class="modal-overlay" style="display: none;">
             <div class="modal-card">
                 <form id="timesheet-form">
-                    <input type="hidden" id="timesheet_id" name="timesheet_id">
+                    <input type="hidden" id="timesheet-id" name="timesheet_id">
 
                     <div class="modal-header">
                         <div>
                             <h2 id="modal-date-title">Entry Details</h2>
                             <span class="modal-subtitle">Daily Work Record</span>
                         </div>
-                        <button type="button" class="btn-close-custom" id="modal-close-btn" title="Close">&times;</button>
+                        <button type="button" class="close-modal" title="Close">&times;</button>
                     </div>
 
                     <div class="modal-body">
@@ -85,19 +86,19 @@ Util::addStyle('stech_timesheet', 'style');
                             <div class="form-row-4">
                                 <div class="input-group">
                                     <label>Date</label>
-                                    <input type="date" id="entry-date" name="date" class="form-control readonly-highlight" readonly>
+                                    <input type="date" id="timesheet-date" name="date" class="form-control readonly-highlight" readonly>
                                 </div>
                                 <div class="input-group">
                                     <label>Time In</label>
-                                    <input type="time" id="time-in" name="time_in" class="form-control calc-time">
+                                    <input type="time" id="time-in" name="time_in" class="form-control">
                                 </div>
                                 <div class="input-group">
                                     <label>Time Out</label>
-                                    <input type="time" id="time-out" name="time_out" class="form-control calc-time">
+                                    <input type="time" id="time-out" name="time_out" class="form-control">
                                 </div>
                                 <div class="input-group">
                                     <label>Break (min)</label>
-                                    <input type="number" id="break-min" name="break_min" placeholder="0" class="form-control calc-time">
+                                    <input type="number" id="break-min" name="break_min" value="0" class="form-control">
                                 </div>
                             </div>
                             <div class="form-row-1" style="margin-top: 10px;">
@@ -165,19 +166,17 @@ Util::addStyle('stech_timesheet', 'style');
                                 <div class="form-row-3">
                                     <div class="input-group">
                                         <label>State</label>
-                                        <input list="state-options" name="state" id="travel-state" class="form-control" placeholder="Type to search..." autocomplete="off">
+                                        <input list="state-options" id="travel-state" name="state" class="form-control" placeholder="Search state..." autocomplete="off">
                                         <datalist id="state-options"></datalist>
                                     </div>
-                                    
                                     <div class="input-group">
                                         <label>County</label>
-                                        <input list="county-options" name="county" id="travel-county" class="form-control" placeholder="Type to search..." autocomplete="off">
+                                        <input list="county-options" id="travel-county" name="county" class="form-control" placeholder="Search county..." autocomplete="off">
                                         <datalist id="county-options"></datalist>
                                     </div>
-                                    
-                                     <div class="input-group">
+                                    <div class="input-group">
                                         <label>Total Miles</label>
-                                        <input type="number" id="miles" name="miles" class="form-control" placeholder="0">
+                                        <input type="number" id="travel-miles" name="miles" value="0" class="form-control">
                                     </div>
                                 </div>
 
@@ -186,7 +185,7 @@ Util::addStyle('stech_timesheet', 'style');
                                         <label>Extra Expenses Request</label>
                                         <div class="currency-group">
                                             <span class="currency-symbol">$</span>
-                                            <input type="number" id="extra-expense" name="extra_expense" placeholder="0.00" step="0.01" min="0">
+                                            <input type="number" id="travel-extra-expense" name="extra_expense" placeholder="0.00" step="0.01" min="0">
                                         </div>
                                     </div>
                                 </div>
@@ -198,13 +197,14 @@ Util::addStyle('stech_timesheet', 'style');
                         <div class="form-section">
                             <div class="input-group">
                                 <label>Additional Comments</label>
-                                <textarea name="comments" id="comments" rows="3" class="form-control" placeholder="Add details..."></textarea>
+                                <textarea id="additional-comments" name="comments" rows="3" class="form-control" placeholder="Add details..."></textarea>
                             </div>
                         </div>
                     </div>
 
                     <div class="modal-footer">
-                        <button type="button" class="secondary-button" id="btn-cancel">Cancel</button>
+                        <button type="button" class="error-button" id="btn-delete" style="display: none; margin-right: auto;">Delete Entry</button>
+                        <button type="button" class="secondary-button close-modal">Cancel</button>
                         <button type="submit" class="primary-button" id="btn-save">Save Entry</button>
                     </div>
                 </form>
