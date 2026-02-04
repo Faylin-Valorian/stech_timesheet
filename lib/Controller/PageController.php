@@ -44,10 +44,11 @@ class PageController extends Controller {
     }
 
     /**
+     * FIX: Renamed from analysis() to analysisPage() to match routes.php
      * @NoAdminRequired
      * @NoCSRFRequired
      */
-    public function analysis(): TemplateResponse {
+    public function analysisPage(): TemplateResponse {
         $user = $this->userSession->getUser();
         $uid = $user ? $user->getUID() : null;
 
@@ -81,6 +82,25 @@ class PageController extends Controller {
         ]);
         
         return $response;
+    }
+
+    /**
+     * FIX: Added missing adminPage() method
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
+    public function adminPage(): TemplateResponse {
+        $user = $this->userSession->getUser();
+        $uid = $user ? $user->getUID() : null;
+
+        // Check Access Rule 'admin_panel'
+        if (!$this->checkAccess($uid, 'admin_panel')) {
+            $response = new TemplateResponse('stech_timesheet', 'error');
+            $response->setParams(['msg' => 'You do not have permission to view the Admin Panel.']);
+            return $response;
+        }
+
+        return new TemplateResponse('stech_timesheet', 'admin');
     }
 
     /**

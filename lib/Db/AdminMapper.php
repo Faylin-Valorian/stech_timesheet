@@ -22,7 +22,7 @@ class AdminMapper extends QBMapper {
             ->fetchAll();
     }
 
-    public function saveSettingValue(string $key, string $value): void {
+    public function saveSetting(string $key, string $value): void {
         $qb = $this->db->getQueryBuilder();
         $exists = $qb->select('setting_key')
                      ->from('stech_admin_settings')
@@ -153,6 +153,38 @@ class AdminMapper extends QBMapper {
             ->fetchAll();
     }
 
+    public function saveHoliday(array $data): void {
+        $qb = $this->db->getQueryBuilder();
+        if (!empty($data['id'])) { 
+            $qb->update('stech_holidays')
+            ->set('holiday_name', $qb->createNamedParameter($data['name']))
+            ->set('holiday_start_date', $qb->createNamedParameter($data['start']))
+            ->set('holiday_end_date', $qb->createNamedParameter($data['end']))
+            ->set('holiday_bg', $qb->createNamedParameter($data['bg_style'] ?? ''))
+            ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($data['id'])))
+            ->execute();
+        } else {
+            $qb->insert('stech_holidays')
+            ->values([
+                'holiday_name' => $qb->createNamedParameter($data['name']),
+                'holiday_start_date' => $qb->createNamedParameter($data['start']),
+                'holiday_end_date' => $qb->createNamedParameter($data['end']),
+                'holiday_bg' => $qb->createNamedParameter($data['bg_style'] ?? '')
+            ])->execute();
+        }
+    }
+
+    /**
+     * FIX: Added missing method
+     */
+    public function toggleHoliday(int $id): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('stech_holidays')
+           ->set('is_active', '1 - is_active', false)
+           ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($id)))
+           ->executeStatement();
+    }
+
     public function getJobs(): array {
         return $this->db->getQueryBuilder()
             ->select('*')
@@ -162,7 +194,44 @@ class AdminMapper extends QBMapper {
             ->fetchAll();
     }
 
-    public function getStates(): array {
+    public function saveJob(array $data): void {
+        $qb = $this->db->getQueryBuilder();
+        if (!empty($data['job_id'])) {
+            $qb->update('stech_jobs')
+                ->set('job_name', $qb->createNamedParameter($data['job_name']))
+                ->set('is_pto', $qb->createNamedParameter($data['is_pto'] ?? 0))
+                ->set('job_revenue', $qb->createNamedParameter($data['job_revenue'] ?? 0))
+                ->set('job_expense_budget', $qb->createNamedParameter($data['job_expense_budget'] ?? 0))
+                ->set('job_hourly_cost', $qb->createNamedParameter($data['job_hourly_cost'] ?? 0))
+                ->where($qb->expr()->eq('job_id', $qb->createNamedParameter($data['job_id'])))
+                ->execute();
+        } else {
+            $qb->insert('stech_jobs')
+                ->values([
+                    'job_name' => $qb->createNamedParameter($data['job_name']),
+                    'is_pto' => $qb->createNamedParameter($data['is_pto'] ?? 0),
+                    'job_revenue' => $qb->createNamedParameter($data['job_revenue'] ?? 0),
+                    'job_expense_budget' => $qb->createNamedParameter($data['job_expense_budget'] ?? 0),
+                    'job_hourly_cost' => $qb->createNamedParameter($data['job_hourly_cost'] ?? 0)
+                ])->execute();
+        }
+    }
+
+    /**
+     * FIX: Added missing method
+     */
+    public function toggleJob(int $id): void {
+        $qb = $this->db->getQueryBuilder();
+        $qb->update('stech_jobs')
+           ->set('is_active', '1 - is_active', false)
+           ->where($qb->expr()->eq('job_id', $qb->createNamedParameter($id)))
+           ->executeStatement();
+    }
+
+    /**
+     * FIX: Renamed to match controller call getStatesAdmin
+     */
+    public function getStatesAdmin(): array {
         return $this->db->getQueryBuilder()
             ->select('*')
             ->from('stech_states')
@@ -170,13 +239,34 @@ class AdminMapper extends QBMapper {
             ->executeQuery()
             ->fetchAll();
     }
+    
+    // Kept for backward compatibility if needed
+    public function getStates(): array {
+        return $this->getStatesAdmin();
+    }
 
-    public function toggleStateAndCounties(int $id, int $newState, string $fips): void {
+    /**
+     * FIX: Renamed/Aliased toggleStateAndCounties to toggleState to match controller
+     */
+    public function toggleState(int $id): void {
+        // Find FIPS code first
+        $qb = $this->db->getQueryBuilder();
+        $state = $qb->select('*')
+                    ->from('stech_states')
+                    ->where($qb->expr()->eq('state_id', $qb->createNamedParameter($id)))
+                    ->executeQuery()
+                    ->fetch();
+
+        if (!$state) return;
+
+        $newState = ((int)$state['is_enabled'] === 1) ? 0 : 1;
+        $fips = $state['state_fips']; // Ensure column name matches your DB schema
+
         // Toggle State
         $qbState = $this->db->getQueryBuilder();
         $qbState->update('stech_states')
                 ->set('is_enabled', $qbState->createNamedParameter($newState))
-                ->where($qbState->expr()->eq('id', $qbState->createNamedParameter($id)))
+                ->where($qbState->expr()->eq('state_id', $qbState->createNamedParameter($id)))
                 ->execute();
 
         // Toggle all associated Counties
@@ -187,13 +277,25 @@ class AdminMapper extends QBMapper {
                  ->execute();
     }
 
-    // FIX: Added missing method to support toggling a single county
     public function toggleCounty(int $id, int $newState): void {
         $qb = $this->db->getQueryBuilder();
         $qb->update('stech_counties')
            ->set('is_enabled', $qb->createNamedParameter($newState))
-           ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
+           ->where($qb->expr()->eq('county_id', $qb->createNamedParameter($id)))
            ->execute();
+    }
+
+    /**
+     * FIX: Renamed/Aliased to getCountiesByStateAdmin to match controller
+     */
+    public function getCountiesByStateAdmin(string $abbr): array {
+        $qb = $this->db->getQueryBuilder();
+        return $qb->select('*')
+                ->from('stech_counties')
+                ->where($qb->expr()->eq('state_abbr', $qb->createNamedParameter($abbr)))
+                ->orderBy('county_name', 'ASC')
+                ->executeQuery()
+                ->fetchAll();
     }
 
     public function getCountiesByState(string $fips): array {

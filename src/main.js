@@ -1,7 +1,7 @@
 import { StechAPI } from './api.js';
 import { Form } from './form.js';
 import { Calendar } from './calendar.js';
-import { generateUrl } from '@nextcloud/router'; // Required for navigation
+import { generateUrl } from '@nextcloud/router';
 
 window.StechTimesheet = window.StechTimesheet || {};
 window.StechTimesheet.API = StechAPI;
@@ -43,20 +43,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     Form.init();
     Calendar.init(document.getElementById('calendar'));
 
-    // 3. FIX: Navigation Buttons
-    // These match the IDs in your sidebar templates
-    document.querySelector('a[href="/analysis"]')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        window.location.href = generateUrl('/apps/stech_timesheet/analysis');
-    });
+    // 3. FIX: Navigation Buttons (Robust Selector)
+    // We search all links in the sidebar to find the correct ones
+    const navLinks = document.querySelectorAll('#app-navigation a');
+    
+    navLinks.forEach(link => {
+        const text = link.innerText.toLowerCase();
+        const href = link.href.toLowerCase();
 
-    document.querySelector('a[href="/admin"]')?.addEventListener('click', (e) => {
-        e.preventDefault();
-        window.location.href = generateUrl('/apps/stech_timesheet/admin');
+        // Admin Panel Link
+        if (text.includes('admin') || href.includes('/admin')) {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.location.href = generateUrl('/apps/stech_timesheet/admin');
+            });
+        }
+
+        // Time Analysis Link
+        if (text.includes('analysis') || href.includes('/analysis')) {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.location.href = generateUrl('/apps/stech_timesheet/analysis');
+            });
+        }
     });
 });
 
-// 4. FIX: Activity Row Builder (Now uses <select>)
+// 4. Activity Row Builder (Dropdown logic from previous step)
 window.StechTimesheet.ActivityRows = {
     add: (desc = '', percent = 0) => {
         const container = document.getElementById('work-rows-container');
@@ -69,14 +82,13 @@ window.StechTimesheet.ActivityRows = {
         let optionsHtml = '<option value="">Select Job...</option>';
         if (window.StechTimesheet.state.jobs) {
             window.StechTimesheet.state.jobs.forEach(job => {
-                // Check if this job matches the passed description (for editing)
                 const selected = job.job_name === desc ? 'selected' : '';
                 optionsHtml += `<option value="${job.job_name}" ${selected}>${job.job_name}</option>`;
             });
         }
 
         row.innerHTML = `
-            <select class="work-desc" style="flex-grow: 1; margin-right: 10px;">
+            <select class="work-desc" style="flex-grow: 1; margin-right: 10px; padding: 5px;">
                 ${optionsHtml}
             </select>
             <input type="number" class="work-percent" placeholder="%" value="${percent}" min="0" max="100" style="width: 80px;">
