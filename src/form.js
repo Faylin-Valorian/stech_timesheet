@@ -1,40 +1,60 @@
 /**
  * StechTimesheet.Form
- * Handles modal interactions, dynamic dropdowns, and data mapping.
+ * Handles modal interactions, dynamic dropdowns, and toggles.
  */
-window.StechTimesheet.Form = {
+window.StechTimesheet = window.StechTimesheet || {};
+
+const Form = {
     currentId: null,
 
     init() {
         this.setupEventListeners();
         this.setupStateListener();
+        this.setupToggleListeners(); // FIX: Initialize travel toggles
     },
 
     setupEventListeners() {
         // Save Button
-        document.getElementById('btn-save').addEventListener('click', () => this.handleSubmit());
+        document.getElementById('btn-save').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.handleSubmit();
+        });
 
         // Delete (Archive) Button
-        document.getElementById('btn-delete').addEventListener('click', () => this.handleDelete());
+        document.getElementById('btn-delete').addEventListener('click', (e) => {
+            e.preventDefault();
+            this.handleDelete();
+        });
 
         // Close Modal
-        document.querySelectorAll('.close-modal').forEach(btn => {
+        document.querySelectorAll('.close-modal, .secondary-button').forEach(btn => {
             btn.addEventListener('click', () => this.close());
         });
     },
 
     /**
-     * FIX: Listens for state changes to populate counties.
+     * FIX: Restores visibility of the travel fields container
      */
+    setupToggleListeners() {
+        const travelToggle = document.getElementById('toggle-travel');
+        const travelFields = document.getElementById('travel-fields-container');
+        
+        if (travelToggle && travelFields) {
+            travelToggle.addEventListener('change', (e) => {
+                travelFields.style.display = e.target.checked ? 'block' : 'none';
+            });
+        }
+    },
+
     setupStateListener() {
         const stateInput = document.getElementById('travel-state');
         const countyInput = document.getElementById('travel-county');
         const countyList = document.getElementById('county-options');
 
         stateInput.addEventListener('change', (e) => {
-            const stateAbbr = e.target.value;
+            const stateName = e.target.value;
+            const stateAbbr = window.StechTimesheet.state.stateMap[stateName];
             
-            // Clear existing counties
             countyList.innerHTML = '';
             countyInput.value = '';
 
@@ -50,9 +70,6 @@ window.StechTimesheet.Form = {
         });
     },
 
-    /**
-     * Opens the modal and populates data for existing records.
-     */
     open(date, id = null) {
         this.currentId = id;
         this.reset();
@@ -62,12 +79,12 @@ window.StechTimesheet.Form = {
 
         if (id) {
             deleteBtn.style.display = 'block';
-            window.StechTimesheet.API.getTimesheet(id).then(data => {
+            window.StechTimesheet.API.getTimesheetDetails(id).then(data => {
                 this.mapDataToForm(data);
             });
         } else {
             deleteBtn.style.display = 'none';
-            window.StechTimesheet.Rows.add(); // Start with one empty row
+            window.StechTimesheet.ActivityRows.add();
         }
 
         document.getElementById('timesheet-modal').style.display = 'flex';
@@ -79,43 +96,33 @@ window.StechTimesheet.Form = {
         document.getElementById('break-min').value = data.time_break || 0;
         document.getElementById('total-hours').value = data.time_total || 0;
         document.getElementById('additional-comments').value = data.additional_comments || '';
-        document.getElementById('travel-state').value = data.travel_state || '';
+        
+        const stateName = window.StechTimesheet.state.stateMapRev[data.travel_state] || '';
+        document.getElementById('travel-state').value = stateName;
+        document.getElementById('travel-county').value = data.travel_county || '';
         document.getElementById('travel-miles').value = data.travel_miles || 0;
         document.getElementById('travel-extra-expense').value = data.travel_extra_expenses || 0;
         document.getElementById('req-per-diem').checked = data.travel_per_diem == 1;
 
-        // Populate County Options and Value
-        if (data.travel_state) {
-            window.StechTimesheet.API.getCounties(data.travel_state).then(counties => {
-                const countyList = document.getElementById('county-options');
-                countyList.innerHTML = '';
-                counties.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c.county_name;
-                    countyList.appendChild(opt);
-                });
-                document.getElementById('travel-county').value = data.travel_county || '';
-            });
+        // Auto-show travel fields if data exists
+        if (data.travel_state || data.travel_miles > 0) {
+            document.getElementById('toggle-travel').checked = true;
+            document.getElementById('travel-fields-container').style.display = 'block';
         }
 
-        // FIX: Render Activity Rows (Job Description and Percent)
         this.renderActivities(data.activities);
+        window.StechTimesheet.calculateTotalHours(); // Recalculate on open
     },
 
-    /**
-     * FIX: Correctly pulls and adds activity rows to the UI.
-     */
     renderActivities(activities) {
         const container = document.getElementById('work-rows-container');
         container.innerHTML = '';
-        
         if (activities && activities.length > 0) {
             activities.forEach(act => {
-                // Mapping activity_description and activity_percent from DB
-                window.StechTimesheet.Rows.add(act.activity_description, act.activity_percent);
+                window.StechTimesheet.ActivityRows.add(act.activity_description, act.activity_percent);
             });
         } else {
-            window.StechTimesheet.Rows.add();
+            window.StechTimesheet.ActivityRows.add();
         }
     },
 
@@ -127,12 +134,11 @@ window.StechTimesheet.Form = {
             window.StechTimesheet.Calendar.refresh();
         } catch (err) {
             console.error('Submission failed', err);
-            alert('Error saving timesheet: ' + (err.response?.data?.error || 'Internal Server Error'));
         }
     },
 
     /**
-     * Handles the Archiving (Soft Delete) of the record.
+     * FIX: Correctly calls the deleteTimesheet API method
      */
     async handleDelete() {
         if (!this.currentId || !confirm('Are you sure you want to delete this entry?')) return;
@@ -143,7 +149,6 @@ window.StechTimesheet.Form = {
             window.StechTimesheet.Calendar.refresh();
         } catch (err) {
             console.error('Delete failed', err);
-            alert('Error deleting entry.');
         }
     },
 
@@ -153,6 +158,7 @@ window.StechTimesheet.Form = {
         document.querySelectorAll('.work-desc').forEach(el => workDesc.push(el.value));
         document.querySelectorAll('.work-percent').forEach(el => workPercent.push(el.value));
 
+        const stateName = document.getElementById('travel-state').value;
         return {
             timesheet_id: this.currentId,
             date: document.getElementById('timesheet-date').value,
@@ -161,7 +167,7 @@ window.StechTimesheet.Form = {
             break_min: document.getElementById('break-min').value,
             total_hours: document.getElementById('total-hours').value,
             comments: document.getElementById('additional-comments').value,
-            state: document.getElementById('travel-state').value,
+            state: window.StechTimesheet.state.stateMap[stateName] || '',
             county: document.getElementById('travel-county').value,
             miles: document.getElementById('travel-miles').value,
             extra_expense: document.getElementById('travel-extra-expense').value,
@@ -175,10 +181,14 @@ window.StechTimesheet.Form = {
         this.currentId = null;
         document.getElementById('timesheet-form').reset();
         document.getElementById('work-rows-container').innerHTML = '';
-        document.getElementById('county-options').innerHTML = '';
+        document.getElementById('travel-fields-container').style.display = 'none';
+        document.getElementById('toggle-travel').checked = false;
     },
 
     close() {
         document.getElementById('timesheet-modal').style.display = 'none';
     }
 };
+
+window.StechTimesheet.Form = Form;
+export { Form };

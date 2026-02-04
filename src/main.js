@@ -5,9 +5,12 @@ import { Form } from './form.js';
 
 /**
  * Main Application Orchestrator
- * Bootstraps the timesheet application and handles global state.
+ * Bootstraps the application and handles global state.
  */
-window.StechTimesheet = {
+// FIX: Force immediate namespace initialization to prevent race conditions
+window.StechTimesheet = window.StechTimesheet || {};
+
+Object.assign(window.StechTimesheet, {
     API: StechAPI,
     ActivityRows: ActivityRows,
     Calendar: Calendar,
@@ -42,13 +45,13 @@ window.StechTimesheet = {
             totalDisplay.value = "0.00";
         }
     }
-};
+});
 
 /**
  * Global Initialization
  */
 document.addEventListener("DOMContentLoaded", () => {
-    // Initialize Sub-modules
+    // Initialize Form listeners
     window.StechTimesheet.Form.init();
 
     // Fetch required attributes for form dropdowns
@@ -79,8 +82,9 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("Failed to initialize application attributes:", err);
     });
 
-    // Attach calculation listeners to time inputs
-    document.querySelectorAll(".calc-time").forEach(input => {
-        input.addEventListener("change", () => window.StechTimesheet.calculateTotalHours());
+    // FIX: Attach calculation listeners to correct IDs for real-time updates
+    const calcInputs = ["time-in", "time-out", "break-min"];
+    calcInputs.forEach(id => {
+        document.getElementById(id)?.addEventListener("input", () => window.StechTimesheet.calculateTotalHours());
     });
 });

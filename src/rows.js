@@ -2,6 +2,9 @@
  * Activity Rows Module
  * Handles dynamic row creation and percentage math.
  */
+// FIX: Ensure namespace is initialized before module assignment
+window.StechTimesheet = window.StechTimesheet || {};
+
 export const ActivityRows = {
     containerId: 'work-rows-container',
 
@@ -10,6 +13,8 @@ export const ActivityRows = {
      */
     add(descVal = '', percentVal = '') {
         const container = document.getElementById(this.containerId);
+        if (!container) return;
+
         const existingRows = container.querySelectorAll('.work-row');
         
         // Auto-calculate if it's a new, empty row
@@ -29,8 +34,8 @@ export const ActivityRows = {
         const row = document.createElement('div');
         row.className = 'work-row';
         
-        // Access jobOptions from the global state we defined in main.js
-        const jobOptions = window.StechTimesheet.state.jobOptions;
+        // Access jobOptions from the global state defined in main.js
+        const jobOptions = window.StechTimesheet.state.jobOptions || [];
         let optionsHtml = '<option value="">Select Job...</option>';
         
         jobOptions.forEach(job => {
@@ -38,14 +43,15 @@ export const ActivityRows = {
             optionsHtml += `<option value="${job.job_name}" ${selected}>${job.job_name}</option>`;
         });
 
+        // FIX: Added 'work-desc' and 'work-percent' classes so Form.getFormData can extract values
         row.innerHTML = `
-            <select name="work_desc[]" class="form-control">${optionsHtml}</select>
-            <input type="number" name="work_percent[]" class="form-control text-center work-percent-input" 
+            <select name="work_desc[]" class="form-control work-desc">${optionsHtml}</select>
+            <input type="number" name="work_percent[]" class="form-control text-center work-percent work-percent-input" 
                    value="${percentVal}" placeholder="0" min="0" max="100">
             <div class="btn-remove-row" title="Remove">&times;</div>
         `;
         
-        // Attach internal listeners
+        // Attach internal listeners for percentage balancing
         const input = row.querySelector('.work-percent-input');
         input.addEventListener('change', (e) => this.recalculate(e.target));
 
@@ -89,6 +95,11 @@ export const ActivityRows = {
      * Clear all current rows
      */
     clear() {
-        document.getElementById(this.containerId).innerHTML = '';
+        const container = document.getElementById(this.containerId);
+        if (container) container.innerHTML = '';
     }
 };
+
+// --- BUILD FIX ---
+// This alias ensures main.js and form.js can access ActivityRows via the global namespace
+window.StechTimesheet.ActivityRows = ActivityRows;
