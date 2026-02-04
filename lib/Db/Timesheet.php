@@ -12,7 +12,7 @@ class Timesheet extends Entity {
     protected $timeOut;       // Maps to time_out
     protected $timeBreak;     // Maps to time_break
     protected $timeTotal;     // Maps to time_total
-    protected $travel;        // Maps to travel
+    protected $travel;
     protected $travelPerDiem; // Maps to travel_per_diem
     protected $travelState;   // Maps to travel_state
     protected $travelCounty;  // Maps to travel_county
@@ -22,7 +22,6 @@ class Timesheet extends Entity {
     protected $archive;
 
     public function __construct() {
-        // Explicitly defining types for correct database casting
         $this->addType('timeTotal', 'float');
         $this->addType('archive', 'integer');
         $this->addType('travel', 'integer');
