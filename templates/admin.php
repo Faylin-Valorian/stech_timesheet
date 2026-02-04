@@ -102,6 +102,7 @@ Util::addStyle('stech_timesheet', 'admin');
                         <div class="access-tab" data-target="panel-travel">Analysis: Travel Tab</div>
                         <div class="access-tab" data-target="panel-financial">Analysis: Financial Tab</div>
                         <div class="access-tab" data-target="panel-location">Analysis: Location Maps</div>
+                        <div class="access-tab" data-target="panel-jobs">Analysis: Job Breakdown</div>
                     </div>
 
                     <div class="split-panel right">
@@ -109,37 +110,43 @@ Util::addStyle('stech_timesheet', 'admin');
                         <div id="panel-admin" class="access-group-panel">
                             <h3 class="panel-title">Grant Access: Admin Panel</h3>
                             <p class="panel-desc">Groups allowed to see the "Admin Panel" link and access configuration.</p>
-                            <div id="list-admin_panel-groups" class="group-toggle-list"></div>
+                            <div id="list-access-admin" class="group-toggle-list"></div>
                         </div>
 
                         <div id="panel-analysis" class="access-group-panel hidden">
                             <h3 class="panel-title">Grant Access: Analysis Tab</h3>
                             <p class="panel-desc">Groups allowed to see the "Time Analysis" tab on the main dashboard.</p>
-                            <div id="list-analysis_tab-groups" class="group-toggle-list"></div>
+                            <div id="list-access-analysis-tab" class="group-toggle-list"></div>
                         </div>
 
                         <div id="panel-view-others" class="access-group-panel hidden">
                             <h3 class="panel-title">Grant Access: View All Data</h3>
                             <p class="panel-desc">Groups allowed to use the "Myself / All Employees" dropdown on the Analysis Dashboard.</p>
-                            <div id="list-analysis_view_others-groups" class="group-toggle-list"></div>
+                            <div id="list-access-analysis-others" class="group-toggle-list"></div>
                         </div>
 
                         <div id="panel-travel" class="access-group-panel hidden">
                             <h3 class="panel-title">Grant Access: Travel Tab</h3>
                             <p class="panel-desc">Groups allowed to see the "Travel Activity" tab (Miles, Per Diem, Expenses).</p>
-                            <div id="list-analysis_travel-groups" class="group-toggle-list"></div>
+                            <div id="list-access-analysis-travel" class="group-toggle-list"></div>
                         </div>
 
                         <div id="panel-financial" class="access-group-panel hidden">
                             <h3 class="panel-title">Grant Access: Financial Tab</h3>
-                            <p class="panel-desc">Groups allowed to see the "Job Breakdown" and "Profitability Meter" tabs.</p>
-                            <div id="list-analysis_financial-groups" class="group-toggle-list"></div>
+                            <p class="panel-desc">Groups allowed to see the "Profitability Meter" tab.</p>
+                            <div id="list-access-analysis-financial" class="group-toggle-list"></div>
                         </div>
 
                         <div id="panel-location" class="access-group-panel hidden">
                             <h3 class="panel-title">Grant Access: Location Maps</h3>
                             <p class="panel-desc">Groups allowed to see the "State Activity" and "County Activity" tabs.</p>
-                            <div id="list-analysis_location-groups" class="group-toggle-list"></div>
+                            <div id="list-access-analysis-location" class="group-toggle-list"></div>
+                        </div>
+
+                        <div id="panel-jobs" class="access-group-panel hidden">
+                            <h3 class="panel-title">Grant Access: Job Breakdown</h3>
+                            <p class="panel-desc">Groups allowed to see the "Job Breakdown" charts.</p>
+                            <div id="list-access-analysis-jobs" class="group-toggle-list"></div>
                         </div>
 
                     </div>
@@ -245,6 +252,23 @@ Util::addStyle('stech_timesheet', 'admin');
                             <label class="admin-switch" style="margin:0;"><input type="checkbox" id="job-is-pto"><span class="admin-slider"></span></label>
                             <span style="font-weight: bold; font-size: 0.9em; opacity: 0.8;">Is Vacation / Sick Record?</span>
                         </div>
+                        
+                        <div class="form-separator"></div>
+                        <h4>Financials</h4>
+                        
+                        <div class="input-group">
+                            <label>Estimated Revenue ($)</label>
+                            <input type="number" step="0.01" id="job-revenue" class="form-control">
+                        </div>
+                        <div class="input-group">
+                            <label>Expense Budget ($)</label>
+                            <input type="number" step="0.01" id="job-expense" class="form-control">
+                        </div>
+                        <div class="input-group">
+                            <label>Hourly Cost Estimate ($)</label>
+                            <input type="number" step="0.01" id="job-hourly" class="form-control">
+                        </div>
+
                         <div style="display: flex; gap: 10px; margin-top: 15px;">
                             <button type="submit" id="btn-save-job" class="primary-button full-width">Create Job</button>
                             <button type="button" id="btn-cancel-job" class="secondary-button hidden">Cancel</button>
