@@ -6,6 +6,7 @@ window.StechTimesheet = window.StechTimesheet || {};
 
 const Form = {
     currentId: null,
+    isLocked: false,
 
     init() {
         this.setupEventListeners();
@@ -30,6 +31,14 @@ const Form = {
                 this.close();
             });
         });
+        
+        // Close centered error on click
+        const errorOverlay = document.getElementById('stech-centered-error');
+        if(errorOverlay) {
+            errorOverlay.addEventListener('click', () => {
+                errorOverlay.style.display = 'none';
+            });
+        }
     },
 
     setupToggleListeners() {
@@ -40,25 +49,61 @@ const Form = {
                 travelFields.style.display = e.target.checked ? 'block' : 'none';
             });
         }
+
+        // NEW: PTO Auto-fill Logic
+        const ptoToggle = document.getElementById('toggle-pto');
+        if (ptoToggle) {
+            ptoToggle.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    this.handlePTOAutoFill();
+                }
+            });
+        }
+    },
+
+    handlePTOAutoFill() {
+        const timeIn = document.getElementById('time-in');
+        const timeOut = document.getElementById('time-out');
+        const breakMin = document.getElementById('break-min');
+
+        // Only trigger if user hasn't already started entering times
+        if (!timeIn.value && !timeOut.value) {
+            timeIn.value = "08:00";
+            timeOut.value = "17:00";
+            breakMin.value = "60";
+
+            // Find first PTO job from the global state
+            // Ensure window.StechTimesheet.state.jobs is populated via getAttributes
+            const ptoJob = window.StechTimesheet.state.jobs ? window.StechTimesheet.state.jobs.find(j => parseInt(j.is_pto) === 1) : null;
+            
+            if (ptoJob) {
+                // clear existing rows
+                document.getElementById('work-rows-container').innerHTML = '';
+                // Add the PTO job row
+                window.StechTimesheet.ActivityRows.add(ptoJob.job_name, 100);
+            }
+        }
     },
 
     setupStateListener() {
         const stateInput = document.getElementById('travel-state');
         const countyList = document.getElementById('county-options');
-        stateInput.addEventListener('change', (e) => {
-            const stateName = e.target.value;
-            const stateAbbr = window.StechTimesheet.state.stateMap[stateName];
-            countyList.innerHTML = '';
-            if (stateAbbr) {
-                window.StechTimesheet.API.getCounties(stateAbbr).then(counties => {
-                    counties.forEach(county => {
-                        const option = document.createElement('option');
-                        option.value = county.county_name;
-                        countyList.appendChild(option);
+        if (stateInput) {
+            stateInput.addEventListener('change', (e) => {
+                const stateName = e.target.value;
+                const stateAbbr = window.StechTimesheet.state.stateMap[stateName];
+                countyList.innerHTML = '';
+                if (stateAbbr) {
+                    window.StechTimesheet.API.getCounties(stateAbbr).then(counties => {
+                        counties.forEach(county => {
+                            const option = document.createElement('option');
+                            option.value = county.county_name;
+                            countyList.appendChild(option);
+                        });
                     });
-                });
-            }
-        });
+                }
+            });
+        }
     },
 
     open(date, id = null) {
@@ -66,14 +111,42 @@ const Form = {
         this.reset();
         document.getElementById('timesheet-date').value = date;
         const deleteBtn = document.getElementById('btn-delete');
+
         if (id) {
-            deleteBtn.style.display = 'block';
-            window.StechTimesheet.API.getTimesheetDetails(id).then(data => this.mapDataToForm(data));
+            window.StechTimesheet.API.getTimesheetDetails(id).then(data => {
+                // CHECK FOR LOCK/PAYROLL STATUS
+                // Assuming data.archive > 0 means it's locked/payrolled
+                if (parseInt(data.archive) === 1) {
+                   this.showCenteredError("This record is locked by Payroll and cannot be edited.");
+                   return; // Stop opening the edit modal
+                }
+
+                deleteBtn.style.display = 'block';
+                this.mapDataToForm(data);
+                document.getElementById('timesheet-modal').style.display = 'flex';
+            }).catch(err => {
+                console.error("Error fetching details", err);
+            });
         } else {
             deleteBtn.style.display = 'none';
             window.StechTimesheet.ActivityRows.add();
+            document.getElementById('timesheet-modal').style.display = 'flex';
         }
-        document.getElementById('timesheet-modal').style.display = 'flex';
+    },
+    
+    showCenteredError(msg) {
+        let overlay = document.getElementById('stech-centered-error');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'stech-centered-error';
+            document.body.appendChild(overlay);
+        }
+        overlay.innerHTML = `<div class="stech-error-content">
+            <h3>Access Denied</h3>
+            <p>${msg}</p>
+            <button onclick="document.getElementById('stech-centered-error').style.display='none'" class="primary-button">Close</button>
+        </div>`;
+        overlay.style.display = 'flex';
     },
 
     mapDataToForm(data) {
@@ -82,7 +155,10 @@ const Form = {
         document.getElementById('break-min').value = data.time_break || 0;
         document.getElementById('total-hours').value = data.time_total || 0;
         document.getElementById('additional-comments').value = data.additional_comments || '';
-        document.getElementById('travel-state').value = window.StechTimesheet.state.stateMapRev[data.travel_state] || '';
+        
+        // Handle State/Travel mapping safely
+        const stateRev = window.StechTimesheet.state.stateMapRev || {};
+        document.getElementById('travel-state').value = stateRev[data.travel_state] || '';
         document.getElementById('travel-county').value = data.travel_county || '';
         document.getElementById('travel-miles').value = data.travel_miles || 0;
         document.getElementById('travel-extra-expense').value = data.travel_extra_expenses || 0;
@@ -107,6 +183,42 @@ const Form = {
 
     async handleSubmit() {
         const formData = this.getFormData();
+        
+        // --- VALIDATION LOGIC ---
+        
+        // 1. Must have Sign In Time OR Request Per Diem
+        const hasTimeIn = !!formData.time_in;
+        const hasPerDiem = !!formData.req_per_diem;
+        
+        if (!hasTimeIn && !hasPerDiem) {
+            if (window.OCP && window.OCP.Toast) {
+                window.OCP.Toast.error("You must enter a Sign In Time OR request Per Diem to create a record.");
+            } else {
+                alert("You must enter a Sign In Time OR request Per Diem to create a record.");
+            }
+            return;
+        }
+
+        // 2. If Clock Out exists, Job Description is MANDATORY
+        const hasTimeOut = !!formData.time_out;
+        let hasDescription = false;
+        
+        // Check if at least one description is filled
+        if (formData.work_desc && formData.work_desc.length > 0) {
+            hasDescription = formData.work_desc.some(desc => desc.trim() !== '');
+        }
+
+        if (hasTimeOut && !hasDescription) {
+            if (window.OCP && window.OCP.Toast) {
+                window.OCP.Toast.error("You cannot Clock Out without entering a Job Description.");
+            } else {
+                alert("You cannot Clock Out without entering a Job Description.");
+            }
+            return;
+        }
+
+        // --- END VALIDATION ---
+
         try {
             const res = await window.StechTimesheet.API.saveTimesheet(formData);
             if (res.status === 'success') {
@@ -148,7 +260,6 @@ const Form = {
             miles: document.getElementById('travel-miles').value,
             extra_expense: document.getElementById('travel-extra-expense').value,
             req_per_diem: document.getElementById('req-per-diem').checked ? 1 : 0,
-            // These arrays are handled by the new logic in api.js request()
             work_desc: workDesc,
             work_percent: workPercent
         };
@@ -160,6 +271,10 @@ const Form = {
         document.getElementById('work-rows-container').innerHTML = '';
         document.getElementById('travel-fields-container').style.display = 'none';
         document.getElementById('toggle-travel').checked = false;
+        
+        // Reset PTO toggle if it exists
+        const ptoToggle = document.getElementById('toggle-pto');
+        if (ptoToggle) ptoToggle.checked = false;
     },
 
     close() { document.getElementById('timesheet-modal').style.display = 'none'; }

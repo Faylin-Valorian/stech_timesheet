@@ -13,6 +13,7 @@ use OCP\IUserSession;
 use OCP\IUserManager;
 use OCP\IGroupManager;
 use OCP\Files\IAppData;
+use OCP\IConfig; // Added for Config access in Jobs
 
 // Controllers
 use OCA\StechTimesheet\Controller\PageController;
@@ -29,6 +30,10 @@ use OCA\StechTimesheet\Db\AnalysisMapper;
 use OCA\StechTimesheet\Service\TimesheetService;
 use OCA\StechTimesheet\Service\AdminService;
 use OCA\StechTimesheet\Service\AnalysisService;
+use OCA\StechTimesheet\Service\HolidayService; // Added HolidayService
+
+// Background Jobs
+use OCA\StechTimesheet\BackgroundJob\HolidayInsertJob;
 
 class Application extends App implements IBootstrap {
 
@@ -37,6 +42,10 @@ class Application extends App implements IBootstrap {
     }
 
     public function register(IRegistrationContext $context): void {
+        
+        // --- Register Background Jobs ---
+        $context->registerJob(HolidayInsertJob::class);
+
         // --- Register Mappers ---
         $context->registerService(TimesheetMapper::class, function($c) {
             return new TimesheetMapper($c->get(IDBConnection::class));
@@ -75,6 +84,13 @@ class Application extends App implements IBootstrap {
             );
         });
 
+        $context->registerService(HolidayService::class, function($c) {
+            return new HolidayService(
+                $c->get(IDBConnection::class),
+                $c->get(AdminMapper::class) // Assuming AdminMapper handles holiday DB interaction
+            );
+        });
+
         // --- Register Controllers ---
         $context->registerService(PageController::class, function($c) {
             return new PageController(
@@ -85,7 +101,6 @@ class Application extends App implements IBootstrap {
             );
         });
 
-        // PATCH: Fixed service registration to use $context instead of undefined $container
         $context->registerService(TimesheetController::class, function ($c) {
             return new TimesheetController(
                 $c->get(IRequest::class),
@@ -120,5 +135,6 @@ class Application extends App implements IBootstrap {
     }
 
     public function boot(IBootContext $context): void {
+        // No special boot logic needed for now
     }
 }

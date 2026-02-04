@@ -2,6 +2,16 @@
    1. LAYOUT & STRUCTURE
    ========================================= */
 
+/* Core Variables - Matching Nextcloud Logic */
+:root {
+    --color-main-background: #fff;
+    --color-text-maxcontrast: #222;
+    --border-radius-large: 10px;
+    --color-error: #e9322d;
+    --color-primary-element: #0082c9;
+    --color-primary-text: #fff;
+}
+
 /* Main App Container - Force Flexbox */
 #app {
     display: flex !important;
@@ -214,7 +224,9 @@
     transition: background-color 0.1s ease-in-out;
 }
 
-/* --- FIXED: Overlay Modal Styling (Scrollable) --- */
+/* =========================================
+   5. MODAL & FORM STYLING
+   ========================================= */
 
 /* 1. The Container (Backdrop) */
 .modal-overlay {
@@ -235,34 +247,22 @@
 .modal-card {
     background: var(--color-main-background);
     color: var(--color-main-text);
-    
-    /* Dimensions */
     width: 80%; 
     max-width: 95%; 
-    
-    /* CRITICAL: Height Constraints */
-    /* Use 'vh' to ensure it fits in the browser window */
     max-height: 90vh; 
-    
     border-radius: var(--border-radius-large);
     box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
-    
-    /* Flex Setup */
     display: flex;
     flex-direction: column;
     overflow: hidden; 
 }
 
 /* 3. The Form Container */
-/* The form must be a flex container that fills the card but allows shrinking */
 #timesheet-form {
     display: flex;
     flex-direction: column;
-    
-    /* CRITICAL: Allows form to shrink to fit the card */
     flex: 1 1 auto; 
     min-height: 0; 
-    
     height: 100%;
     width: 100%;
 }
@@ -273,7 +273,7 @@
     padding: 20px 25px;
     background: var(--color-background-hover);
     border-bottom: 1px solid var(--color-border);
-    flex-shrink: 0; /* Never shrink */
+    flex-shrink: 0; 
 }
 .modal-header h2 { margin: 0; font-size: 20px; font-weight: bold; }
 .modal-subtitle { font-size: 13px; opacity: 0.6; }
@@ -287,11 +287,9 @@
 /* Body & Scroll */
 .modal-body { 
     padding: 25px; 
-    
-    /* SCROLLING LOGIC */
-    overflow-y: auto;  /* Trigger scrollbar */
-    flex-grow: 1;      /* Fill empty space */
-    min-height: 0;     /* Allow shrinking */
+    overflow-y: auto;  
+    flex-grow: 1;      
+    min-height: 0;     
 }
 
 /* Footer */
@@ -300,7 +298,7 @@
     border-top: 1px solid var(--color-border); 
     background: var(--color-background-hover); 
     display: flex; justify-content: flex-end; gap: 10px;
-    flex-shrink: 0; /* Never shrink */
+    flex-shrink: 0; 
 }
 
 
@@ -370,7 +368,7 @@ input:checked + .slider:before { transform: translateX(14px); }
 .form-separator { height: 1px; background: var(--color-border); margin: 20px 0; opacity: 0.5; }
 
 /* =========================================
-   5. CALENDAR TAB HOVER EFFECTS (NEW)
+   6. CALENDAR TAB HOVER EFFECTS
    ========================================= */
 
 /* The FullCalendar Event Container */
@@ -401,4 +399,57 @@ input:checked + .slider:before { transform: translateX(14px); }
 /* Adjust Date Cell Hover (Separate from event) */
 .fc .fc-daygrid-day:hover {
     background-color: rgba(0, 0, 0, 0.03) !important; /* Lighter highlight */
+}
+
+/* =========================================
+   7. CENTERED ERROR OVERLAY (NEW)
+   ========================================= */
+#stech-centered-error {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 10001; /* Higher than modal */
+    display: none;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+}
+
+.stech-error-content {
+    background: var(--color-main-background);
+    color: var(--color-text-maxcontrast);
+    padding: 30px;
+    border-radius: var(--border-radius-large);
+    text-align: center;
+    box-shadow: 0 4px 25px rgba(0,0,0,0.2);
+    border-top: 6px solid var(--color-error);
+    max-width: 450px;
+    width: 90%;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.stech-error-content h3 {
+    color: var(--color-error);
+    margin-top: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.stech-error-content p {
+    font-size: 1.1rem;
+    margin: 15px 0 25px 0;
+    line-height: 1.5;
+}
+
+.stech-error-content button.primary-button {
+    background-color: var(--color-primary-element);
+    color: var(--color-primary-text);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
 }
