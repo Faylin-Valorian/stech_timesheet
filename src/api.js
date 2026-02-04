@@ -5,9 +5,6 @@ import axios from '@nextcloud/axios';
  * API Module for Stech Timesheet
  * Centralized communication layer using Nextcloud's Axios wrapper.
  */
-// FIX: Initialize the global namespace immediately to prevent race conditions during module loading
-window.StechTimesheet = window.StechTimesheet || {};
-
 export const StechAPI = {
 
     /**
@@ -32,10 +29,11 @@ export const StechAPI = {
         }
 
         try {
+            // Using the imported 'axios' instance directly to solve ReferenceError
             const response = await axios({
                 method: method.toLowerCase(),
                 url: url,
-                // If it's a POST/PUT and we have data, send as URLSearchParams for PHP compatibility
+                // If it's a POST/PUT and we have data, send as URLSearchParams
                 data: (method.toLowerCase() !== 'get' && data) ? new URLSearchParams(data) : null,
                 // If it's a GET and we have data (params), axios handles it via 'params' key
                 params: (method.toLowerCase() === 'get' && data) ? data : null
@@ -44,11 +42,13 @@ export const StechAPI = {
         } catch (error) {
             console.error(`StechAPI Error on ${endpoint}:`, error);
             
+            // Modern Nextcloud notification system replacement for OC.dialogs
             const errorMessage = error.response?.data?.error || error.response?.data?.message || "An unexpected error occurred.";
             
             if (window.OCP && window.OCP.Toast) {
                 window.OCP.Toast.error(errorMessage);
             } else {
+                // Fallback for environments where OCP.Toast is not yet available
                 console.error("Critical API Failure: " + errorMessage);
             }
             
@@ -64,10 +64,10 @@ export const StechAPI = {
     },
 
     /**
-     * FIX: Standardized alias to getTimesheet to resolve TypeErrors in form.js and calendar.js
+     * FIX: Aliased to match calls in form.js and calendar.js
      */
     getTimesheet(id) {
-        return this.request('get', `/api/timesheets/${id}`);
+        return this.getTimesheetDetails(id);
     },
 
     getTimesheetDetails(id) {
@@ -79,7 +79,7 @@ export const StechAPI = {
     },
 
     /**
-     * FIX: Added deleteTimesheet method to handle Archiving (Soft Delete) from the UI
+     * FIX: Added missing delete method for archiving records
      */
     deleteTimesheet(id) {
         return this.request('delete', `/api/timesheets/${id}`);
@@ -176,8 +176,7 @@ export const StechAPI = {
     }
 };
 
-/**
- * FIX: Synchronize global namespaces to ensure both StechAPI and StechTimesheet.API are accessible
- */
+// Global expose for transition during the build process
 window.StechAPI = StechAPI;
+window.StechTimesheet = window.StechTimesheet || {};
 window.StechTimesheet.API = StechAPI;

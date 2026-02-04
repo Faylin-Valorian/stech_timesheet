@@ -7,11 +7,6 @@ use OCP\AppFramework\Db\QBMapper;
 use OCP\IDBConnection;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 
-/**
- * TimesheetMapper
- * Modular database layer for stech_timesheets and related tables.
- * Restores 100% of original logic with modern DB compatibility patches.
- */
 class TimesheetMapper extends QBMapper {
     public function __construct(IDBConnection $db) {
         parent::__construct($db, 'stech_timesheets', Timesheet::class);
@@ -19,18 +14,16 @@ class TimesheetMapper extends QBMapper {
 
     public function getActiveJobs(): array {
         $qb = $this->db->getQueryBuilder();
-        $qb->select('*')->from('stech_jobs')
+        return $qb->select('*')->from('stech_jobs')
            ->where($qb->expr()->eq('job_archive', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)))
-           ->orderBy('job_name', 'ASC');
-        return $qb->executeQuery()->fetchAll();
+           ->orderBy('job_name', 'ASC')->executeQuery()->fetchAll();
     }
 
     public function getEnabledStates(): array {
         $qb = $this->db->getQueryBuilder();
-        $qb->select('*')->from('stech_states')
+        return $qb->select('*')->from('stech_states')
            ->where($qb->expr()->eq('is_enabled', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
-           ->orderBy('state_name', 'ASC');
-        return $qb->executeQuery()->fetchAll();
+           ->orderBy('state_name', 'ASC')->executeQuery()->fetchAll();
     }
 
     public function getCountiesByState(string $stateAbbr): array {
@@ -41,11 +34,28 @@ class TimesheetMapper extends QBMapper {
         if (!$state) return [];
 
         $qb = $this->db->getQueryBuilder();
-        $qb->select('*')->from('stech_counties')
+        return $qb->select('*')->from('stech_counties')
            ->where($qb->expr()->eq('state_fips', $qb->createNamedParameter($state['fips_code'])))
            ->andWhere($qb->expr()->eq('is_enabled', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
-           ->orderBy('county_name', 'ASC');
-        return $qb->executeQuery()->fetchAll();
+           ->orderBy('county_name', 'ASC')->executeQuery()->fetchAll();
+    }
+
+    public function getTimesheetById(int $id, string $uid): ?array {
+        $qb = $this->db->getQueryBuilder();
+        $res = $qb->select('*')->from('stech_timesheets')
+           ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id)))
+           ->andWhere($qb->expr()->eq('userid', $qb->createNamedParameter($uid)))
+           ->executeQuery()->fetch();
+        return $res ?: null;
+    }
+
+    public function getLastEntryForDate(string $uid, string $date): ?array {
+        $qb = $this->db->getQueryBuilder();
+        $res = $qb->select('*')->from('stech_timesheets')
+           ->where($qb->expr()->eq('userid', $qb->createNamedParameter($uid)))
+           ->andWhere($qb->expr()->eq('timesheet_date', $qb->createNamedParameter($date)))
+           ->orderBy('timesheet_id', 'DESC')->setMaxResults(1)->executeQuery()->fetch();
+        return $res ?: null;
     }
 
     public function findRawEntries(string $userId, string $start, string $end): array {
@@ -54,42 +64,34 @@ class TimesheetMapper extends QBMapper {
            ->where($qb->expr()->eq('userid', $qb->createNamedParameter($userId)))
            ->andWhere($qb->expr()->gte('timesheet_date', $qb->createNamedParameter($start)))
            ->andWhere($qb->expr()->lte('timesheet_date', $qb->createNamedParameter($end)))
-           ->andWhere($qb->expr()->eq('archive', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)))
+           ->andWhere($qb->expr()->eq('archive', $qb->createNamedParameter(0)))
            ->executeQuery()->fetchAll();
     }
 
     public function getActivitiesGrouped(array $ids): array {
         if (empty($ids)) return [];
-        $qbAct = $this->db->getQueryBuilder();
-        $acts = $qbAct->select('*')->from('stech_activity')
-                  ->where($qbAct->expr()->in('timesheet_id', $qbAct->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)))
+        $qb = $this->db->getQueryBuilder();
+        $acts = $qb->select('*')->from('stech_activity')
+                  ->where($qb->expr()->in('timesheet_id', $qb->createNamedParameter($ids, IQueryBuilder::PARAM_INT_ARRAY)))
                   ->executeQuery()->fetchAll();
         $grouped = [];
-        foreach($acts as $a) {
-            $grouped[$a['timesheet_id']][] = $a;
-        }
+        foreach($acts as $a) { $grouped[$a['timesheet_id']][] = $a; }
         return $grouped;
     }
 
-    /**
-     * Fetches activities for a single record with correct column mapping.
-     */
     public function getActivitiesByTimesheet(int $id): array {
         $qb = $this->db->getQueryBuilder();
-        return $qb->select('*')
-           ->from('stech_activity')
-           ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
-           ->executeQuery()
-           ->fetchAll();
+        return $qb->select('*')->from('stech_activity')
+           ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id)))
+           ->executeQuery()->fetchAll();
     }
 
     public function getAdminSettings(): array {
+        $settings = [];
         try {
-            $qb = $this->db->getQueryBuilder();
-            $rows = $qb->select('*')->from('stech_admin_settings')->executeQuery()->fetchAll();
-            $settings = [];
-            foreach ($rows as $row) { $settings[$row['setting_key']] = $row['setting_value']; }
-            return $settings;
-        } catch (\Exception $e) { return []; }
+            $rows = $this->db->getQueryBuilder()->select('*')->from('stech_admin_settings')->executeQuery()->fetchAll();
+            foreach ($rows as $r) { $settings[$r['setting_key']] = $r['setting_value']; }
+        } catch (\Exception $e) {}
+        return $settings;
     }
 }

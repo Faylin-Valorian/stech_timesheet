@@ -47,7 +47,7 @@ class Version20260204100000 extends SimpleMigrationStep {
             $table->addIndex(['timesheet_id'], 'idx_stech_act_ts');
         }
 
-        // 3. Jobs Table (Including Financial Reporting Columns)
+        // 3. Jobs Table (Financial Reporting Columns included)
         if (!$schema->hasTable('stech_jobs')) {
             $table = $schema->createTable('stech_jobs');
             $table->addColumn('job_id', 'integer', ['autoincrement' => true, 'notnull' => true]);
@@ -60,7 +60,7 @@ class Version20260204100000 extends SimpleMigrationStep {
             $table->setPrimaryKey(['job_id']);
         }
 
-        // 4. Access Rules Table (RBAC Logic)
+        // 4. Access Rules Table (RBAC)
         if (!$schema->hasTable('stech_access_rules')) {
             $table = $schema->createTable('stech_access_rules');
             $table->addColumn('id', 'integer', ['autoincrement' => true, 'notnull' => true]);
@@ -80,18 +80,29 @@ class Version20260204100000 extends SimpleMigrationStep {
             $table->addUniqueIndex(['setting_key'], 'stech_settings_idx');
         }
 
-        // 6. Employee Status Table
-        if (!$schema->hasTable('stech_employees')) {
-            $table = $schema->createTable('stech_employees');
+        // 6. US States Table
+        if (!$schema->hasTable('stech_states')) {
+            $table = $schema->createTable('stech_states');
             $table->addColumn('id', 'integer', ['autoincrement' => true, 'notnull' => true]);
-            $table->addColumn('uid', 'string', ['length' => 64]);
-            $table->addColumn('is_active', 'integer', ['default' => 1]);
-            $table->addColumn('status_changed_at', 'datetime', ['notnull' => false]);
+            $table->addColumn('state_name', 'string', ['length' => 100, 'notnull' => true]);
+            $table->addColumn('state_abbr', 'string', ['length' => 10, 'notnull' => true]);
+            $table->addColumn('fips_code', 'string', ['length' => 10, 'notnull' => true]);
+            $table->addColumn('is_enabled', 'integer', ['default' => 1]);
             $table->setPrimaryKey(['id']);
-            $table->addUniqueIndex(['uid'], 'stech_emp_uid_idx');
         }
 
-        // 7. Holidays Table
+        // 7. US Counties Table
+        if (!$schema->hasTable('stech_counties')) {
+            $table = $schema->createTable('stech_counties');
+            $table->addColumn('id', 'integer', ['autoincrement' => true, 'notnull' => true]);
+            $table->addColumn('county_name', 'string', ['length' => 255, 'notnull' => true]);
+            $table->addColumn('state_fips', 'string', ['length' => 10, 'notnull' => true]);
+            $table->addColumn('is_enabled', 'integer', ['default' => 1]);
+            $table->setPrimaryKey(['id']);
+            $table->addIndex(['state_fips'], 'idx_stech_counties_fips');
+        }
+
+        // 8. Holidays Table
         if (!$schema->hasTable('stech_holidays')) {
             $table = $schema->createTable('stech_holidays');
             $table->addColumn('holiday_id', 'integer', ['autoincrement' => true, 'notnull' => true]);

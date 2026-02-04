@@ -11,146 +11,102 @@ use OCP\IDBConnection;
 use OCA\StechTimesheet\Service\TimesheetService;
 use OCA\StechTimesheet\Db\TimesheetMapper;
 
-/**
- * TimesheetController
- * Handles orchestration between the UI and the database/service layers.
- */
 class TimesheetController extends Controller {
     private $userSession;
     private $service;
     private $mapper;
     private $db;
+    private $userId;
 
-    public function __construct(
-        IRequest $request, 
-        IUserSession $userSession, 
-        TimesheetService $service, 
-        TimesheetMapper $mapper, 
-        IDBConnection $db
-    ) {
+    public function __construct(IRequest $request, IUserSession $userSession, TimesheetService $service, TimesheetMapper $mapper, IDBConnection $db) {
         parent::__construct('stech_timesheet', $request);
         $this->userSession = $userSession;
         $this->service = $service;
         $this->mapper = $mapper;
         $this->db = $db;
+        $this->userId = $userSession->getUser() ? $userSession->getUser()->getUID() : null;
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    /** @NoAdminRequired */
     public function getAttributes(): DataResponse {
-        return new DataResponse([
-            'jobs' => $this->mapper->getActiveJobs(), 
-            'states' => $this->mapper->getEnabledStates()
-        ]);
+        return new DataResponse(['jobs' => $this->mapper->getActiveJobs(), 'states' => $this->mapper->getEnabledStates()]);
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    /** @NoAdminRequired */
     public function getCounties(string $stateAbbr): DataResponse {
         return new DataResponse($this->mapper->getCountiesByState($stateAbbr));
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    /** @NoAdminRequired */
     public function getTimesheets(string $start, string $end): DataResponse {
-        $uid = $this->userSession->getUser()->getUID();
-        return new DataResponse($this->service->getCalendarEvents($uid, $start, $end));
+        return new DataResponse($this->service->getCalendarEvents($this->userId, $start, $end));
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    /** @NoAdminRequired */
     public function getTimesheet(int $id): DataResponse {
-        $uid = $this->userSession->getUser()->getUID();
-        $qb = $this->db->getQueryBuilder();
-        $ts = $qb->select('*')
-            ->from('stech_timesheets')
-            ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id)))
-            ->andWhere($qb->expr()->eq('userid', $qb->createNamedParameter($uid)))
-            ->executeQuery()
-            ->fetch();
-            
+        $ts = $this->mapper->getTimesheetById($id, $this->userId);
         if (!$ts) return new DataResponse([], 404);
-        
         $ts['activities'] = $this->mapper->getActivitiesByTimesheet($id);
         return new DataResponse($ts);
     }
 
-    /**
-     * @NoAdminRequired
-     */
+    /** @NoAdminRequired */
     public function saveTimesheet(): DataResponse {
         $data = $this->request->getParams();
-        $uid = $this->userSession->getUser()->getUID();
+        $date = $data['date'];
         
         if (empty($data['time_in']) && !isset($data['req_per_diem'])) {
-            return new DataResponse(['error' => 'You must provide a Start Time, unless requesting Per Diem only.'], 400);
+            return new DataResponse(['error' => 'Start Time required unless Per Diem only.'], 400);
         }
 
         $values = [
-            'userid' => $uid,
-            'timesheet_date' => $data['date'],
+            'userid' => $this->userId,
+            'timesheet_date' => $date,
             'time_in' => $data['time_in'] ?: null,
             'time_out' => $data['time_out'] ?: null,
-            'time_break' => (int)$data['break_min'],
-            'time_total' => (float)$data['total_hours'],
+            'time_break' => (int)($data['break_min'] ?? 0),
+            'time_total' => (float)($data['total_hours'] ?? 0),
             'additional_comments' => $data['comments'] ?? '',
             'travel' => (isset($data['req_per_diem']) || !empty($data['miles'])) ? 1 : 0,
             'travel_per_diem' => isset($data['req_per_diem']) ? 1 : 0,
-            'travel_state' => $data['state'],
-            'travel_county' => $data['county'],
-            'travel_miles' => (int)$data['miles'],
-            'travel_extra_expenses' => (float)$data['extra_expense'],
+            'travel_state' => $data['state'] ?? '',
+            'travel_county' => $data['county'] ?? '',
+            'travel_miles' => (int)($data['miles'] ?? 0),
+            'travel_extra_expenses' => (float)($data['extra_expense'] ?? 0),
             'archive' => 0
         ];
 
         $qb = $this->db->getQueryBuilder();
         if (!empty($data['timesheet_id'])) {
             $qb->update('stech_timesheets');
-            foreach ($values as $c => $v) { 
-                if ($c !== 'userid') $qb->set($c, $qb->createNamedParameter($v)); 
+            foreach ($values as $col => $val) { 
+                if ($col !== 'userid') $qb->set($col, $qb->createNamedParameter($val)); 
             }
-            $qb->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($data['timesheet_id'])))
-               ->executeStatement();
+            $qb->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($data['timesheet_id'])))->executeStatement();
             $tid = (int)$data['timesheet_id'];
         } else {
             $qb->insert('stech_timesheets');
-            foreach ($values as $c => $v) $qb->setValue($c, $qb->createNamedParameter($v));
+            foreach ($values as $col => $val) $qb->setValue($col, $qb->createNamedParameter($val));
             $qb->executeStatement();
-            
-            // FIX: Added explicit sequence for ConnectionAdapter compatibility
-            $tid = (int)$this->db->lastInsertId('stech_timesheets_timesheet_id_seq'); 
+            $tid = (int)$qb->getLastInsertId(); // Restored from original logic
         }
 
-        // FIX: Positional placeholder for MariaDB DELETE compatibility
-        $sqlDelete = "DELETE FROM `*PREFIX*stech_activity` WHERE `timesheet_id` = ?";
-        $this->db->prepare($sqlDelete)->execute([$tid]);
-
+        // Standard Activity Refresh
+        $this->db->prepare("DELETE FROM `*PREFIX*stech_activity` WHERE `timesheet_id` = ?")->execute([$tid]);
         if (isset($data['work_desc']) && is_array($data['work_desc'])) {
-            $sqlInsert = "INSERT INTO `*PREFIX*stech_activity` (`timesheet_id`, `activity_description`, `activity_percent`) VALUES (?, ?, ?)";
-            $stmt = $this->db->prepare($sqlInsert);
+            $stmt = $this->db->prepare("INSERT INTO `*PREFIX*stech_activity` (`timesheet_id`, `activity_description`, `activity_percent`) VALUES (?, ?, ?)");
             foreach ($data['work_desc'] as $idx => $desc) { 
-                if (!empty($desc)) {
-                    $stmt->execute([$tid, $desc, (int)($data['work_percent'][$idx] ?? 0)]); 
-                }
+                if (!empty($desc)) $stmt->execute([$tid, $desc, (int)($data['work_percent'][$idx] ?? 0)]); 
             }
         }
-
         return new DataResponse(['status' => 'success']);
     }
 
-    /**
-     * @NoAdminRequired
-     * Soft delete: sets archive = 1 so the record remains in DB but is hidden.
-     */
+    /** @NoAdminRequired */
     public function deleteTimesheet(int $id): DataResponse {
-        $uid = $this->userSession->getUser()->getUID();
+        // Integrated new soft-delete logic
         $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 1 WHERE `timesheet_id` = ? AND `userid` = ?";
-        $this->db->prepare($sql)->execute([$id, $uid]);
-           
+        $this->db->prepare($sql)->execute([$id, $this->userId]);
         return new DataResponse(['status' => 'success']);
     }
 }
