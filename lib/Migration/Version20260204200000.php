@@ -7,7 +7,7 @@ use OCP\IDBConnection;
 use OCP\Migration\IMigrationStep;
 use OCP\Migration\IOutput;
 
-class Version20260204110000 implements IMigrationStep {
+class Version20260204200000 implements IMigrationStep {
 
     /** @var IDBConnection */
     private $db;

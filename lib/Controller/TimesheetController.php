@@ -53,7 +53,8 @@ class TimesheetController extends Controller {
     /** @NoAdminRequired */
     public function saveTimesheet(): DataResponse {
         $data = $this->request->getParams();
-        $date = $data['date'];
+        // Ensure we map 'date' from the request to 'timesheet_date' for the DB
+        $date = $data['date'] ?? null;
         
         if (empty($data['time_in']) && !isset($data['req_per_diem'])) {
             return new DataResponse(['error' => 'Start Time required unless Per Diem only.'], 400);
@@ -88,23 +89,30 @@ class TimesheetController extends Controller {
             $qb->insert('stech_timesheets');
             foreach ($values as $col => $val) $qb->setValue($col, $qb->createNamedParameter($val));
             $qb->executeStatement();
-            $tid = (int)$qb->getLastInsertId(); // Restored from original logic
+            
+            // FIX: Retrieve the ID from the connection, not the query builder
+            $tid = (int)$this->db->lastInsertId('*PREFIX*stech_timesheets');
         }
 
-        // Standard Activity Refresh
+        // Standard Activity Refresh: Delete existing and insert new rows
         $this->db->prepare("DELETE FROM `*PREFIX*stech_activity` WHERE `timesheet_id` = ?")->execute([$tid]);
+        
         if (isset($data['work_desc']) && is_array($data['work_desc'])) {
             $stmt = $this->db->prepare("INSERT INTO `*PREFIX*stech_activity` (`timesheet_id`, `activity_description`, `activity_percent`) VALUES (?, ?, ?)");
             foreach ($data['work_desc'] as $idx => $desc) { 
-                if (!empty($desc)) $stmt->execute([$tid, $desc, (int)($data['work_percent'][$idx] ?? 0)]); 
+                if (!empty($desc)) {
+                    $percent = (int)($data['work_percent'][$idx] ?? 0);
+                    $stmt->execute([$tid, $desc, $percent]); 
+                }
             }
         }
-        return new DataResponse(['status' => 'success']);
+        
+        return new DataResponse(['status' => 'success', 'id' => $tid]);
     }
 
     /** @NoAdminRequired */
     public function deleteTimesheet(int $id): DataResponse {
-        // Integrated new soft-delete logic
+        // Soft-delete by setting the archive flag
         $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 1 WHERE `timesheet_id` = ? AND `userid` = ?";
         $this->db->prepare($sql)->execute([$id, $this->userId]);
         return new DataResponse(['status' => 'success']);

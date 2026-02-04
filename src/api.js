@@ -17,38 +17,47 @@ export const StechAPI = {
 
     /**
      * Core Request Handler
-     * Automatically handles URLs, Target Users, and Nextcloud Request Tokens.
+     * FIX: Handles array serialization for PHP backends.
      */
     async request(method, endpoint, data = null) {
         let url = generateUrl('/apps/stech_timesheet' + endpoint);
         const target = this.getTargetUser();
         
-        // Append target_user to query string if present
         if (target) {
             url += (url.includes('?') ? '&' : '?') + 'target_user=' + target;
         }
 
         try {
-            // Using the imported 'axios' instance directly to solve ReferenceError
+            let payload = null;
+
+            if (method.toLowerCase() !== 'get' && data) {
+                // Use URLSearchParams for POST/PUT requests
+                payload = new URLSearchParams();
+                for (const key in data) {
+                    if (Array.isArray(data[key])) {
+                        // FIX: Append array keys with [] so PHP parses them as arrays
+                        data[key].forEach(val => payload.append(`${key}[]`, val));
+                    } else {
+                        payload.append(key, data[key]);
+                    }
+                }
+            }
+
             const response = await axios({
                 method: method.toLowerCase(),
                 url: url,
-                // If it's a POST/PUT and we have data, send as URLSearchParams
-                data: (method.toLowerCase() !== 'get' && data) ? new URLSearchParams(data) : null,
-                // If it's a GET and we have data (params), axios handles it via 'params' key
+                data: payload,
                 params: (method.toLowerCase() === 'get' && data) ? data : null
             });
             return response.data;
         } catch (error) {
             console.error(`StechAPI Error on ${endpoint}:`, error);
             
-            // Modern Nextcloud notification system replacement for OC.dialogs
             const errorMessage = error.response?.data?.error || error.response?.data?.message || "An unexpected error occurred.";
             
             if (window.OCP && window.OCP.Toast) {
                 window.OCP.Toast.error(errorMessage);
             } else {
-                // Fallback for environments where OCP.Toast is not yet available
                 console.error("Critical API Failure: " + errorMessage);
             }
             
@@ -63,9 +72,6 @@ export const StechAPI = {
         return this.request('get', '/api/timesheets', { start, end });
     },
 
-    /**
-     * FIX: Aliased to match calls in form.js and calendar.js
-     */
     getTimesheet(id) {
         return this.getTimesheetDetails(id);
     },
@@ -78,9 +84,6 @@ export const StechAPI = {
         return this.request('post', '/api/timesheets', formData);
     },
 
-    /**
-     * FIX: Added missing delete method for archiving records
-     */
     deleteTimesheet(id) {
         return this.request('delete', `/api/timesheets/${id}`);
     },
@@ -176,7 +179,6 @@ export const StechAPI = {
     }
 };
 
-// Global expose for transition during the build process
 window.StechAPI = StechAPI;
 window.StechTimesheet = window.StechTimesheet || {};
 window.StechTimesheet.API = StechAPI;

@@ -113,7 +113,9 @@ const Form = {
                 this.close();
                 window.StechTimesheet.Calendar.refresh();
             }
-        } catch (err) { console.error('Save failed', err); }
+        } catch (err) { 
+            console.error('Save failed', err);
+        }
     },
 
     async handleDelete() {
@@ -132,6 +134,7 @@ const Form = {
         const workPercent = [];
         document.querySelectorAll('.work-desc').forEach(el => workDesc.push(el.value));
         document.querySelectorAll('.work-percent').forEach(el => workPercent.push(el.value));
+        
         return {
             timesheet_id: this.currentId,
             date: document.getElementById('timesheet-date').value,
@@ -145,6 +148,7 @@ const Form = {
             miles: document.getElementById('travel-miles').value,
             extra_expense: document.getElementById('travel-extra-expense').value,
             req_per_diem: document.getElementById('req-per-diem').checked ? 1 : 0,
+            // These arrays are handled by the new logic in api.js request()
             work_desc: workDesc,
             work_percent: workPercent
         };
