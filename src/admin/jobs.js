@@ -16,18 +16,18 @@ export const JobAdmin = {
         list.innerHTML = '';
 
         this.allJobs.filter(j => {
-            const active = j.job_archive == 0;
+            const active = parseInt(j.job_archive) === 0;
             const matchesSearch = (j.job_name || '').toLowerCase().includes(term);
             const matchesStatus = (status === 'all' || (status === 'active' && active) || (status === 'archived' && !active));
             return matchesSearch && matchesStatus;
         }).forEach(j => {
-            const active = j.job_archive == 0;
+            const active = parseInt(j.job_archive) === 0;
             const item = document.createElement('div');
             item.className = 'list-item';
             item.style.opacity = active ? '1' : '0.6';
 
-            // PTO Tag logic restored
-            const ptoTag = j.is_pto == 1 ? '<span class="pto-tag" style="background: var(--color-primary); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; margin-left: 8px; font-weight: bold;">PTO</span>' : '';
+            const isPto = parseInt(j.is_pto) === 1;
+            const ptoTag = isPto ? '<span class="pto-tag" style="background: var(--color-primary); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; margin-left: 8px; font-weight: bold;">PTO</span>' : '';
 
             item.innerHTML = `
                 <span style="flex:1; cursor:pointer;">
@@ -48,8 +48,17 @@ export const JobAdmin = {
     edit(j) {
         document.getElementById('job-id').value = j.job_id;
         document.getElementById('job-name').value = j.job_name;
-        document.getElementById('job-desc').value = j.job_description;
-        document.getElementById('job-is-pto').checked = (j.is_pto == 1);
+        // FIX: Populate description correctly
+        document.getElementById('job-desc').value = j.job_description || '';
+        
+        // FIX: Populate Financials
+        document.getElementById('job-revenue').value = j.job_revenue || '';
+        document.getElementById('job-expense').value = j.job_expense_budget || '';
+        document.getElementById('job-hourly').value = j.job_hourly_cost || '';
+
+        // FIX: Ensure PTO toggle works
+        document.getElementById('job-is-pto').checked = (parseInt(j.is_pto) === 1);
+
         document.getElementById('btn-save-job').innerText = "Update Job";
         document.getElementById('job-form-title').innerText = "Edit Job";
         document.getElementById('btn-cancel-job').classList.remove('hidden');
@@ -65,13 +74,21 @@ export const JobAdmin = {
 
     async submit(e) {
         e.preventDefault();
-        // Corrected payload keys to match AdminController expectation
+        
         const payload = {
             job_id: document.getElementById('job-id').value,
             job_name: document.getElementById('job-name').value,
-            job_description: document.getElementById('job-desc').value,
-            is_pto: document.getElementById('job-is-pto').checked ? 1 : 0
+            // FIX: Send Description
+            job_description: document.getElementById('job-desc').value, 
+            // FIX: Send PTO
+            is_pto: document.getElementById('job-is-pto').checked ? 1 : 0,
+            
+            // FIX: Send Financials
+            job_revenue: document.getElementById('job-revenue').value || 0,
+            job_expense_budget: document.getElementById('job-expense').value || 0,
+            job_hourly_cost: document.getElementById('job-hourly').value || 0
         };
+
         await StechAPI.request('post', '/api/admin/jobs', payload);
         this.resetForm();
         this.load();

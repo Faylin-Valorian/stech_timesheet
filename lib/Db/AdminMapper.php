@@ -174,9 +174,6 @@ class AdminMapper extends QBMapper {
         }
     }
 
-    /**
-     * FIX: Replaced SQL math with fetch-flip-update to avoid "Unknown column" error.
-     */
     public function toggleHoliday(int $id): void {
         $qb = $this->db->getQueryBuilder();
         $cursor = $qb->select('holiday_archive')
@@ -206,32 +203,37 @@ class AdminMapper extends QBMapper {
             ->fetchAll();
     }
 
+    /**
+     * FIX: Updated to save description and financial fields
+     */
     public function saveJob(array $data): void {
         $qb = $this->db->getQueryBuilder();
+        
+        $fields = [
+            'job_name' => $data['job_name'],
+            'job_description' => $data['job_description'] ?? '', 
+            'is_pto' => (int)$data['is_pto'],
+            'job_revenue' => (float)($data['job_revenue'] ?? 0),
+            'job_expense_budget' => (float)($data['job_expense_budget'] ?? 0),
+            'job_hourly_cost' => (float)($data['job_hourly_cost'] ?? 0)
+        ];
+
         if (!empty($data['job_id'])) {
-            $qb->update('stech_jobs')
-                ->set('job_name', $qb->createNamedParameter($data['job_name']))
-                ->set('is_pto', $qb->createNamedParameter($data['is_pto'] ?? 0))
-                ->set('job_revenue', $qb->createNamedParameter($data['job_revenue'] ?? 0))
-                ->set('job_expense_budget', $qb->createNamedParameter($data['job_expense_budget'] ?? 0))
-                ->set('job_hourly_cost', $qb->createNamedParameter($data['job_hourly_cost'] ?? 0))
-                ->where($qb->expr()->eq('job_id', $qb->createNamedParameter($data['job_id'])))
-                ->execute();
+            $qb->update('stech_jobs');
+            foreach ($fields as $col => $val) {
+                $qb->set($col, $qb->createNamedParameter($val));
+            }
+            $qb->where($qb->expr()->eq('job_id', $qb->createNamedParameter($data['job_id'])))
+               ->execute();
         } else {
-            $qb->insert('stech_jobs')
-                ->values([
-                    'job_name' => $qb->createNamedParameter($data['job_name']),
-                    'is_pto' => $qb->createNamedParameter($data['is_pto'] ?? 0),
-                    'job_revenue' => $qb->createNamedParameter($data['job_revenue'] ?? 0),
-                    'job_expense_budget' => $qb->createNamedParameter($data['job_expense_budget'] ?? 0),
-                    'job_hourly_cost' => $qb->createNamedParameter($data['job_hourly_cost'] ?? 0)
-                ])->execute();
+            $qb->insert('stech_jobs');
+            foreach ($fields as $col => $val) {
+                $qb->setValue($col, $qb->createNamedParameter($val));
+            }
+            $qb->execute();
         }
     }
 
-    /**
-     * FIX: Replaced SQL math with fetch-flip-update to avoid "Unknown column" error.
-     */
     public function toggleJob(int $id): void {
         $qb = $this->db->getQueryBuilder();
         $cursor = $qb->select('job_archive')

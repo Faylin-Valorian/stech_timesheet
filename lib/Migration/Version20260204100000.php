@@ -52,6 +52,7 @@ class Version20260204100000 extends SimpleMigrationStep {
             $table = $schema->createTable('stech_jobs');
             $table->addColumn('job_id', 'integer', ['autoincrement' => true, 'notnull' => true]);
             $table->addColumn('job_name', 'string', ['length' => 255]);
+            $table->addColumn('job_description', 'text', ['notnull' => false, 'length' => 1024, 'default' => '']);
             $table->addColumn('job_archive', 'integer', ['default' => 0]);
             $table->addColumn('is_pto', 'integer', ['default' => 0]);
             $table->addColumn('job_revenue', 'decimal', ['precision' => 10, 'scale' => 2, 'default' => 0]);

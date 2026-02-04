@@ -24,15 +24,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.StechTimesheet.state.stateMapRev[s.state_abbr] = s.state_name;
         });
 
-        // Populate State Dropdown
-        const stateSelect = document.getElementById('travel-state');
-        if (stateSelect) {
-            stateSelect.innerHTML = '<option value="">Select State...</option>';
+        // FIX: Populate State Datalist (Not the Input itself)
+        const stateDatalist = document.getElementById('state-options');
+        if (stateDatalist) {
+            stateDatalist.innerHTML = ''; // Clear existing
             attributes.states.forEach(s => {
                 const opt = document.createElement('option');
                 opt.value = s.state_name;
-                opt.textContent = s.state_name;
-                stateSelect.appendChild(opt);
+                stateDatalist.appendChild(opt);
             });
         }
     } catch (e) {
@@ -43,8 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     Form.init();
     Calendar.init(document.getElementById('calendar'));
 
-    // 3. FIX: Navigation Buttons (Robust Selector)
-    // We search all links in the sidebar to find the correct ones
+    // 3. Navigation Buttons
     const navLinks = document.querySelectorAll('#app-navigation a');
     
     navLinks.forEach(link => {
@@ -69,7 +67,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 });
 
-// 4. Activity Row Builder (Dropdown logic from previous step)
+// 4. Activity Row Builder
 window.StechTimesheet.ActivityRows = {
     add: (desc = '', percent = 0) => {
         const container = document.getElementById('work-rows-container');
