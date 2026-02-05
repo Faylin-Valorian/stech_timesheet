@@ -1,127 +1,153 @@
 /**
- * Analysis Gauges Module
- * Handles the Job Profitability Needle visualization.
+ * StechTimesheet.AnalysisGauges
+ * Handles the Profitability Gauge rendering using Chart.js doughnut charts.
  */
 export const AnalysisGauges = {
-    instance: null,
+    chart: null,
 
-    /**
-     * Updates the gauge and value displays based on job data and filter
-     */
-    update(jobs, filterName) {
-        const canvas = document.getElementById('chart-profitability-gauge');
-        if (!canvas) return;
+    update(jobs, selectedJobName) {
+        const ctx = document.getElementById('chart-profitability-gauge');
+        // Safety check: if canvas is missing, stop (prevents console errors)
+        if (!ctx) return;
 
-        let revenue = 0, expenses = 0, laborCost = 0, profit = 0, label = "";
+        let revenue = 0;
+        let laborCost = 0;
+        let jobBudget = 0;
 
-        // Calculate totals or specific job data
-        if (filterName === 'All Jobs' || filterName === 'all' || filterName === '') {
-            jobs.forEach(j => {
-                revenue += j.revenue; 
-                expenses += j.budget; 
-                laborCost += (j.hours * j.hourly_cost);
-            });
-            profit = revenue - expenses - laborCost;
-            label = "$" + profit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " Net Profit";
+        // 1. Aggregate Data
+        // If "All Jobs" is selected (or filter is empty), sum up ALL jobs.
+        if (!selectedJobName || selectedJobName === 'all' || selectedJobName === 'All Jobs') {
+            if (jobs && jobs.length > 0) {
+                jobs.forEach(j => {
+                    revenue += parseFloat(j.revenue || 0);
+                    laborCost += parseFloat(j.actual_labor_cost || 0);
+                    // Use defined Job Budget for the 'Expenses' slice
+                    jobBudget += parseFloat(j.budget || 0);
+                });
+                const titleEl = document.getElementById('profit-job-title');
+                if (titleEl) titleEl.innerText = "All Active Jobs (Combined)";
+            } else {
+                const titleEl = document.getElementById('profit-job-title');
+                if (titleEl) titleEl.innerText = "No Jobs Available";
+            }
         } else {
-            const job = jobs.find(x => x.name === filterName);
+            // Specific Job Selection
+            const job = jobs ? jobs.find(j => j.name === selectedJobName) : null;
             if (job) {
-                revenue = job.revenue; 
-                expenses = job.budget; 
-                laborCost = job.hours * job.hourly_cost;
-                profit = revenue - expenses - laborCost;
-                label = "$" + profit.toLocaleString() + " Net Profit";
+                revenue = parseFloat(job.revenue || 0);
+                laborCost = parseFloat(job.actual_labor_cost || 0);
+                jobBudget = parseFloat(job.budget || 0);
+                const titleEl = document.getElementById('profit-job-title');
+                if (titleEl) titleEl.innerText = job.name;
+            } else {
+                const titleEl = document.getElementById('profit-job-title');
+                if (titleEl) titleEl.innerText = "Job Not Found";
             }
         }
 
-        // Update Text Display
+        // 2. Calculations
+        // Profit = Revenue - Labor - Budget
+        const totalCost = laborCost + jobBudget;
+        const profit = revenue - totalCost;
+        
+        // 3. Update Text Display (Immediately replaces "0 Hrs")
         const displayEl = document.getElementById('gauge-value-display');
         if (displayEl) {
             displayEl.innerHTML = `
                 <div style="text-align:center">
-                    <div style="font-size:24px; font-weight:bold; color:${profit >= 0 ? '#2ecc71' : '#e74c3c'}">${label}</div>
-                    <div style="font-size:12px; color:#888; margin-top:5px;">
-                        Rev: $${revenue.toLocaleString()} | Exp: $${expenses.toLocaleString()} | Labor: $${laborCost.toLocaleString()}
+                    <div style="font-size:24px; font-weight:bold; color:${profit >= 0 ? '#2ecc71' : '#e74c3c'}">
+                        $${profit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} Net Profit
+                    </div>
+                    <div style="font-size:12px; color:var(--color-text-light); margin-top:5px;">
+                        Rev: $${revenue.toLocaleString(undefined, {maximumFractionDigits:0})} | 
+                        Budget: $${jobBudget.toLocaleString(undefined, {maximumFractionDigits:0})} | 
+                        Labor: $${laborCost.toLocaleString(undefined, {maximumFractionDigits:0})}
                     </div>
                 </div>
             `;
         }
 
-        if (this.instance) this.instance.destroy();
+        // 4. Render Chart
+        if (typeof Chart === 'undefined') {
+            console.warn("Chart.js not loaded");
+            return;
+        }
 
-        // Custom Needle Plugin logic
-        const needlePlugin = this.getNeedlePlugin(revenue, profit);
+        if (this.chart) {
+            this.chart.destroy();
+        }
 
-        this.instance = new Chart(canvas, {
+        // Handle Empty State (Grey Ring if all values are 0)
+        let chartData = [Math.max(0, profit), laborCost, jobBudget];
+        let chartColors = ['#2ecc71', '#3498db', '#e67e22']; // Green (Profit), Blue (Labor), Orange (Budget)
+        let labels = ['Profit', 'Labor Cost', 'Budget'];
+
+        if (revenue === 0 && totalCost === 0) {
+            chartData = [1]; 
+            chartColors = ['#444']; // Dark grey for empty state
+            labels = ['No Data'];
+        }
+
+        this.chart = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Loss', 'Break Even', 'Profitable'],
+                labels: labels,
                 datasets: [{
-                    data: [33, 33, 34], 
-                    backgroundColor: ['#e9322d', '#ffd60a', '#46ba6f'], 
-                    borderWidth: 0
+                    data: chartData,
+                    backgroundColor: chartColors,
+                    borderWidth: 0,
+                    hoverOffset: 4
                 }]
             },
             options: {
-                rotation: -90, 
-                circumference: 180, 
-                responsive: true, 
-                maintainAspectRatio: false, 
-                cutout: '70%',
-                plugins: { legend: { display: false }, tooltip: { enabled: false } }
-            },
-            plugins: [needlePlugin]
-        });
-    },
-
-    /**
-     * Logic for the needle positioning based on profit margins
-     */
-    getNeedlePlugin(revenue, profit) {
-        const isDark = document.body.classList.contains('theme--dark');
-        const textColor = isDark ? '#ddd' : '#666';
-
-        return {
-            id: 'needle',
-            afterDatasetDraw(chart) {
-                const { ctx, chartArea: { width, height } } = chart;
-                ctx.save();
-                let ratio = 0;
-                
-                if (revenue > 0) {
-                    const margin = profit / revenue; 
-                    if (margin < 0) {
-                        let lossSeverity = Math.min(Math.abs(margin), 0.5) / 0.5; 
-                        ratio = 0.33 - (lossSeverity * 0.33); 
-                    } else {
-                        let success = Math.min(margin, 0.5) / 0.5; 
-                        ratio = 0.33 + (success * 0.67);
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '80%',
+                rotation: -90,
+                circumference: 180,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: (revenue !== 0 || totalCost !== 0),
+                        callbacks: {
+                            label: function(context) {
+                                let val = context.raw;
+                                return ' $' + val.toLocaleString();
+                            }
+                        }
                     }
-                } else {
-                    ratio = profit < 0 ? 0.1 : 0.5;
                 }
-                
-                if (ratio < 0) ratio = 0; if (ratio > 1) ratio = 1;
+            },
+            plugins: [{
+                id: 'centerText',
+                beforeDraw: function(chart) {
+                    const width = chart.width, height = chart.height, ctx = chart.ctx;
+                    ctx.restore();
+                    
+                    // Dynamic Font Size based on chart height
+                    const fontSize = (height / 114).toFixed(2);
+                    ctx.font = "bold " + fontSize + "em sans-serif";
+                    ctx.textBaseline = "middle";
+                    
+                    // Determine Margin Text
+                    let text = "--%";
+                    let fillStyle = '#888';
+                    
+                    if (revenue !== 0 || totalCost !== 0) {
+                        // Avoid Division by Zero
+                        const marginVal = revenue > 0 ? ((profit / revenue) * 100) : 0;
+                        text = marginVal.toFixed(1) + "%";
+                        fillStyle = profit >= 0 ? '#2ecc71' : '#e74c3c';
+                    }
 
-                const angle = Math.PI + (ratio * Math.PI);
-                const cx = width / 2;
-                const cy = chart._metasets[0].data[0].y;
-
-                ctx.translate(cx, cy);
-                ctx.rotate(angle);
-                ctx.beginPath();
-                ctx.moveTo(0, -2);
-                ctx.lineTo(height - (ctx.canvas.offsetTop + 40), 0);
-                ctx.lineTo(0, 2);
-                ctx.fillStyle = textColor;
-                ctx.fill();
-                ctx.rotate(-angle);
-                ctx.beginPath();
-                ctx.arc(0, 0, 5, 0, 10);
-                ctx.fillStyle = textColor;
-                ctx.fill();
-                ctx.restore();
-            }
-        };
+                    const textX = Math.round((width - ctx.measureText(text).width) / 2);
+                    const textY = height / 1.5; 
+                    
+                    ctx.fillStyle = fillStyle;
+                    ctx.fillText(text, textX, textY);
+                    ctx.save();
+                }
+            }]
+        });
     }
 };

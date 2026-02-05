@@ -29,14 +29,23 @@ class AnalysisController extends Controller {
     }
 
     public function getFilters(): DataResponse {
-        $uid = $this->userSession->getUser()->getUID();
+        $currentUser = $this->userSession->getUser();
+        $uid = $currentUser->getUID();
         $users = [];
+
+        // FIX: "Everyone" Option Logic
         if ($this->service->checkAccess('analysis_view_others')) {
-            foreach($this->userManager->search('') as $u) {
+            // Add "Everyone" as the first option
+            $users[] = ['uid' => 'all', 'displayname' => 'Everyone'];
+            
+            // Add all specific users (Admin/Manager view)
+            $allUsers = $this->userManager->search('');
+            foreach($allUsers as $u) {
                 $users[] = ['uid' => $u->getUID(), 'displayname' => $u->getDisplayName()];
             }
         } else {
-            $users[] = ['uid' => $uid, 'displayname' => $this->userSession->getUser()->getDisplayName()];
+            // Non-admins just see themselves
+            $users[] = ['uid' => $uid, 'displayname' => $currentUser->getDisplayName()];
         }
 
         return new DataResponse([
@@ -47,12 +56,31 @@ class AnalysisController extends Controller {
     }
 
     public function getStats(string $period, string $target_user = 'self'): DataResponse {
-        if (!$this->service->checkAccess('analysis_tab')) return new DataResponse(['error' => 'Denied'], 403);
+        if (!$this->service->checkAccess('analysis_tab')) {
+            return new DataResponse(['error' => 'Denied'], 403);
+        }
         
         $uid = $this->userSession->getUser()->getUID();
-        $target = ($target_user === 'self') ? $uid : (($this->service->checkAccess('analysis_view_others')) ? ($target_user === 'all' ? null : $target_user) : $uid);
+        
+        // FIX: Target Selection Logic
+        // 1. If 'self', always use current UID.
+        // 2. If 'all', check permissions -> if valid, use NULL (mapper fetches all).
+        // 3. If specific user, check permissions -> if valid, use that UID.
+        // 4. Fallback -> current UID.
+        
+        $target = $uid;
+
+        if ($this->service->checkAccess('analysis_view_others')) {
+            if ($target_user === 'all') {
+                $target = null; // null tells Mapper to fetch EVERYONE
+            } elseif ($target_user !== 'self') {
+                $target = $target_user;
+            }
+        }
 
         list($start, $end) = $this->service->getPayrollDateRange($period);
+        
+        // Fetch raw data from Mapper
         $results = $this->anMapper->getFullReportingData($start, $end, $target);
 
         $perms = [

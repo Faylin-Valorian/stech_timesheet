@@ -40,7 +40,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 // Logic: Refresh Leaflet maps when the Travel Activity tab becomes visible
-                // FIX: Use a timeout to ensure the tab is rendered before refreshing maps
                 if (targetId === 'tab-travel' && cachedData) {
                     setTimeout(() => {
                         AnalysisMaps.refresh('state');
@@ -62,10 +61,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (inputEl.value !== '') inputEl.value = ''; 
             });
             inputEl.addEventListener('change', () => {
-                if (inputEl.value === '' && defaultVal === 'self') {
-                    inputEl.value = "Myself";
-                    hiddenEl.value = "self";
-                    loadStats();
+                if (inputEl.value === '') {
+                    // Default labels
+                    if (defaultVal === 'self') inputEl.value = "Myself";
+                    if (defaultVal === 'all') inputEl.value = "All Jobs";
+                    if (defaultVal === 'full') inputEl.value = "Full Map";
+                    hiddenEl.value = defaultVal;
+                    // Only reload stats if it's the User filter changing context
+                    if (defaultVal === 'self') loadStats();
+                    // If it's job/state, we just re-render from cache usually, or reload
+                    if (defaultVal === 'all' && cachedData) AnalysisGauges.update(cachedData.jobs, 'all');
                 }
             });
         };
@@ -83,6 +88,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Job Search
         setupAutoClear(jobSearch, jobHidden, 'all');
         jobSearch?.addEventListener('input', function() {
+            // FIX: Explicitly handle "All Jobs" selection
+            if (this.value === "All Jobs") {
+                jobHidden.value = 'all';
+                if (cachedData) AnalysisGauges.update(cachedData.jobs, 'all');
+                return;
+            }
+
             const opt = Array.from(document.getElementById('job-list').options).find(o => o.value === this.value);
             if (opt) {
                 jobHidden.value = opt.getAttribute('data-value');
@@ -115,7 +127,16 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const data = await StechAPI.request('get', '/api/analysis/filters');
             populateDatalist('user-list', data.users, 'displayname', 'uid');
-            populateDatalist('job-list', data.jobs, 'job_name', 'job_id');
+            
+            // FIX: Manually inject "All Jobs" option at the top
+            const jobList = document.getElementById('job-list');
+            if (jobList) {
+                let html = `<option value="All Jobs" data-value="all"></option>`;
+                html += data.jobs.map(j => `<option value="${j.job_name}" data-value="${j.job_id}"></option>`).join('');
+                jobList.innerHTML = html;
+            }
+            // populateDatalist('job-list', data.jobs, 'job_name', 'job_id'); // Replaced by block above
+
             populateDatalist('state-list', data.states, 'state_name', 'state_abbr');
         } catch (err) {
             console.error("Filter Load Error", err);
@@ -130,6 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadStats() {
         const period = rangeSelect.value;
+        // If 'all' is selected (Everyone), we send target_user=all. Controller handles it.
         let query = `?period=${period}&target_user=${userHidden.value || 'self'}`;
         
         if (period === 'custom') {
@@ -155,7 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('stat-overtime-hours').innerText = data.stats.overtime_hours || 0;
 
         // Travel Activity Summary
-        document.getElementById('val-total-miles').innerText = data.travel?.total_miles || 0;
+        // FIX: Round miles to integer
+        document.getElementById('val-total-miles').innerText = Math.round(data.travel?.total_miles || 0);
         document.getElementById('val-per-diem').innerText = data.travel?.per_diem_days || 0;
         document.getElementById('val-overnight').innerText = data.travel?.overnight_stays || 0;
         
@@ -166,8 +189,10 @@ document.addEventListener('DOMContentLoaded', () => {
         AnalysisCharts.renderOverview(data.trend);
         AnalysisCharts.renderJobTable(data.jobs, data.total_hours);
         
+        // FIX: Update Profitability with current search (defaults to All Jobs)
         if (jobSearch) {
-            AnalysisGauges.update(data.jobs, jobSearch.value || 'All Jobs');
+            const currentJob = (jobSearch.value === '' || jobSearch.value === 'All Jobs') ? 'all' : jobSearch.value;
+            AnalysisGauges.update(data.jobs, currentJob);
         }
         
         // Maps: Pass state/county data and current filter for rendering
