@@ -169,6 +169,7 @@ Util::addStyle('stech_timesheet', 'admin');
                             <option value="28">Every 4 Weeks</option>
                         </select>
                     </div>
+                    
                     <div class="input-group" style="margin-top: 15px;">
                         <label>Reference Start Date</label>
                         <p style="font-size: 0.85em; opacity: 0.7; margin-top:0; margin-bottom:5px;">
@@ -176,13 +177,7 @@ Util::addStyle('stech_timesheet', 'admin');
                         </p>
                         <input type="date" id="pay-start-date" class="form-control">
                     </div>
-                    <div class="input-group" style="margin-top: 15px;">
-                        <label>Tab Background Style (Optional)</label>
-                        <p style="font-size: 0.85em; opacity: 0.7; margin:0 0 5px 0;">
-                            CSS color or URL.
-                        </p>
-                        <input type="text" id="pay-bg-style" class="form-control" placeholder="Default: #34495e (Slate Blue)">
-                    </div>
+
                     <div style="margin-top: 25px; display: flex; align-items: center; gap: 15px;">
                         <button id="btn-save-payroll" class="primary-button">Save Settings</button>
                         <span id="payroll-msg" style="color: var(--color-success); font-weight: bold; display: none;">Saved!</span>
@@ -215,7 +210,7 @@ Util::addStyle('stech_timesheet', 'admin');
                         <div class="input-group"><label>Holiday Name</label><input type="text" id="holiday-name" class="form-control" required></div>
                         <div class="input-group"><label>Start Date</label><input type="date" id="holiday-start" class="form-control" required></div>
                         <div class="input-group"><label>End Date (Optional)</label><input type="date" id="holiday-end" class="form-control"></div>
-                        <div class="input-group"><label>Custom Background (Optional)</label><input type="text" id="holiday-bg" class="form-control" placeholder="Color hex, gradient, or URL..."></div>
+                        
                         <div style="display: flex; gap: 10px;">
                             <button type="submit" id="btn-save-holiday" class="primary-button full-width">Add Holiday</button>
                             <button type="button" id="btn-cancel-holiday" class="secondary-button hidden">Cancel</button>

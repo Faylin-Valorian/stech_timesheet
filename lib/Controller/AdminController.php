@@ -47,14 +47,12 @@ class AdminController extends Controller {
     // ACCESS CONTROL & SETTINGS
     // =========================================================================
 
-    /** * FIX: Renamed from getSystemGroups to getGroups to match route
-     * @AdminRequired
+    /** * @AdminRequired
      * @NoCSRFRequired
      */
     public function getGroups(): DataResponse {
         $groups = $this->groupManager->search('');
         $list = [];
-        // Updated to return object structure for better UI handling
         foreach ($groups as $g) { 
             $list[] = [
                 'gid' => $g->getGID(),
@@ -64,8 +62,7 @@ class AdminController extends Controller {
         return new DataResponse($list);
     }
 
-    /** * FIX: Renamed from getAccessRules to getAccess to match route
-     * @AdminRequired
+    /** * @AdminRequired
      * @NoCSRFRequired
      */
     public function getAccess(): DataResponse {
@@ -76,15 +73,13 @@ class AdminController extends Controller {
         return new DataResponse($rules);
     }
 
-    /** * FIX: Renamed from saveAccessRule to saveAccess to match route
-     * @AdminRequired
+    /** * @AdminRequired
      * @NoCSRFRequired
      */
     public function saveAccess(): DataResponse {
         $data = $this->request->getParams();
         if (empty($data['rule_key'])) return new DataResponse(['error' => 'Missing key'], 400);
         
-        // Ensure array structure
         $groups = $data['allowed_groups'] ?? [];
         if (!is_array($groups)) $groups = [];
         
@@ -113,6 +108,8 @@ class AdminController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
+    // REMOVED: uploadPayrollBg() as requested.
+
     // =========================================================================
     // USER MANAGEMENT
     // =========================================================================
@@ -124,17 +121,13 @@ class AdminController extends Controller {
         return new DataResponse($this->adminService->getAllUsers()); 
     }
 
-    /** * FIX: Renamed from toggleUserStatus to toggleUser to match route
-     * @AdminRequired
+    /** * @AdminRequired
      * @NoCSRFRequired
      */
     public function toggleUser(): DataResponse {
         $uid = $this->request->getParam('uid');
         if (!$uid) return new DataResponse(['error' => 'No UID'], 400);
-        
-        // Use service method which handles mapping/toggling logic
         $newState = $this->adminService->toggleUserStatus($uid);
-        
         return new DataResponse(['status' => 'success', 'new_state' => $newState]);
     }
 
@@ -154,15 +147,14 @@ class AdminController extends Controller {
      */
     public function saveHoliday(): DataResponse {
             $data = $this->request->getParams();
-            // Using your existing direct DB logic for consistency
             $qb = $this->db->getQueryBuilder();
             
+            // Removed holiday_bg from both UPDATE and INSERT
             if (!empty($data['id'])) { 
                 $qb->update('stech_holidays')
                 ->set('holiday_name', $qb->createNamedParameter($data['name']))
                 ->set('holiday_start_date', $qb->createNamedParameter($data['start']))
                 ->set('holiday_end_date', $qb->createNamedParameter($data['end']))
-                ->set('holiday_bg', $qb->createNamedParameter($data['bg_style'] ?? ''))
                 ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($data['id'])))
                 ->execute();
             } else {
@@ -170,15 +162,13 @@ class AdminController extends Controller {
                 ->values([
                     'holiday_name' => $qb->createNamedParameter($data['name']),
                     'holiday_start_date' => $qb->createNamedParameter($data['start']),
-                    'holiday_end_date' => $qb->createNamedParameter($data['end']),
-                    'holiday_bg' => $qb->createNamedParameter($data['bg_style'] ?? '')
+                    'holiday_end_date' => $qb->createNamedParameter($data['end'])
                 ])->execute();
             }
             return new DataResponse(['status' => 'success']);
     }
 
-    /** * FIX: Added toggleHoliday (Routes require this instead of delete)
-     * @AdminRequired
+    /** * @AdminRequired
      * @NoCSRFRequired
      */
     public function toggleHoliday(int $id): DataResponse {
@@ -247,8 +237,7 @@ class AdminController extends Controller {
         return new DataResponse($this->adminMapper->getStatesAdmin()); 
     }
 
-    /** * FIX: Renamed param to $abbr to match route variable {abbr}
-     * @AdminRequired
+    /** * @AdminRequired
      * @NoCSRFRequired
      */
     public function getCounties(string $abbr): DataResponse {
@@ -266,8 +255,6 @@ class AdminController extends Controller {
         if (!$state) return new DataResponse(['error' => 'Not found'], 404);
         
         $new = ((int)$state['is_enabled'] === 1) ? 0 : 1;
-        
-        // Update state
         $qb->update('stech_states')
            ->set('is_enabled', $qb->createNamedParameter($new))
            ->where($qb->expr()->eq('state_id', $qb->createNamedParameter($id)))
@@ -280,7 +267,6 @@ class AdminController extends Controller {
      * @NoCSRFRequired
      */
     public function toggleCounty(int $id): DataResponse {
-        // Look up the county first to determine current status
         $qb = $this->db->getQueryBuilder();
         $county = $qb->select('is_enabled')
                 ->from('stech_counties')
@@ -291,8 +277,6 @@ class AdminController extends Controller {
         if (!$county) return new DataResponse(['error' => 'Not found'], 404);
 
         $newStatus = ((int)$county['is_enabled'] === 1) ? 0 : 1;
-        
-        // Update county
         $qb->update('stech_counties')
            ->set('is_enabled', $qb->createNamedParameter($newStatus))
            ->where($qb->expr()->eq('county_id', $qb->createNamedParameter($id)))
@@ -322,6 +306,8 @@ class AdminController extends Controller {
      */
     public function uploadThumbnail(string $cardId): DataResponse {
         $file = $this->request->getUploadedFile('image');
+        if (is_array($file)) $file = reset($file);
+
         if (!$file) return new DataResponse(['error' => 'No file'], 400);
         try {
             $this->adminService->saveThumbnail($cardId, $file->getStream());

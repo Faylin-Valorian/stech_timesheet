@@ -43,7 +43,7 @@ export const HolidayAdmin = {
         document.getElementById('holiday-name').value = h.holiday_name;
         document.getElementById('holiday-start').value = h.holiday_start_date;
         document.getElementById('holiday-end').value = h.holiday_end_date;
-        document.getElementById('holiday-bg').value = h.holiday_bg || ''; 
+        
         document.getElementById('btn-save-holiday').innerText = "Update Holiday";
         document.getElementById('holiday-form-title').innerText = "Edit Holiday";
         document.getElementById('btn-cancel-holiday').classList.remove('hidden');
@@ -64,7 +64,7 @@ export const HolidayAdmin = {
             name: document.getElementById('holiday-name').value,
             start: document.getElementById('holiday-start').value,
             end: document.getElementById('holiday-end').value,
-            bg_style: document.getElementById('holiday-bg').value 
+            // Removed bg_style
         };
         await StechAPI.request('post', '/api/admin/holidays', payload);
         this.resetForm();

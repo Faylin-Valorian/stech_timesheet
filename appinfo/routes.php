@@ -33,6 +33,9 @@ return [
         // API: Admin - Settings
         ['name' => 'admin#getSettings', 'url' => '/api/admin/settings', 'verb' => 'GET'],
         ['name' => 'admin#saveSetting', 'url' => '/api/admin/settings', 'verb' => 'POST'],
+        
+        // NEW: Route for Payroll Background Upload
+        ['name' => 'admin#uploadPayrollBg', 'url' => '/api/admin/payroll/bg', 'verb' => 'POST'],
 
         // API: Admin - Holidays
         ['name' => 'admin#getHolidays', 'url' => '/api/admin/holidays', 'verb' => 'GET'],

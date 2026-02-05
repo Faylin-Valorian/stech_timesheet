@@ -398,19 +398,32 @@ input:disabled + .admin-slider {
     opacity: 0.5;
     cursor: not-allowed;
 }
+
 /* --- Custom Icons --- */
+
+/* Dollar Sign Icon for Payroll - THEMED */
 .icon-money {
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="black"><path d="M12 2C13.1 2 14 2.9 14 4V5H18C19.1 5 20 5.9 20 7V19C20 20.1 19.1 21 18 21H6C4.9 21 4 20.1 4 19V7C4 5.9 4.9 5 6 5H10V4C10 2.9 10.9 2 12 2M12 4H10V5H12V4M12 10.5C10.6 10.5 9.5 11.6 9.5 13S10.6 15.5 12 15.5 14.5 14.4 14.5 13 13.4 10.5 12 10.5M12 17.5C9.5 17.5 7.5 15.5 7.5 13S9.5 8.5 12 8.5 16.5 10.5 16.5 13 14.5 17.5 12 17.5Z"/></svg>');
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 16px;
+    /* MASK MODE: Allows color to follow var(--color-main-text) automatically */
+    -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>');
+    mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>');
+    
+    background-color: var(--color-main-text);
+    
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    mask-size: 16px;
+    -webkit-mask-size: 16px;
+
     opacity: 0.7;
-    width: 44px; /* Standard NC nav width */
+    width: 44px;
     height: 44px;
     display: inline-block;
 }
 
-/* Dark Theme Support */
-body.theme--dark .icon-money {
-     background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white"><path d="M12 2C13.1 2 14 2.9 14 4V5H18C19.1 5 20 5.9 20 7V19C20 20.1 19.1 21 18 21H6C4.9 21 4 20.1 4 19V7C4 5.9 4.9 5 6 5H10V4C10 2.9 10.9 2 12 2M12 4H10V5H12V4M12 10.5C10.6 10.5 9.5 11.6 9.5 13S10.6 15.5 12 15.5 14.5 14.4 14.5 13 13.4 10.5 12 10.5M12 17.5C9.5 17.5 7.5 15.5 7.5 13S9.5 8.5 12 8.5 16.5 10.5 16.5 13 14.5 17.5 12 17.5Z"/></svg>');
+/* Opacity boost on active/hover */
+a.nav-link.active .icon-money,
+a.nav-link:hover .icon-money {
+    opacity: 1;
 }
