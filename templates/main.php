@@ -3,7 +3,6 @@
 use OCP\Util;
 
 // Load Dependencies
-Util::addScript('stech_timesheet', 'fullcalendar.global.min');
 Util::addScript('stech_timesheet', 'script');
 Util::addStyle('stech_timesheet', 'style');
 ?>

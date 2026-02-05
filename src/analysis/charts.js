@@ -1,3 +1,5 @@
+import Chart from 'chart.js/auto'; // FIX: Import Chart.js from NPM
+
 /**
  * Analysis Charts Module
  * Handles Overview, Travel, and Job-specific Chart.js visualizations.
@@ -20,7 +22,10 @@ export const AnalysisCharts = {
      * Renders the main Daily Hours trend line
      */
     renderOverview(trend) {
-        const ctx = document.getElementById('chart-daily').getContext('2d');
+        const ctxEl = document.getElementById('chart-daily');
+        if (!ctxEl) return;
+        
+        const ctx = ctxEl.getContext('2d');
         if (this.instances.daily) this.instances.daily.destroy();
         const theme = this.getTheme();
 
@@ -60,12 +65,17 @@ export const AnalysisCharts = {
         const ctxS = document.getElementById('chart-travel-state');
         if (ctxS) {
             if (this.instances.travelState) this.instances.travelState.destroy();
+            // Prepare Data: Sort by count desc
+            const sortedStates = Object.entries(states)
+                .sort((a, b) => b[1].count - a[1].count)
+                .slice(0, 5); // Top 5
+
             this.instances.travelState = new Chart(ctxS, {
                 type: 'doughnut',
                 data: {
-                    labels: Object.keys(states),
+                    labels: sortedStates.map(s => s[0]),
                     datasets: [{
-                        data: Object.values(states),
+                        data: sortedStates.map(s => s[1].count),
                         backgroundColor: ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#9966FF']
                     }]
                 },
@@ -81,12 +91,16 @@ export const AnalysisCharts = {
         const ctxC = document.getElementById('chart-travel-county');
         if (ctxC) {
             if (this.instances.travelCounty) this.instances.travelCounty.destroy();
+            const sortedCounties = Object.entries(counties)
+                .sort((a, b) => b[1].count - a[1].count)
+                .slice(0, 5);
+
             this.instances.travelCounty = new Chart(ctxC, {
                 type: 'doughnut',
                 data: {
-                    labels: Object.keys(counties),
+                    labels: sortedCounties.map(c => c[0].split('|')[1]), // Show County Name only
                     datasets: [{
-                        data: Object.values(counties),
+                        data: sortedCounties.map(c => c[1].count),
                         backgroundColor: ['#FF9F40', '#9966FF', '#4BC0C0', '#36A2EB', '#FF6384']
                     }]
                 },
@@ -103,12 +117,13 @@ export const AnalysisCharts = {
      * Renders Job breakdown chart and populates the data table
      */
     renderJobTable(jobs, total) {
-        const ctx = document.getElementById('chart-jobs');
-        if (!ctx) return;
+        const ctxEl = document.getElementById('chart-jobs');
+        if (!ctxEl) return;
+        
         if (this.instances.jobs) this.instances.jobs.destroy();
         const theme = this.getTheme();
 
-        this.instances.jobs = new Chart(ctx.getContext('2d'), {
+        this.instances.jobs = new Chart(ctxEl.getContext('2d'), {
             type: 'doughnut',
             data: {
                 labels: jobs.map(j => j.name),

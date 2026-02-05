@@ -2,10 +2,7 @@
 use OCP\Util;
 
 // [LIBRARIES]
-Util::addScript('stech_timesheet', 'chart');
 Util::addStyle('stech_timesheet', 'leaflet');
-Util::addScript('stech_timesheet', 'leaflet');
-Util::addScript('stech_timesheet', 'topojson-client.min');
 Util::addScript('stech_timesheet', 'analysis');
 Util::addStyle('stech_timesheet', 'style');
 Util::addStyle('stech_timesheet', 'analysis');

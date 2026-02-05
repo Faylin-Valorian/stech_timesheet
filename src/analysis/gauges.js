@@ -2,6 +2,8 @@
  * StechTimesheet.AnalysisGauges
  * Handles the Profitability Gauge rendering using Chart.js doughnut charts.
  */
+import Chart from 'chart.js/auto'; // Import Chart.js
+
 export const AnalysisGauges = {
     chart: null,
 
