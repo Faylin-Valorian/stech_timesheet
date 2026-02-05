@@ -1,7 +1,6 @@
 <?php
 use OCP\Util;
 
-// [LIBRARIES]
 Util::addStyle('stech_timesheet', 'leaflet');
 Util::addScript('stech_timesheet', 'analysis');
 Util::addStyle('stech_timesheet', 'style');
@@ -86,12 +85,24 @@ Util::addStyle('stech_timesheet', 'analysis');
                             <div class="travel-stat-box"><h4>Overnight Stays</h4><span id="val-overnight">0</span></div>
                             <div class="travel-stat-box"><h4>Expenses Claimed</h4><span id="val-expenses">$0.00</span></div>
                         </div>
-                        <div class="split-layout-analysis" style="margin-top: 20px; display: flex; gap: 20px;">
-                            <div class="chart-wrapper-half" style="flex: 1;">
+                        
+                        <div class="split-layout-analysis" style="margin-top: 20px; display: grid; grid-template-columns: 1fr 300px 1fr; gap: 20px;">
+                            
+                            <div class="chart-wrapper-half">
                                 <h3>State Activity</h3>
                                 <div id="map-state-container" class="map-wrapper" style="height: 500px; width: 100%;"></div>
                             </div>
-                            <div class="chart-wrapper-half" style="flex: 1;">
+
+                            <div id="location-detail-panel" class="chart-wrapper-half" style="background: var(--color-main-background); padding: 15px; border-left: 1px solid var(--color-border); border-right: 1px solid var(--color-border); overflow-y: auto; max-height: 540px;">
+                                <h3 id="detail-title" style="margin-top: 0; text-align: center; border-bottom: 2px solid var(--color-primary); padding-bottom: 10px;">Select a Location</h3>
+                                <div id="detail-content">
+                                    <p style="text-align: center; color: var(--color-text-maxcontrast); padding-top: 20px;">
+                                        Click a State or County on the map to view visitor details.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="chart-wrapper-half">
                                 <div style="display:flex; justify-content:space-between; align-items:center;">
                                     <h3>County Activity</h3>
                                     <div class="control-group">
@@ -100,9 +111,7 @@ Util::addStyle('stech_timesheet', 'analysis');
                                         <input type="hidden" id="analysis-state-filter" value="">
                                     </div>
                                 </div>
-                                <div id="map-county-container" class="map-wrapper" style="height: 500px; width: 100%;">
-                                    <div id="county-map-placeholder" style="display:none;"></div>
-                                </div>
+                                <div id="map-county-container" class="map-wrapper" style="height: 500px; width: 100%;"></div>
                             </div>
                         </div>
                     </div>

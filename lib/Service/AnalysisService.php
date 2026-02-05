@@ -84,6 +84,8 @@ class AnalysisService {
             $tid = $row['timesheet_id'];
             $hours = (float)$row['time_total'];
             $date = $row['timesheet_date'];
+            // Capture User Name (or ID) for visitor tracking
+            $userName = $row['userid'] ?? 'Unknown';
             
             // --- 1. Process Timesheet-Level Data ---
             if (!in_array($tid, $processed)) {
@@ -92,10 +94,43 @@ class AnalysisService {
 
                 if ($perms['location']) {
                     $state = $row['full_state_name'] ?? $row['travel_state'] ?? 'Unknown';
-                    $states[$state] = ['count' => ($states[$state]['count'] ?? 0) + 1, 'is_enabled' => in_array($state, $enabledStates)];
+                    
+                    // Initialize State Entry
+                    if (!isset($states[$state])) {
+                        $states[$state] = [
+                            'count' => 0, 
+                            'is_enabled' => in_array($state, $enabledStates),
+                            'visitors' => [] // Track specific users
+                        ];
+                    }
+                    $states[$state]['count']++;
+                    
+                    // Add/Increment User Visit
+                    if (!isset($states[$state]['visitors'][$userName])) {
+                        $states[$state]['visitors'][$userName] = 0;
+                    }
+                    $states[$state]['visitors'][$userName]++;
+
+                    // Handle Counties
                     $county = trim(str_ireplace(' County', '', $row['travel_county'] ?? ''));
                     if ($county) {
-                        $counties[$state . '|' . $county] = ['count' => ($counties[$state . '|' . $county]['count'] ?? 0) + 1, 'is_enabled' => in_array($state, $enabledStates)];
+                        $key = $state . '|' . $county;
+                        
+                        // Initialize County Entry
+                        if (!isset($counties[$key])) {
+                            $counties[$key] = [
+                                'count' => 0, 
+                                'is_enabled' => in_array($state, $enabledStates),
+                                'visitors' => [] // Track specific users
+                            ];
+                        }
+                        $counties[$key]['count']++;
+                        
+                        // Add/Increment User Visit for County
+                        if (!isset($counties[$key]['visitors'][$userName])) {
+                            $counties[$key]['visitors'][$userName] = 0;
+                        }
+                        $counties[$key]['visitors'][$userName]++;
                     }
                 }
 
@@ -120,18 +155,18 @@ class AnalysisService {
                 if ($perms['jobs']) {
                     $name = $row['job_name'] ?? $row['activity_description'];
                     
-                    // Rates from stech_jobs
-                    $revenueRate = (float)($row['job_revenue'] ?? 0);
-                    $hourlyCost = (float)($row['job_hourly_cost'] ?? 0);
-                    $expenseBudget = (float)($row['job_expense_budget'] ?? 0);
+                    // Fixed Values from DB
+                    $fixedRevenue = (float)($row['job_revenue'] ?? 0);
+                    $fixedBudget = (float)($row['job_expense_budget'] ?? 0);
+                    $hourlyRate = (float)($row['job_hourly_cost'] ?? 0);
 
                     // Initialize Job Entry if missing
                     if (!isset($jobs[$name])) {
                         $jobs[$name] = [
                             'name' => $name, 
                             'hours' => 0.0, 
-                            'revenue' => 0.0, 
-                            'budget' => $expenseBudget, // Fixed Budget from DB
+                            'revenue' => $fixedRevenue, // Fixed Contract Amount
+                            'budget' => $fixedBudget,   // Fixed Upfront Budget
                             'labor_cost' => 0.0,        // Accumulated Hourly Cost
                             'actual_expenses' => 0.0    // Accumulated Travel Expenses
                         ];
@@ -141,7 +176,7 @@ class AnalysisService {
                     
                     // Calculated Values based on Hours
                     $revCalc = ($jobHours * $revenueRate);
-                    $laborCalc = ($jobHours * $hourlyCost);
+                    $laborCalc = ($jobHours * $hourlyRate);
                     
                     // Allocated Travel Expenses based on percent
                     $entryTravelExp = (float)($row['travel_extra_expenses'] ?? 0);

@@ -1,8 +1,4 @@
-/**
- * Analysis Maps Module - Side-by-Side & "Hot Zone" Intensity Style
- * Logic: Grayscale baseline to Red transition, Filtering disabled locations
- */
-import L from 'leaflet'; // Import Leaflet
+import L from 'leaflet'; 
 import * as topojson from 'topojson-client';
 import us from 'us-atlas/counties-10m.json';
 
@@ -12,28 +8,73 @@ export const AnalysisMaps = {
     fipsMap: {},
     stateBounds: {},
 
-    async initAndRender(stateData, countyData, selectedAbbr) {
+    // Initialize
+    initAndRender(stateData, countyData, selectedAbbr) {
         if (!this.topology) {
-            const res = await fetch(OC.webroot + '/apps/stech_timesheet/js/us-atlas.json');
-            this.topology = await res.json();
+            this.topology = us; 
+
+            // Initialize FIPS Map immediately
             const states = topojson.feature(this.topology, this.topology.objects.states).features;
             states.forEach(s => { this.fipsMap[s.id] = s.properties.name; });
 
-            // Ensure "Full US Map" reset option exists in the datalist
+            // Ensure "Full US Map" reset option exists
             const stateList = document.getElementById('state-list');
             if (stateList) {
-                const fullOpt = document.createElement('option');
-                fullOpt.value = "Full US Map";
-                fullOpt.setAttribute('data-value', 'full');
-                stateList.prepend(fullOpt);
+                if (!stateList.querySelector('option[data-value="full"]')) {
+                    const fullOpt = document.createElement('option');
+                    fullOpt.value = "Full US Map";
+                    fullOpt.setAttribute('data-value', 'full');
+                    stateList.prepend(fullOpt);
+                }
             }
         }
 
-        // Default to 'full' mode if no specific state is selected to ensure county map loads immediately
         const mode = (selectedAbbr && selectedAbbr !== '') ? selectedAbbr : 'full';
         
         this.renderStateMap(stateData, mode);
         this.renderCountyMap(countyData, mode);
+    },
+
+    // Helper: Update the Info Panel
+    updateDetailPanel(title, data) {
+        const titleEl = document.getElementById('detail-title');
+        const contentEl = document.getElementById('detail-content');
+        if (!titleEl || !contentEl) return;
+
+        titleEl.innerText = title;
+        
+        if (!data || !data.visitors || Object.keys(data.visitors).length === 0) {
+            contentEl.innerHTML = `
+                <div style="text-align:center; padding:20px; color:var(--color-text-maxcontrast);">
+                    No visits recorded for this location in the selected period.
+                </div>`;
+            return;
+        }
+
+        let html = `<ul style="list-style:none; padding:0; margin:0;">`;
+        let total = 0;
+        
+        // Sort visitors by count descending
+        const sortedVisitors = Object.entries(data.visitors).sort((a,b) => b[1] - a[1]);
+
+        sortedVisitors.forEach(([user, count]) => {
+            total += count;
+            html += `
+                <li style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--color-border);">
+                    <span style="font-weight:bold;">${user}</span>
+                    <span style="background:var(--color-primary); color:#fff; padding:2px 8px; border-radius:10px; font-size:12px;">${count}</span>
+                </li>
+            `;
+        });
+        html += `</ul>`;
+
+        html += `
+            <div style="margin-top:20px; padding-top:10px; border-top:2px solid var(--color-text-maxcontrast); text-align:right; font-weight:bold; font-size:1.1em;">
+                Total Visits: ${total}
+            </div>
+        `;
+
+        contentEl.innerHTML = html;
     },
 
     renderStateMap(data, abbr) {
@@ -54,10 +95,20 @@ export const AnalysisMaps = {
             },
             onEachFeature: (f, l) => {
                 this.stateBounds[f.properties.name] = l.getBounds();
-                const count = (data[f.properties.name] && typeof data[f.properties.name] === 'object') 
-                    ? data[f.properties.name].count 
-                    : (data[f.properties.name] || 0);
-                l.bindTooltip(`<strong>${f.properties.name}</strong>: ${count} Records`);
+                const info = data[f.properties.name];
+                
+                // CLICK EVENT
+                l.on('click', () => {
+                    this.updateDetailPanel(f.properties.name, info);
+                    
+                    // Optional: Highlight Selection
+                    this.instances.state.eachLayer(layer => { 
+                         if(layer.setStyle) layer.setStyle({ weight: 1, color: 'white', fillOpacity: 0.75 }); 
+                    });
+                    l.setStyle({ weight: 3, color: '#333', fillOpacity: 0.9 });
+                });
+
+                l.bindTooltip(`<strong>${f.properties.name}</strong>`);
             }
         }).addTo(this.instances.state);
 
@@ -92,8 +143,20 @@ export const AnalysisMaps = {
             onEachFeature: (f, l) => {
                 const parentState = this.fipsMap[f.id.substring(0, 2)];
                 const key = parentState + '|' + f.properties.name;
-                const count = (data[key] && typeof data[key] === 'object') ? data[key].count : (data[key] || 0);
-                l.bindTooltip(`<strong>${f.properties.name}, ${parentState}</strong>: ${count} Records`);
+                const info = data[key];
+
+                // CLICK EVENT
+                l.on('click', () => {
+                    this.updateDetailPanel(`${f.properties.name}, ${parentState}`, info);
+                    
+                    // Optional: Highlight Selection
+                    this.instances.county.eachLayer(layer => { 
+                         if(layer.setStyle) layer.setStyle({ weight: 1, color: 'white', fillOpacity: 0.75 }); 
+                    });
+                    l.setStyle({ weight: 3, color: '#333', fillOpacity: 0.9 });
+                });
+
+                l.bindTooltip(`<strong>${f.properties.name}</strong>`);
             }
         }).addTo(this.instances.county);
 
@@ -105,10 +168,8 @@ export const AnalysisMaps = {
     },
 
     getStyle(val, isEnabled) {
-        // Disabled regions have no overlay
         if (!isEnabled) return { fillOpacity: 0, weight: 1, color: '#ccc', pointerEvents: 'none' };
         
-        // Color scale: Darker Grey baseline (#A9A9A9) to Deep Red transition
         const color = val > 100 ? '#800026' : 
                       val > 50  ? '#BD0026' :
                       val > 20  ? '#E31A1C' : 
@@ -128,7 +189,6 @@ export const AnalysisMaps = {
     refresh(type) {
         const map = this.instances[type];
         if (map) {
-            // Recalculate container dimensions once tab is visible
             map.invalidateSize();
         }
     },

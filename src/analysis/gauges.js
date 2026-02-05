@@ -1,58 +1,48 @@
+import Chart from 'chart.js/auto';
+
 /**
  * StechTimesheet.AnalysisGauges
- * Handles the Profitability Gauge rendering using Chart.js doughnut charts.
  */
-import Chart from 'chart.js/auto'; // Import Chart.js
-
 export const AnalysisGauges = {
     chart: null,
 
     update(jobs, selectedJobName) {
         const ctx = document.getElementById('chart-profitability-gauge');
-        // Safety check: if canvas is missing, stop (prevents console errors)
         if (!ctx) return;
 
         let revenue = 0;
         let laborCost = 0;
-        let jobBudget = 0;
+        let expenses = 0; // Budget + Actuals
 
         // 1. Aggregate Data
-        // If "All Jobs" is selected (or filter is empty), sum up ALL jobs.
         if (!selectedJobName || selectedJobName === 'all' || selectedJobName === 'All Jobs') {
             if (jobs && jobs.length > 0) {
                 jobs.forEach(j => {
                     revenue += parseFloat(j.revenue || 0);
-                    laborCost += parseFloat(j.actual_labor_cost || 0);
-                    // Use defined Job Budget for the 'Expenses' slice
-                    jobBudget += parseFloat(j.budget || 0);
+                    laborCost += parseFloat(j.labor_cost || 0);
+                    // Add Fixed Budget AND Variable Allocated Expenses
+                    expenses += (parseFloat(j.budget || 0) + parseFloat(j.actual_expenses || 0));
                 });
                 const titleEl = document.getElementById('profit-job-title');
                 if (titleEl) titleEl.innerText = "All Active Jobs (Combined)";
-            } else {
-                const titleEl = document.getElementById('profit-job-title');
-                if (titleEl) titleEl.innerText = "No Jobs Available";
             }
         } else {
-            // Specific Job Selection
             const job = jobs ? jobs.find(j => j.name === selectedJobName) : null;
             if (job) {
                 revenue = parseFloat(job.revenue || 0);
-                laborCost = parseFloat(job.actual_labor_cost || 0);
-                jobBudget = parseFloat(job.budget || 0);
+                laborCost = parseFloat(job.labor_cost || 0);
+                expenses = (parseFloat(job.budget || 0) + parseFloat(job.actual_expenses || 0));
                 const titleEl = document.getElementById('profit-job-title');
                 if (titleEl) titleEl.innerText = job.name;
-            } else {
-                const titleEl = document.getElementById('profit-job-title');
-                if (titleEl) titleEl.innerText = "Job Not Found";
             }
         }
 
         // 2. Calculations
-        // Profit = Revenue - Labor - Budget
-        const totalCost = laborCost + jobBudget;
+        // Total Cost = Labor + (Budget + Actuals)
+        const totalCost = laborCost + expenses;
         const profit = revenue - totalCost;
         
-        // 3. Update Text Display (Immediately replaces "0 Hrs")
+        // 3. Update Text Display (IMMEDIATE)
         const displayEl = document.getElementById('gauge-value-display');
         if (displayEl) {
             displayEl.innerHTML = `
@@ -62,31 +52,29 @@ export const AnalysisGauges = {
                     </div>
                     <div style="font-size:12px; color:var(--color-text-light); margin-top:5px;">
                         Rev: $${revenue.toLocaleString(undefined, {maximumFractionDigits:0})} | 
-                        Budget: $${jobBudget.toLocaleString(undefined, {maximumFractionDigits:0})} | 
+                        Exp: $${expenses.toLocaleString(undefined, {maximumFractionDigits:0})} | 
                         Labor: $${laborCost.toLocaleString(undefined, {maximumFractionDigits:0})}
                     </div>
                 </div>
             `;
         }
 
-        // 4. Render Chart
+        // 4. Chart Rendering
         if (typeof Chart === 'undefined') {
             console.warn("Chart.js not loaded");
             return;
         }
 
-        if (this.chart) {
-            this.chart.destroy();
-        }
+        if (this.chart) this.chart.destroy();
 
-        // Handle Empty State (Grey Ring if all values are 0)
-        let chartData = [Math.max(0, profit), laborCost, jobBudget];
-        let chartColors = ['#2ecc71', '#3498db', '#e67e22']; // Green (Profit), Blue (Labor), Orange (Budget)
-        let labels = ['Profit', 'Labor Cost', 'Budget'];
+        // Grey ring if empty
+        let chartData = [Math.max(0, profit), laborCost, expenses];
+        let chartColors = ['#2ecc71', '#3498db', '#e67e22']; // Green, Blue, Orange
+        let labels = ['Profit', 'Labor Cost', 'Expenses'];
 
         if (revenue === 0 && totalCost === 0) {
             chartData = [1]; 
-            chartColors = ['#444']; // Dark grey for empty state
+            chartColors = ['#444']; 
             labels = ['No Data'];
         }
 
@@ -126,17 +114,14 @@ export const AnalysisGauges = {
                     const width = chart.width, height = chart.height, ctx = chart.ctx;
                     ctx.restore();
                     
-                    // Dynamic Font Size based on chart height
                     const fontSize = (height / 114).toFixed(2);
                     ctx.font = "bold " + fontSize + "em sans-serif";
                     ctx.textBaseline = "middle";
                     
-                    // Determine Margin Text
                     let text = "--%";
                     let fillStyle = '#888';
                     
                     if (revenue !== 0 || totalCost !== 0) {
-                        // Avoid Division by Zero
                         const marginVal = revenue > 0 ? ((profit / revenue) * 100) : 0;
                         text = marginVal.toFixed(1) + "%";
                         fillStyle = profit >= 0 ? '#2ecc71' : '#e74c3c';
