@@ -66,40 +66,47 @@ export const AccessAdmin = {
             }
 
             this.groups.forEach(group => {
-                // FIX: Handle the new object structure {gid: '...', displayName: '...'}
                 const gid = group.gid;
                 const name = group.displayName;
 
-                const isChecked = allowedGroups.includes(gid);
+                // PATCH: Identify Admin group
+                const isAdmin = (gid === 'admin');
+
+                // PATCH: Admin is ALWAYS checked, otherwise check the DB rule
+                const isChecked = isAdmin || allowedGroups.includes(gid);
                 
                 const div = document.createElement('div');
                 div.className = 'toggle-wrapper';
-                // Using generic styling that matches your theme
+                
+                // PATCH: Add locked styling and disabled state for Admin
                 div.innerHTML = `
-                    <label class="toggle-button" style="display:flex; justify-content:space-between; align-items:center;">
-                        <span>${name}</span>
+                    <label class="toggle-button" style="display:flex; justify-content:space-between; align-items:center; ${isAdmin ? 'cursor:not-allowed; opacity:0.9;' : ''}">
+                        <span>${name} ${isAdmin ? '<small>(Locked)</small>' : ''}</span>
                         <input type="checkbox" 
                                class="toggle-checkbox" 
                                data-gid="${gid}"
-                               ${isChecked ? 'checked' : ''}>
+                               ${isChecked ? 'checked' : ''}
+                               ${isAdmin ? 'disabled' : ''}>
                     </label>
                 `;
 
-                // Add click listener for immediate save
-                const checkbox = div.querySelector('input');
-                checkbox.addEventListener('change', (e) => {
-                    this.toggleRule(ruleKey, gid, e.target.checked);
-                    
-                    // Visual feedback
-                    const btn = div.querySelector('.toggle-button');
-                    if(e.target.checked) {
-                        btn.style.backgroundColor = 'var(--color-primary-element)';
-                        btn.style.color = 'var(--color-primary-text)';
-                    } else {
-                        btn.style.backgroundColor = '';
-                        btn.style.color = '';
-                    }
-                });
+                // PATCH: Only add click listener if NOT admin (prevent changes)
+                if (!isAdmin) {
+                    const checkbox = div.querySelector('input');
+                    checkbox.addEventListener('change', (e) => {
+                        this.toggleRule(ruleKey, gid, e.target.checked);
+                        
+                        // Visual feedback
+                        const btn = div.querySelector('.toggle-button');
+                        if(e.target.checked) {
+                            btn.style.backgroundColor = 'var(--color-primary-element)';
+                            btn.style.color = 'var(--color-primary-text)';
+                        } else {
+                            btn.style.backgroundColor = '';
+                            btn.style.color = '';
+                        }
+                    });
+                }
 
                 // Set initial visual state
                 const btn = div.querySelector('.toggle-button');
@@ -133,13 +140,9 @@ export const AccessAdmin = {
         // Send to backend
         try {
             await StechAPI.saveAccessRule(ruleKey, currentList);
-            // Optional: Silent success or small toast
-            // if (window.OCP && window.OCP.Toast) window.OCP.Toast.success('Saved');
         } catch (e) {
             console.error('Save failed', e);
             if (window.OCP && window.OCP.Toast) window.OCP.Toast.error('Error saving rule');
-            
-            // Revert UI if save failed (optional, simply reloading page is often safer)
         }
     }
 };

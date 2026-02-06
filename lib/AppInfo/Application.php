@@ -13,6 +13,7 @@ use OCP\IUserSession;
 use OCP\IUserManager;
 use OCP\IGroupManager;
 use OCP\Files\IAppData;
+use OCP\INavigationManager; // Import Navigation Manager
 
 // Controllers
 use OCA\StechTimesheet\Controller\PageController;
@@ -33,8 +34,10 @@ use OCA\StechTimesheet\Service\HolidayService;
 
 class Application extends App implements IBootstrap {
 
+    public const APP_ID = 'stech_timesheet';
+
     public function __construct(array $urlParams = []) {
-        parent::__construct('stech_timesheet', $urlParams);
+        parent::__construct(self::APP_ID, $urlParams);
     }
 
     public function register(IRegistrationContext $context): void {
@@ -130,6 +133,19 @@ class Application extends App implements IBootstrap {
     }
 
     public function boot(IBootContext $context): void {
-        // No special boot logic needed
+        // PATCH: Register Navigation Entry for Nextcloud 32+
+        $context->injectFn(function(INavigationManager $navigationManager) {
+            $navigationManager->add(function() {
+                return [
+                    'id' => self::APP_ID,
+                    'order' => 10,
+                    // FIX: Replaced deprecated Util::linkToRoute with URLGenerator
+                    'href' => \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.page.index'),
+                    // FIX: Replaced deprecated Util::imagePath with URLGenerator
+                    'icon' => \OC::$server->getURLGenerator()->imagePath(self::APP_ID, 'app.svg'),
+                    'name' => 'Timesheet',
+                ];
+            });
+        });
     }
 }

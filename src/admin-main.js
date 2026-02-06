@@ -14,7 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 1. Navigation ---
     const navItems = ['users', 'access', 'payroll', 'holidays', 'jobs', 'locations'];
     navItems.forEach(viewId => {
-        document.getElementById('nav-' + viewId)?.addEventListener('click', () => switchAdminView(viewId));
+        document.getElementById('nav-' + viewId)?.addEventListener('click', (e) => {
+            // PATCH: Prevent default anchor behavior (stops # in URL)
+            e.preventDefault();
+            switchAdminView(viewId);
+        });
     });
 
     // --- 2. Filter Menus ---
