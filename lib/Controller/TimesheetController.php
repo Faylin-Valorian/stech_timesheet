@@ -75,6 +75,13 @@ class TimesheetController extends Controller {
     }
 
     /** @NoAdminRequired */
+    public function getCalendarHolidays(): DataResponse {
+        $start = $this->request->getParam('start');
+        $end = $this->request->getParam('end');
+        return new DataResponse($this->mapper->getHolidaysForCalendar($start, $end));
+    }
+
+    /** @NoAdminRequired */
     public function getTimesheet(int $id): DataResponse {
         $uid = $this->getEffectiveUserId();
         $ts = $this->mapper->getTimesheetById($id, $uid);

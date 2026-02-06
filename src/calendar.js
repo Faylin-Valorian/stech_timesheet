@@ -1,4 +1,3 @@
-// FIX: Rename the import so it doesn't conflict with your export
 import { Calendar as FullCalendar } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -15,25 +14,57 @@ export const TimesheetCalendar = {
      * Initialize the calendar
      */
     init(el) {
-        // Inject the sidebar toggle button for Archive view
         this.injectArchiveToggle();
 
-        // FIX: Use the renamed import 'FullCalendar'
         this.instance = new FullCalendar(el, {
             plugins: [dayGridPlugin, interactionPlugin],
             initialView: 'dayGridMonth',
             firstDay: 0, // Sunday
-            headerToolbar: false, // Custom sidebar buttons used instead
+            headerToolbar: false, 
             height: '100%',
             weekNumbers: true,
             
-            // Data source for calendar events
-            events: (info, successCallback, failureCallback) => {
-                // Pass the archiveMode flag to the API
-                window.StechTimesheet.API.getTimesheets(info.startStr, info.endStr, this.archiveMode)
-                    .then(data => successCallback(data))
-                    .catch(err => failureCallback(err));
-            },
+            // PATCH: Use eventSources to allow multiple data streams (Timesheets + Holidays)
+            eventSources: [
+                // SOURCE 1: Timesheets (Editable Data)
+                {
+                    events: (info, successCallback, failureCallback) => {
+                        window.StechTimesheet.API.getTimesheets(info.startStr, info.endStr, this.archiveMode)
+                            .then(data => successCallback(data))
+                            .catch(err => failureCallback(err));
+                    }
+                },
+                // SOURCE 2: Holidays (Visual Background Tags)
+                {
+                    events: (info, successCallback, failureCallback) => {
+                        // Ensure your API Controller has a route for '/api/calendar/holidays'
+                        window.StechTimesheet.API.request('get', '/api/calendar/holidays', {
+                            start: info.startStr,
+                            end: info.endStr
+                        }).then(data => {
+                            // Map API response to FullCalendar Background Events
+                            const events = data.map(h => ({
+                                id: 'holiday-' + (h.id || Math.random()),
+                                title: h.name || h.holiday_name,
+                                start: h.start || h.holiday_start_date,
+                                end: h.end || h.holiday_end_date, // FullCalendar end is exclusive
+                                display: 'background',
+                                backgroundColor: 'rgba(255, 165, 0, 0.15)', // Distinct Orange Tint
+                                classNames: ['fc-holiday-bg'],
+                                extendedProps: { 
+                                    isVisual: true,
+                                    customBg: '' 
+                                }
+                            }));
+                            successCallback(events);
+                        }).catch(err => {
+                            // Suppress errors if API is missing (keeps calendar functional)
+                            console.warn('Failed to fetch holidays for calendar background', err);
+                            successCallback([]);
+                        });
+                    }
+                }
+            ],
             
             // Custom event rendering
             eventContent: (arg) => {
@@ -56,13 +87,14 @@ export const TimesheetCalendar = {
                 return { domNodes: [div] };
             },
 
-            // Handle clicking an existing record
+            // Handle clicking events
             eventClick: (info) => {
                 const props = info.event.extendedProps;
 
+                // Check for visual/background events (like Holidays)
                 if (props.isVisual || props.is_visual || info.event.display === 'background') {
-                    if (window.OCP && window.OCP.Toast) {
-                        window.OCP.Toast.info('This record is system generated and cannot be edited manually.');
+                    if (window.OCP && window.OCP.Toast && info.event.title) {
+                        window.OCP.Toast.info(info.event.title);
                     }
                     return;
                 }
@@ -71,19 +103,15 @@ export const TimesheetCalendar = {
                     .then(data => {
                         if (window.StechTimesheet.Form) {
                             window.StechTimesheet.Form.open(data.timesheet_date, data.timesheet_id);
-                        } else {
-                            console.error('StechTimesheet.Form module is not initialized.');
                         }
                     })
                     .catch(err => console.error('Failed to load record details:', err));
             },
 
-            // Handle clicking an empty date
+            // Handle clicking empty dates
             dateClick: (info) => {
                 if (window.StechTimesheet.Form) {
                     window.StechTimesheet.Form.open(info.dateStr, null);
-                } else {
-                    console.error('StechTimesheet.Form module is not initialized.');
                 }
             },
 
@@ -101,9 +129,6 @@ export const TimesheetCalendar = {
         this.setupSidebarNavigation();
     },
 
-    /**
-     * Connects sidebar buttons to the calendar instance
-     */
     setupSidebarNavigation() {
         document.getElementById('nav-prev')?.addEventListener('click', () => this.instance.prev());
         document.getElementById('nav-next')?.addEventListener('click', () => this.instance.next());
@@ -133,15 +158,10 @@ export const TimesheetCalendar = {
         activeBtn.classList.add('active');
     },
 
-    // Inject the Archive Toggle Button into the sidebar dynamically
     injectArchiveToggle() {
         const container = document.getElementById('app-navigation');
-        if (!container) return;
+        if (!container || document.getElementById('btn-toggle-archive')) return;
 
-        // Check if it already exists to avoid duplicates
-        if (document.getElementById('btn-toggle-archive')) return;
-
-        // Create section for the filter
         const filterSection = document.createElement('ul');
         filterSection.className = 'nav-section-views';
         filterSection.style.marginTop = '20px';
@@ -153,11 +173,8 @@ export const TimesheetCalendar = {
                 </button>
             </li>
         `;
-
-        // Append to sidebar
         container.appendChild(filterSection);
 
-        // Bind click event
         const btn = document.getElementById('btn-toggle-archive');
         btn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -165,18 +182,15 @@ export const TimesheetCalendar = {
         });
     },
 
-    // Handle the toggle logic
     toggleArchiveMode(btn) {
         if (this.archiveMode === 0) {
-            // Switch to Archived
             this.archiveMode = 1;
             btn.textContent = "Back to Active";
             btn.classList.remove('secondary-button');
             btn.classList.add('primary-button');
-            btn.style.backgroundColor = '#777777'; // Gray to match archive theme
+            btn.style.backgroundColor = '#777777'; 
             btn.style.color = '#fff';
         } else {
-            // Switch to Active
             this.archiveMode = 0;
             btn.textContent = "Show Archived";
             btn.classList.remove('primary-button');
@@ -184,18 +198,12 @@ export const TimesheetCalendar = {
             btn.style.backgroundColor = 'transparent';
             btn.style.color = 'var(--color-main-text)';
         }
-        
-        // Reload events with new filter
         this.refresh();
     },
 
-    /**
-     * Refresh the calendar data
-     */
     refresh() {
         this.instance.refetchEvents();
     }
 };
 
-// Aliased for export to main.js
 export const Calendar = TimesheetCalendar;

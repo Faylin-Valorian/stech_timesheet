@@ -111,6 +111,21 @@ class TimesheetMapper extends QBMapper {
            ->fetchAll();
     }
 
+    // NEW: Fetch holidays for calendar background events
+    public function getHolidaysForCalendar($start, $end): array {
+        $qb = $this->db->getQueryBuilder();
+        $query = $qb->select('*')
+           ->from('stech_holidays')
+           ->where($qb->expr()->eq('holiday_archive', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT))); // Active only
+           
+        if ($start && $end) {
+             $query->andWhere($qb->expr()->lte('holiday_start_date', $qb->createNamedParameter($end)))
+                   ->andWhere($qb->expr()->gte('holiday_end_date', $qb->createNamedParameter($start)));
+        }
+        
+        return $query->executeQuery()->fetchAll();
+    }
+
     /**
      * Fetch activities for specific timesheet IDs
      * @param array $ids

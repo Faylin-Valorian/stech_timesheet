@@ -114,7 +114,6 @@ Util::addStyle('stech_timesheet', 'admin');
 
                         <div id="panel-adm-access" class="access-group-panel hidden">
                             <h3 class="panel-title">Admin: Access Control Tab</h3>
-                            <p class="panel-desc">Who can change permissions inside the panel.</p>
                             <div id="list-access-admin-access" class="group-toggle-list"></div>
                         </div>
                         <div id="panel-adm-users" class="access-group-panel hidden">

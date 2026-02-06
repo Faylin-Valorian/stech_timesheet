@@ -16,6 +16,9 @@ return [
         ['name' => 'timesheet#getTimesheet', 'url' => '/api/timesheets/{id}', 'verb' => 'GET'],
         ['name' => 'timesheet#deleteTimesheet', 'url' => '/api/timesheets/{id}', 'verb' => 'DELETE'],
         
+        // NEW: Calendar Holidays Route (Fixes the 404 Error)
+        ['name' => 'timesheet#getCalendarHolidays', 'url' => '/api/calendar/holidays', 'verb' => 'GET'],
+        
         // NEW: Route for restoring archived records
         ['name' => 'timesheet#restoreTimesheet', 'url' => '/api/timesheets/{id}/restore', 'verb' => 'POST'],
 
