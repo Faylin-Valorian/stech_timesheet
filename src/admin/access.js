@@ -30,9 +30,17 @@ export const AccessAdmin = {
     render() {
         // Define the mapping between your HTML container IDs and the Database Rule Keys
         const mapping = {
-            // Admin Panel
-            'list-access-admin': 'admin_panel',
-            
+            // General Admin Access (New)
+            'list-access-admin-global': 'admin_global_access',
+
+            // New Granular Admin Permissions
+            'list-access-admin-access': 'admin_access',
+            'list-access-admin-users': 'admin_users',
+            'list-access-admin-payroll': 'admin_payroll',
+            'list-access-admin-holidays': 'admin_holidays',
+            'list-access-admin-jobs': 'admin_jobs',
+            'list-access-admin-locations': 'admin_locations',
+
             // Analysis - General
             'list-access-analysis-tab': 'analysis_tab',
             

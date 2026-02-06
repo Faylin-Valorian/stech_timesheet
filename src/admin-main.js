@@ -7,6 +7,10 @@ import { LocationAdmin } from './admin/locations.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     
+    // --- CRITICAL PATCH: CLEAR IMPERSONATION ---
+    // Ensure we stop impersonating users when entering the Admin Panel
+    sessionStorage.removeItem('stech_impersonate');
+
     // --- 1. Navigation ---
     const navItems = ['users', 'access', 'payroll', 'holidays', 'jobs', 'locations'];
     navItems.forEach(viewId => {

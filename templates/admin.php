@@ -17,40 +17,41 @@ Util::addStyle('stech_timesheet', 'admin');
             <div class="app-navigation-separator"></div>
 
             <li class="nav-section-header"><span>Management</span></li>
-            <li class="nav-item">
+            
+            <li class="nav-item" data-rule="admin_users">
                 <a class="nav-link active" href="#" id="nav-users">
                     <span class="icon-user"></span>
                     <span>Employees</span>
                 </a>
             </li>
             
-            <li class="nav-item">
+            <li class="nav-item" data-rule="admin_access">
                 <a class="nav-link" href="#" id="nav-access">
                     <span class="icon-password"></span>
                     <span>Access Control</span>
                 </a>
             </li>
 
-            <li class="nav-item">
+            <li class="nav-item" data-rule="admin_payroll">
                 <a class="nav-link" href="#" id="nav-payroll">
                     <span class="icon-money"></span>
                     <span>Payroll Settings</span>
                 </a>
             </li>
             
-            <li class="nav-item">
+            <li class="nav-item" data-rule="admin_holidays">
                 <a class="nav-link" href="#" id="nav-holidays">
                     <span class="icon-calendar-dark"></span>
                     <span>Holidays</span>
                 </a>
             </li>
-            <li class="nav-item">
+            <li class="nav-item" data-rule="admin_jobs">
                 <a class="nav-link" href="#" id="nav-jobs">
                     <span class="icon-category-office"></span>
                     <span>Jobs / Codes</span>
                 </a>
             </li>
-            <li class="nav-item">
+            <li class="nav-item" data-rule="admin_locations">
                 <a class="nav-link" href="#" id="nav-locations">
                     <span class="icon-address"></span>
                     <span>Locations</span>
@@ -64,91 +65,95 @@ Util::addStyle('stech_timesheet', 'admin');
         <div id="view-users" class="admin-view">
             <div class="view-header">
                 <div class="panel-header-row">
-                    <div>
-                        <h2>Employee Management</h2>
-                        <p>Manage access, view timesheets, and set active status.</p>
-                    </div>
+                    <div><h2>Employee Management</h2><p>Manage access, view timesheets, and set active status.</p></div>
                     <div class="action-buttons">
                         <div class="search-filter-wrapper">
-                            <button id="user-filter-btn" class="btn-filter-icon" title="Filter Status"><span class="icon-filter"></span></button>
+                            <button id="user-filter-btn" class="btn-filter-icon"><span class="icon-filter"></span></button>
                             <div id="user-filter-menu" class="filter-menu hidden">
-                                <label><input type="radio" name="user-status" value="active" checked> Active Employees</label>
-                                <label><input type="radio" name="user-status" value="inactive"> Inactive Employees</label>
-                                <label><input type="radio" name="user-status" value="all"> All Employees</label>
+                                <label><input type="radio" name="user-status" value="active" checked> Active</label>
+                                <label><input type="radio" name="user-status" value="inactive"> Inactive</label>
+                                <label><input type="radio" name="user-status" value="all"> All</label>
                             </div>
-                            <input type="text" id="user-search-input" class="filter-input-with-icon" placeholder="Search employees...">
+                            <input type="text" id="user-search-input" class="filter-input-with-icon" placeholder="Search...">
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="view-body">
-                <div id="user-grid-container" class="user-grid"></div>
-            </div>
+            <div class="view-body"><div id="user-grid-container" class="user-grid"></div></div>
         </div>
 
         <div id="view-access" class="admin-view hidden">
-            <div class="view-header">
-                <h2>Access Control</h2>
-                <p>Toggle which User Groups can access specific features. (Admin group always has access).</p>
-            </div>
-            
+            <div class="view-header"><h2>Access Control</h2><p>Grant permission to specific features.</p></div>
             <div class="view-body" style="max-width: 900px;">
                 <div class="split-layout">
                     <div class="split-panel left" style="width: 250px;">
-                        <h4 class="panel-title">Features</h4>
-                        <div class="access-tab active" data-target="panel-admin">Admin Panel</div>
-                        <div class="access-tab" data-target="panel-analysis">Analysis Tab (Main)</div>
-                        <div class="access-tab" data-target="panel-view-others">Analysis: View All Users</div>
-                        <div class="access-tab" data-target="panel-travel">Analysis: Travel Tab</div>
-                        <div class="access-tab" data-target="panel-financial">Analysis: Financial Tab</div>
-                        <div class="access-tab" data-target="panel-location">Analysis: Location Maps</div>
-                        <div class="access-tab" data-target="panel-jobs">Analysis: Job Breakdown</div>
+                        <h4 class="panel-title">General</h4>
+                        <div class="access-tab active" data-target="panel-adm-global">Admin Panel Button</div>
+                        
+                        <h4 class="panel-title" style="margin-top:15px;">Admin Sections</h4>
+                        <div class="access-tab" data-target="panel-adm-access">Access Control</div>
+                        <div class="access-tab" data-target="panel-adm-users">Employees</div>
+                        <div class="access-tab" data-target="panel-adm-payroll">Payroll</div>
+                        <div class="access-tab" data-target="panel-adm-holidays">Holidays</div>
+                        <div class="access-tab" data-target="panel-adm-jobs">Jobs</div>
+                        <div class="access-tab" data-target="panel-adm-locations">Locations</div>
+                        
+                        <h4 class="panel-title" style="margin-top:15px;">Analysis Features</h4>
+                        <div class="access-tab" data-target="panel-analysis">Main Analysis Tab</div>
+                        <div class="access-tab" data-target="panel-view-others">View All Employees</div>
+                        <div class="access-tab" data-target="panel-travel">Travel Tab</div>
+                        <div class="access-tab" data-target="panel-financial">Financial Tab</div>
                     </div>
 
                     <div class="split-panel right">
-                        
-                        <div id="panel-admin" class="access-group-panel">
-                            <h3 class="panel-title">Grant Access: Admin Panel</h3>
-                            <p class="panel-desc">Groups allowed to see the "Admin Panel" link and access configuration.</p>
-                            <div id="list-access-admin" class="group-toggle-list"></div>
+                        <div id="panel-adm-global" class="access-group-panel">
+                            <h3 class="panel-title">Grant Access: Admin Panel Button</h3>
+                            <p class="panel-desc">Who can see the "Admin Panel" link in the main navigation? (Admins always have access).</p>
+                            <div id="list-access-admin-global" class="group-toggle-list"></div>
+                        </div>
+
+                        <div id="panel-adm-access" class="access-group-panel hidden">
+                            <h3 class="panel-title">Admin: Access Control Tab</h3>
+                            <p class="panel-desc">Who can change permissions inside the panel.</p>
+                            <div id="list-access-admin-access" class="group-toggle-list"></div>
+                        </div>
+                        <div id="panel-adm-users" class="access-group-panel hidden">
+                            <h3 class="panel-title">Admin: Employees Tab</h3>
+                            <div id="list-access-admin-users" class="group-toggle-list"></div>
+                        </div>
+                        <div id="panel-adm-payroll" class="access-group-panel hidden">
+                            <h3 class="panel-title">Admin: Payroll Tab</h3>
+                            <div id="list-access-admin-payroll" class="group-toggle-list"></div>
+                        </div>
+                        <div id="panel-adm-holidays" class="access-group-panel hidden">
+                            <h3 class="panel-title">Admin: Holidays Tab</h3>
+                            <div id="list-access-admin-holidays" class="group-toggle-list"></div>
+                        </div>
+                        <div id="panel-adm-jobs" class="access-group-panel hidden">
+                            <h3 class="panel-title">Admin: Jobs Tab</h3>
+                            <div id="list-access-admin-jobs" class="group-toggle-list"></div>
+                        </div>
+                        <div id="panel-adm-locations" class="access-group-panel hidden">
+                            <h3 class="panel-title">Admin: Locations Tab</h3>
+                            <div id="list-access-admin-locations" class="group-toggle-list"></div>
                         </div>
 
                         <div id="panel-analysis" class="access-group-panel hidden">
-                            <h3 class="panel-title">Grant Access: Analysis Tab</h3>
-                            <p class="panel-desc">Groups allowed to see the "Time Analysis" tab on the main dashboard.</p>
+                            <h3 class="panel-title">Analysis Tab</h3>
                             <div id="list-access-analysis-tab" class="group-toggle-list"></div>
                         </div>
-
                         <div id="panel-view-others" class="access-group-panel hidden">
-                            <h3 class="panel-title">Grant Access: View All Data</h3>
-                            <p class="panel-desc">Groups allowed to use the "Myself / All Employees" dropdown on the Analysis Dashboard.</p>
+                            <h3 class="panel-title">View All Employees</h3>
                             <div id="list-access-analysis-others" class="group-toggle-list"></div>
                         </div>
-
                         <div id="panel-travel" class="access-group-panel hidden">
-                            <h3 class="panel-title">Grant Access: Travel Tab</h3>
-                            <p class="panel-desc">Groups allowed to see the "Travel Activity" tab (Miles, Per Diem, Expenses).</p>
+                            <h3 class="panel-title">Travel Tab</h3>
                             <div id="list-access-analysis-travel" class="group-toggle-list"></div>
                         </div>
-
                         <div id="panel-financial" class="access-group-panel hidden">
-                            <h3 class="panel-title">Grant Access: Financial Tab</h3>
-                            <p class="panel-desc">Groups allowed to see the "Profitability Meter" tab.</p>
+                            <h3 class="panel-title">Financial Tab</h3>
                             <div id="list-access-analysis-financial" class="group-toggle-list"></div>
                         </div>
-
-                        <div id="panel-location" class="access-group-panel hidden">
-                            <h3 class="panel-title">Grant Access: Location Maps</h3>
-                            <p class="panel-desc">Groups allowed to see the "State Activity" and "County Activity" tabs.</p>
-                            <div id="list-access-analysis-location" class="group-toggle-list"></div>
-                        </div>
-
-                        <div id="panel-jobs" class="access-group-panel hidden">
-                            <h3 class="panel-title">Grant Access: Job Breakdown</h3>
-                            <p class="panel-desc">Groups allowed to see the "Job Breakdown" charts.</p>
-                            <div id="list-access-analysis-jobs" class="group-toggle-list"></div>
-                        </div>
-
                     </div>
                 </div>
             </div>
@@ -167,15 +172,33 @@ Util::addStyle('stech_timesheet', 'admin');
                             <option value="14">Bi-Weekly (Every 2 Weeks)</option>
                             <option value="7">Weekly</option>
                             <option value="28">Every 4 Weeks</option>
+                            <option value="custom_twice">Custom (Twice a Month)</option>
                         </select>
                     </div>
                     
-                    <div class="input-group" style="margin-top: 15px;">
+                    <div id="freq-standard-options" class="input-group" style="margin-top: 15px;">
                         <label>Reference Start Date</label>
-                        <p style="font-size: 0.85em; opacity: 0.7; margin-top:0; margin-bottom:5px;">
-                            Pick any valid past or future Pay Day.
-                        </p>
+                        <p style="font-size: 0.85em; opacity: 0.7; margin-top:0; margin-bottom:5px;">Pick any valid Pay Day.</p>
                         <input type="date" id="pay-start-date" class="form-control">
+                    </div>
+
+                    <div id="freq-custom-options" class="hidden" style="margin-top: 15px; border-left: 3px solid var(--color-primary-element); padding-left: 15px;">
+                        <label style="margin-bottom:10px;">Recurring Pay Days</label>
+                        <div style="display: flex; gap: 15px;">
+                            <div style="flex:1;">
+                                <label style="font-size: 0.85em; opacity:0.8;">First Pay Day</label>
+                                <select id="pay-date-1" class="form-control">
+                                    <?php for($i=1; $i<=28; $i++) echo "<option value='$i'>$i" . date("S", mktime(0,0,0,0,$i,0)) . "</option>"; ?>
+                                </select>
+                            </div>
+                            <div style="flex:1;">
+                                <label style="font-size: 0.85em; opacity:0.8;">Second Pay Day</label>
+                                <select id="pay-date-2" class="form-control">
+                                    <?php for($i=1; $i<=28; $i++) echo "<option value='$i'>$i" . date("S", mktime(0,0,0,0,$i,0)) . "</option>"; ?>
+                                </select>
+                            </div>
+                        </div>
+                        <p style="font-size: 0.85em; opacity: 0.7; margin-top:10px;">Select the two days of the month employees are paid.</p>
                     </div>
 
                     <div style="margin-top: 25px; display: flex; align-items: center; gap: 15px;">

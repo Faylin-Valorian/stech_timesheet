@@ -6,7 +6,7 @@
     top: 0;
     right: 0;
     bottom: 0;
-    left: 300px;
+    left: 300px; /* Desktop Sidebar Width */
     background-color: var(--color-main-background);
     padding: 0;
     overflow-y: auto;
@@ -14,6 +14,7 @@
     flex-direction: column;
     height: auto;
     color: var(--color-main-text);
+    transition: left 0.3s ease; /* Smooth transition for mobile toggle */
 }
 
 .admin-view {
@@ -105,22 +106,14 @@
 }
 
 /* =========================================
-   3. USER GRID & CARDS (PATCHED)
+   3. USER GRID & CARDS
    ========================================= */
 .user-grid {
     display: grid;
-    /* Create exactly 2 columns of equal width */
     grid-template-columns: 1fr 1fr; 
     gap: 20px;
     padding: 10px 0;
     width: 100%;
-}
-
-/* Responsive: Switch to 1 column on smaller screens (tablets/phones) */
-@media (max-width: 1000px) {
-    .user-grid {
-        grid-template-columns: 1fr;
-    }
 }
 
 .user-card {
@@ -186,7 +179,7 @@
 }
 
 /* =========================================
-   4. FORMS & INPUTS (Dark Mode Safe)
+   4. FORMS & INPUTS
    ========================================= */
 .max-width-600 { max-width: 600px; }
 
@@ -286,7 +279,7 @@
 }
 
 /* =========================================
-   5. ACCESS CONTROL UI (New)
+   5. ACCESS CONTROL UI
    ========================================= */
 .access-tab {
     padding: 12px 15px;
@@ -325,7 +318,7 @@
 .group-toggle-list {
     display: flex;
     flex-direction: column;
-    gap: 0; /* Items have their own border */
+    gap: 0; 
 }
 
 /* =========================================
@@ -336,7 +329,7 @@
     overflow-y: auto; 
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
-    background-color: var(--color-background-dark); /* Distinct from main bg */
+    background-color: var(--color-background-dark);
     max-height: 60vh;
 }
 
@@ -358,7 +351,6 @@
     border-left: 3px solid var(--color-primary-element);
 }
 
-/* --- The Switch Toggle --- */
 .admin-switch {
     position: relative;
     display: inline-block;
@@ -371,7 +363,7 @@
     position: absolute;
     cursor: pointer;
     top: 0; left: 0; right: 0; bottom: 0;
-    background-color: var(--color-border-dark); /* Grey in default */
+    background-color: var(--color-border-dark);
     transition: .4s;
     border-radius: 34px;
 }
@@ -400,10 +392,7 @@ input:disabled + .admin-slider {
 }
 
 /* --- Custom Icons --- */
-
-/* Dollar Sign Icon for Payroll - THEMED */
 .icon-money {
-    /* MASK MODE: Allows color to follow var(--color-main-text) automatically */
     -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>');
     mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>');
     
@@ -422,8 +411,72 @@ input:disabled + .admin-slider {
     display: inline-block;
 }
 
-/* Opacity boost on active/hover */
 a.nav-link.active .icon-money,
 a.nav-link:hover .icon-money {
     opacity: 1;
+}
+
+/* =========================================
+   7. MOBILE RESPONSIVE TWEAKS (NEW)
+   ========================================= */
+
+@media only screen and (max-width: 1000px) {
+    /* 1. Reset Main Content Width */
+    #app-content {
+        left: 0 !important; /* Override the desktop 300px */
+        width: 100% !important;
+        padding-top: 50px; /* Space for mobile header if needed */
+    }
+
+    /* 2. Admin View Padding */
+    .admin-view {
+        padding: 15px; /* Reduce padding on mobile */
+    }
+
+    /* 3. Stack Split Layouts (List Top, Details Bottom) */
+    .split-layout {
+        flex-direction: column;
+        min-height: auto;
+    }
+
+    .split-panel.left {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--color-border);
+        padding-right: 0;
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+        flex: 0 0 auto; /* Allow height to fit content */
+    }
+
+    .split-panel.right {
+        width: 100%;
+        padding-left: 0;
+    }
+
+    /* 4. Lists Adjustments */
+    .scroll-list {
+        max-height: 250px; /* Limit list height on mobile so form is visible */
+    }
+
+    /* 5. Form & Grid Adjustments */
+    .user-grid {
+        grid-template-columns: 1fr; /* Single column users */
+    }
+    
+    .max-width-600 {
+        max-width: 100%; /* Full width forms */
+    }
+
+    /* 6. Access Control Tabs */
+    /* Stack tabs vertically or make them scrollable horizontal? Stacking is safer. */
+    .access-tab {
+        border-left: none;
+        border-bottom: 3px solid transparent;
+        text-align: center;
+    }
+    .access-tab.active {
+        border-left: none;
+        border-bottom-color: var(--color-primary-element);
+    }
 }

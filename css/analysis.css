@@ -8,7 +8,6 @@
     flex-direction: column;
     box-sizing: border-box;
     color: var(--color-main-text);
-    /* Allow scrolling for the entire dashboard */
     overflow-y: auto; 
     overflow-x: hidden;
 }
@@ -97,7 +96,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     overflow: hidden; 
-    min-height: 850px; /* Provides room for side-by-side maps */
+    min-height: 850px; 
 }
 
 .tab-headers {
@@ -105,6 +104,7 @@
     background-color: var(--color-background-dark);
     border-bottom: 1px solid var(--color-border);
     overflow-x: auto; 
+    flex-shrink: 0;
 }
 
 .tab-btn {
@@ -173,9 +173,17 @@
 .split-layout-analysis {
     display: flex;
     gap: 30px;
-    min-height: 550px; /* Prevents map squashing */
+    min-height: 550px; 
     width: 100%;
     align-items: stretch;
+}
+
+/* Specific Grid Layout for Travel Maps (Desktop) */
+.travel-map-layout {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: 1fr 300px 1fr;
+    gap: 20px;
 }
 
 .chart-wrapper-half {
@@ -255,7 +263,7 @@
     padding: 0;
     overflow: hidden;
     position: relative;
-    height: 500px; /* Stable height for Leaflet */
+    height: 500px; 
     width: 100%;
     display: flex;
     justify-content: center;
@@ -307,4 +315,88 @@ input[list]:hover {
 
 .leaflet-tooltip-pane {
     z-index: 650;
+}
+
+/* =========================================
+   6. MOBILE RESPONSIVE TWEAKS (NEW)
+   ========================================= */
+
+@media only screen and (max-width: 1000px) {
+    /* 1. Reset Main Content Width (Matches Admin) */
+    #app-content {
+        left: 0 !important;
+        width: 100% !important;
+        padding-top: 50px; 
+    }
+
+    /* 2. Container Padding & Scrolling Fix */
+    .analysis-container {
+        padding: 10px;
+        /* FIX: Stop locking height. Let it grow so the page scrolls. */
+        height: auto !important; 
+        overflow-y: visible !important;
+        display: block; /* Switch from flex to block for simple stacking */
+    }
+
+    /* 3. Stack Headers */
+    .analysis-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .date-range-selector {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    /* 4. Tabs adjustments */
+    .tabs-container {
+        min-height: auto;
+        border: none;
+        /* FIX: Ensure tabs don't trap scroll or hide content */
+        overflow: visible !important; 
+        height: auto !important;
+    }
+    
+    .tab-content {
+        padding: 10px 0;
+        overflow: visible !important;
+    }
+
+    /* 5. Stack Layouts (Charts, Maps) */
+    .split-layout-analysis {
+        flex-direction: column !important;
+        display: flex !important; /* Forces flex stack */
+        height: auto;
+        min-height: auto;
+    }
+
+    /* Override Desktop Grid for Travel Maps */
+    .travel-map-layout {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* 6. Map & Panel Sizing */
+    .chart-wrapper-half {
+        width: 100% !important;
+        min-height: 350px; /* Reduce height on mobile */
+    }
+
+    .map-wrapper {
+        height: 350px;
+    }
+
+    #location-detail-panel {
+        max-height: 300px;
+        border: 1px solid var(--color-border) !important;
+        border-radius: var(--border-radius);
+        margin: 10px 0;
+    }
+
+    /* 7. Tables */
+    .table-wrapper-half {
+        max-height: none; /* Let table grow fully */
+        overflow-y: visible; 
+    }
 }

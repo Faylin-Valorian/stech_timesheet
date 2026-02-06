@@ -20,6 +20,10 @@ Util::addStyle('stech_timesheet', 'analysis');
     </div>
 
     <div id="app-content">
+        <div id="impersonation-banner" style="display:none; background-color: var(--color-error); color: white; padding: 10px; text-align: center; font-weight: bold; width: 100%; box-sizing: border-box;">
+            You are viewing data for: <span id="impersonation-name">Unknown</span>
+        </div>
+
         <div class="analysis-container">
             <div class="analysis-header">
                 <h2>Time Analysis Dashboard</h2>
@@ -42,11 +46,10 @@ Util::addStyle('stech_timesheet', 'analysis');
                     
                     <?php if($_['can_view_others']): ?>
                     <div class="control-group">
-                        <input type="text" id="user-search" list="user-list" class="form-control" placeholder="Search Employee..." style="width: 200px;">
-                        <datalist id="user-list">
-                            <option value="Myself" data-value="self"></option>
-                            <option value="All Employees" data-value="all"></option>
-                        </datalist>
+                        <select id="user-selector" class="form-control" style="width: 200px;">
+                            <option value="self">Myself</option>
+                            <option value="all">Everyone (Aggregate)</option>
+                        </select>
                         <input type="hidden" id="analysis-target-user" value="self">
                     </div>
                     <?php endif; ?>
@@ -86,33 +89,20 @@ Util::addStyle('stech_timesheet', 'analysis');
                             <div class="travel-stat-box"><h4>Expenses Claimed</h4><span id="val-expenses">$0.00</span></div>
                         </div>
                         
-                        <div class="split-layout-analysis" style="margin-top: 20px; display: grid; grid-template-columns: 1fr 300px 1fr; gap: 20px;">
+                        <div class="travel-map-layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px; margin-top: 20px; height: 600px;">
                             
-                            <div class="chart-wrapper-half">
-                                <h3>State Activity</h3>
-                                <div id="map-state-container" class="map-wrapper" style="height: 500px; width: 100%;"></div>
-                            </div>
-
-                            <div id="location-detail-panel" class="chart-wrapper-half" style="background: var(--color-main-background); padding: 15px; border-left: 1px solid var(--color-border); border-right: 1px solid var(--color-border); overflow-y: auto; max-height: 540px;">
-                                <h3 id="detail-title" style="margin-top: 0; text-align: center; border-bottom: 2px solid var(--color-primary); padding-bottom: 10px;">Select a Location</h3>
-                                <div id="detail-content">
-                                    <p style="text-align: center; color: var(--color-text-maxcontrast); padding-top: 20px;">
-                                        Click a State or County on the map to view visitor details.
+                            <div id="location-detail-panel" style="background: var(--color-main-background); padding: 20px; border: 1px solid var(--color-border); border-radius: var(--border-radius); display: flex; flex-direction: column;">
+                                <button id="btn-reset-map" class="secondary-button full-width" style="margin-bottom: 20px; display: none;">← Back to Select State</button>
+                                
+                                <h3 id="detail-title" style="margin-top: 0; text-align: center; border-bottom: 2px solid var(--color-primary); padding-bottom: 10px;">National Overview</h3>
+                                <div id="detail-content" style="flex: 1; overflow-y: auto;">
+                                    <p style="text-align: center; color: var(--color-text-maxcontrast); padding-top: 10px;">
+                                        Select a State on the map to view County details.
                                     </p>
                                 </div>
                             </div>
 
-                            <div class="chart-wrapper-half">
-                                <div style="display:flex; justify-content:space-between; align-items:center;">
-                                    <h3>County Activity</h3>
-                                    <div class="control-group">
-                                        <input type="text" id="state-search" list="state-list" class="form-control" placeholder="Zoom to State..." style="width: 150px;">
-                                        <datalist id="state-list"></datalist>
-                                        <input type="hidden" id="analysis-state-filter" value="">
-                                    </div>
-                                </div>
-                                <div id="map-county-container" class="map-wrapper" style="height: 500px; width: 100%;"></div>
-                            </div>
+                            <div id="map-main-container" class="map-wrapper" style="height: 100%; width: 100%;"></div>
                         </div>
                     </div>
                     <?php endif; ?>

@@ -38,6 +38,13 @@ class AnalysisService {
 
     public function getPayrollDateRange(string $period): array {
         $settings = $this->timesheetMapper->getAdminSettings();
+        
+        // PATCH: Handle "Custom Twice a Month" logic
+        if (($settings['pay_frequency'] ?? '') === 'custom_twice') {
+            return $this->calcCustomTwiceRange($period, $settings);
+        }
+
+        // Standard Frequency Logic
         $freq = (int)($settings['pay_frequency'] ?? 14);
         $refDate = new \DateTime($settings['pay_start_date'] ?? '2024-01-01');
         $now = new \DateTime();
@@ -56,6 +63,73 @@ class AnalysisService {
         if ($period === 'ytd') return [new \DateTime('first day of January this year'), new \DateTime('now')];
         
         return [$currentStart, $currentEnd];
+    }
+
+    // PATCH: Helper for Custom Twice Monthly Logic
+    private function calcCustomTwiceRange(string $period, array $settings): array {
+        $d1 = (int)($settings['pay_date_1'] ?? 1);
+        $d2 = (int)($settings['pay_date_2'] ?? 15);
+        
+        $now = new \DateTime();
+        $y = $now->format('Y');
+        $m = $now->format('m');
+
+        // Construct the two target cutoff dates for THIS month
+        $dateA = new \DateTime("$y-$m-$d1");
+        $dateB = new \DateTime("$y-$m-$d2");
+
+        // Ensure A is always before B
+        if ($dateA > $dateB) { $temp = $dateA; $dateA = $dateB; $dateB = $temp; }
+
+        // Determine CURRENT range based on "Today"
+        if ($now < $dateA) {
+            // Before first cutoff -> Period is [Prev Month B + 1] to [A]
+            $prevB = clone $dateB; 
+            $prevB->modify('-1 month');
+            $start = (clone $prevB)->modify('+1 day');
+            $end = $dateA;
+        } elseif ($now >= $dateA && $now < $dateB) {
+            // Between A and B -> Period is [A + 1] to [B]
+            $start = (clone $dateA)->modify('+1 day');
+            $end = $dateB;
+        } else {
+            // After B -> Period is [B + 1] to [Next Month A]
+            $start = (clone $dateB)->modify('+1 day');
+            $nextA = clone $dateA; 
+            $nextA->modify('+1 month');
+            $end = $nextA;
+        }
+
+        if ($period === 'this_pay_period') return [$start, $end];
+        
+        // Calculate "Last Period" (Flip back one cycle)
+        if ($period === 'last_pay_period') {
+            // Simple approximation: Go back 15 days and recalculate
+            $checkDate = clone $start;
+            $checkDate->modify('-5 days'); // Move safely into previous block
+            
+            // Re-run logic for that past date
+            $pY = $checkDate->format('Y');
+            $pM = $checkDate->format('m');
+            $pDateA = new \DateTime("$pY-$pM-$d1");
+            $pDateB = new \DateTime("$pY-$pM-$d2");
+            if ($pDateA > $pDateB) { $t = $pDateA; $pDateA = $pDateB; $pDateB = $t; }
+
+            if ($checkDate < $pDateA) {
+                $prevB = clone $pDateB; $prevB->modify('-1 month');
+                return [(clone $prevB)->modify('+1 day'), $pDateA];
+            } elseif ($checkDate >= $pDateA && $checkDate < $pDateB) {
+                return [(clone $pDateA)->modify('+1 day'), $pDateB];
+            } else {
+                $nextA = clone $pDateA; $nextA->modify('+1 month');
+                return [(clone $pDateB)->modify('+1 day'), $nextA];
+            }
+        }
+
+        if ($period === 'this_month') return [new \DateTime('first day of this month'), new \DateTime('last day of this month')];
+        if ($period === 'ytd') return [new \DateTime('first day of January this year'), new \DateTime('now')];
+
+        return [$start, $end];
     }
 
     public function aggregateData(array $results, array $perms): array {
@@ -100,7 +174,7 @@ class AnalysisService {
                         $states[$state] = [
                             'count' => 0, 
                             'is_enabled' => in_array($state, $enabledStates),
-                            'visitors' => [] // Track specific users
+                            'visitors' => [] 
                         ];
                     }
                     $states[$state]['count']++;
@@ -121,7 +195,7 @@ class AnalysisService {
                             $counties[$key] = [
                                 'count' => 0, 
                                 'is_enabled' => in_array($state, $enabledStates),
-                                'visitors' => [] // Track specific users
+                                'visitors' => [] 
                             ];
                         }
                         $counties[$key]['count']++;
@@ -175,18 +249,17 @@ class AnalysisService {
                     $jobs[$name]['hours'] += $jobHours;
                     
                     // Calculated Values based on Hours
-                    $revCalc = ($jobHours * $revenueRate);
                     $laborCalc = ($jobHours * $hourlyRate);
                     
                     // Allocated Travel Expenses based on percent
                     $entryTravelExp = (float)($row['travel_extra_expenses'] ?? 0);
                     $allocatedExp = $entryTravelExp * ($percent / 100);
 
-                    $jobs[$name]['revenue'] += $revCalc;
+                    // PATCH: Fix revenue accumulation bug. We treat Revenue as fixed per Job (set in init),
+                    // we do NOT add it per hour here.
                     $jobs[$name]['labor_cost'] += $laborCalc;
                     $jobs[$name]['actual_expenses'] += $allocatedExp;
                     
-                    $totalRevenue += $revCalc;
                     $totalLaborCost += $laborCalc;
                 }
             }
@@ -194,15 +267,19 @@ class AnalysisService {
 
         // --- 3. Final Calculations ---
         
-        // Sum up Total Budgets (Fixed Cost per Job found in this period)
+        // Sum up Total Budgets & Revenue (Fixed Cost per Job found in this period)
         $totalJobBudgets = 0.0;
+        $totalJobRevenue = 0.0;
+        $totalJobExpenses = 0.0;
+
         foreach($jobs as $job) {
             $totalJobBudgets += $job['budget'];
+            $totalJobRevenue += $job['revenue'];
+            $totalJobExpenses += $job['actual_expenses'];
         }
 
-        // PROFIT FORMULA: Revenue - (Labor + Budget)
-        // Note: We intentionally exclude 'travel_expenses' from this specific metric per your request
-        $globalProfit = $totalRevenue - ($totalLaborCost + $totalJobBudgets);
+        // PROFIT FORMULA: Revenue - (Labor + Budget + Actual Expenses)
+        $globalProfit = $totalJobRevenue - ($totalLaborCost + $totalJobBudgets + $totalJobExpenses);
 
         // Overtime Calculation
         $workedHours = $totalHours - $ptoHours;
@@ -218,11 +295,11 @@ class AnalysisService {
                 'overtime_hours' => round($overtimeHours, 2),
                 'pto_hours' => round($ptoHours, 2),
                 'gross_pay' => round($totalLaborCost, 2),
-                'revenue' => round($totalRevenue, 2),
+                'revenue' => round($totalJobRevenue, 2),
                 'profit' => round($globalProfit, 2)
             ],
             'trend' => ['labels' => array_keys($trend), 'values' => array_values($trend)],
-            'jobs' => array_values($jobs), // Now contains 'budget', 'labor_cost', 'revenue'
+            'jobs' => array_values($jobs), 
             'travel' => $travel,
             'states' => $states,
             'counties' => $counties

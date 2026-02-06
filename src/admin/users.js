@@ -35,11 +35,22 @@ export const UserAdmin = {
                     <label class="admin-switch"><input type="checkbox" ${u.is_active === 1 ? 'checked' : ''}><span class="admin-slider"></span></label>
                 </div>
             `;
+            
+            // Toggle Active/Inactive Status
             card.querySelector('input').addEventListener('change', () => this.toggleStatus(u.uid));
+            
+            // PERSISTENT IMPERSONATION CLICK
             card.addEventListener('click', (e) => {
+                // Ignore clicks on the toggle switch itself
                 if (e.target.closest('.admin-switch')) return;
+                
+                // Save to session storage so Analysis tab can see it
+                sessionStorage.setItem('stech_impersonate', u.uid);
+                
+                // Redirect to main timesheet with query param as fallback/initial load
                 window.location.href = OC.generateUrl('/apps/stech_timesheet/') + '?target_user=' + u.uid;
             });
+            
             container.appendChild(card);
         });
     },
