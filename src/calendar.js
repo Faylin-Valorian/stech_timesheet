@@ -25,7 +25,7 @@ export const TimesheetCalendar = {
             weekNumbers: true,
             
             eventSources: [
-                // SOURCE 1: Timesheets (Editable Data)
+                // SOURCE 1: Timesheets (Editable Data & Payroll Markers)
                 {
                     events: (info, successCallback, failureCallback) => {
                         window.StechTimesheet.API.getTimesheets(info.startStr, info.endStr, this.archiveMode)
@@ -43,21 +43,16 @@ export const TimesheetCalendar = {
                             const events = [];
                             
                             data.forEach(h => {
-                                // PATCH: Split multi-day holidays into individual daily blocks
-                                // This ensures text appears on EVERY block.
-                                
+                                // 1. Calculate Date Range
                                 const startDate = new Date(h.start || h.holiday_start_date);
-                                // For loop boundary, use exclusive end or fallback to start+1
                                 let limitDate;
                                 
                                 if (h.end || h.holiday_end_date) {
                                     limitDate = new Date(h.end || h.holiday_end_date);
-                                    // If start == end in DB, it's 1 day. In loop logic, we need exclusive end.
                                     if (limitDate <= startDate) {
                                         limitDate = new Date(startDate);
                                         limitDate.setUTCDate(limitDate.getUTCDate() + 1);
                                     } else {
-                                        // DB stores inclusive end date usually.
                                         limitDate.setUTCDate(limitDate.getUTCDate() + 1);
                                     }
                                 } else {
@@ -65,8 +60,13 @@ export const TimesheetCalendar = {
                                     limitDate.setUTCDate(limitDate.getUTCDate() + 1);
                                 }
 
+                                // 2. Determine Color (Hex -> RGBA)
+                                // Use the saved hex, or default orange. Convert to 0.2 opacity.
+                                const rawColor = h.holiday_bg || h.bg || '#e67e22';
+                                const overlayColor = this.hexToRgba(rawColor, 0.2);
+
+                                // 3. Generate Daily Blocks
                                 const loopDate = new Date(startDate);
-                                
                                 while (loopDate < limitDate) {
                                     const dateStr = loopDate.toISOString().split('T')[0];
                                     
@@ -74,16 +74,15 @@ export const TimesheetCalendar = {
                                         id: 'holiday-' + (h.id || Math.random()) + '-' + dateStr,
                                         title: h.name || h.holiday_name,
                                         start: dateStr,
-                                        // Background events are always all-day by default in month view
                                         display: 'background',
-                                        backgroundColor: 'rgba(255, 165, 0, 0.15)', // Fallback
+                                        // Apply the calculated transparent color
+                                        backgroundColor: overlayColor, 
                                         extendedProps: { 
                                             isVisual: true,
-                                            customBg: h.bg || '' // Server now sends calculated RGBA in 'bg' or mapped color
+                                            customBg: '' // We use standard backgroundColor for colors
                                         }
                                     });
                                     
-                                    // Next Day
                                     loopDate.setUTCDate(loopDate.getUTCDate() + 1);
                                 }
                             });
@@ -100,8 +99,9 @@ export const TimesheetCalendar = {
             // PATCH: Visual Styling & Click-Through Logic
             eventDidMount: (info) => {
                 if (info.event.display === 'background') {
-                    // 1. Apply Custom Backgrounds
                     const customBg = info.event.extendedProps.customBg;
+                    
+                    // If we have a custom image/gradient (from Payroll settings), use it
                     if (customBg && customBg.trim() !== '') {
                         info.el.style.background = customBg;
                         if (customBg.includes('url(')) {
@@ -109,12 +109,11 @@ export const TimesheetCalendar = {
                             info.el.style.backgroundPosition = 'center';
                         }
                     } else {
+                        // Otherwise, rely on the event's backgroundColor (which we set to RGBA)
                         info.el.style.backgroundColor = info.event.backgroundColor;
                     }
 
-                    // 2. CRITICAL FIX: Make the background overlay "invisible" to clicks
-                    // This allows clicks to pass through to the date cell (for adding entries)
-                    // or to any foreground events (Tabs) sitting on top.
+                    // CRITICAL: Make background invisible to clicks so you can add entries
                     info.el.style.pointerEvents = 'none'; 
                     info.el.style.zIndex = '0';
                 }
@@ -129,14 +128,13 @@ export const TimesheetCalendar = {
                 if (arg.event.display === 'background') {
                     // Background Event Styling:
                     div.style.background = 'transparent';
-                    // PATCH: Use Nextcloud Theme Variable
                     div.style.color = 'var(--color-main-text)';
                     div.style.opacity = '0.7'; 
                     
                     div.style.fontWeight = 'bold';
                     div.style.padding = '2px 5px';
                     div.style.textAlign = 'center';
-                    div.style.pointerEvents = 'none'; // Ensure text doesn't block clicks either
+                    div.style.pointerEvents = 'none'; 
                 } else {
                     // Foreground Event Styling:
                     div.style.backgroundColor = arg.event.backgroundColor;
@@ -148,12 +146,7 @@ export const TimesheetCalendar = {
             // Handle clicking events
             eventClick: (info) => {
                 const props = info.event.extendedProps;
-
-                // Should not trigger for background events due to pointer-events: none,
-                // but kept for safety.
-                if (props.isVisual || props.is_visual || info.event.display === 'background') {
-                    return;
-                }
+                if (props.isVisual || props.is_visual || info.event.display === 'background') return;
 
                 window.StechTimesheet.API.getTimesheetDetails(info.event.id)
                     .then(data => {
@@ -164,7 +157,6 @@ export const TimesheetCalendar = {
                     .catch(err => console.error('Failed to load record details:', err));
             },
 
-            // Handle clicking empty dates (This will now fire even when clicking "through" a holiday)
             dateClick: (info) => {
                 if (window.StechTimesheet.Form) {
                     window.StechTimesheet.Form.open(info.dateStr, null);
@@ -183,6 +175,27 @@ export const TimesheetCalendar = {
 
         this.instance.render();
         this.setupSidebarNavigation();
+    },
+
+    /**
+     * Helper to convert Hex to RGBA
+     * @param {string} hex - The hex color (e.g., #ff0000)
+     * @param {number} opacity - Alpha value (0 to 1)
+     * @returns {string} - rgba(...) string
+     */
+    hexToRgba(hex, opacity) {
+        if (!hex) return `rgba(230, 126, 34, ${opacity})`; // Default Orange
+        
+        let c;
+        if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
+            c = hex.substring(1).split('');
+            if(c.length === 3){
+                c = [c[0], c[0], c[1], c[1], c[2], c[2]];
+            }
+            c = '0x'+c.join('');
+            return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+','+opacity+')';
+        }
+        return hex; // Fallback if not valid hex
     },
 
     setupSidebarNavigation() {
