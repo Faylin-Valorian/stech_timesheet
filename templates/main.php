@@ -55,8 +55,9 @@ Util::addStyle('stech_timesheet', 'style');
 
     <div id="app-content">
         <?php if(!empty($_['target_user'])): ?>
-        <div style="background-color: #d9534f; color: white; padding: 10px; text-align: center; font-weight: bold;">
-            ⚠️ You are viewing the timesheet for user: <?php p($_['target_user']); ?>
+        <div id="impersonation-banner" style="background-color: #d9534f; color: white; padding: 10px; display: flex; justify-content: center; align-items: center; gap: 15px; font-weight: bold;">
+            <span>⚠️ You are viewing the timesheet for user: <?php p($_['target_user']); ?></span>
+            <button id="btn-end-impersonation" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Close Impersonation</button>
         </div>
         <input type="hidden" id="global-target-user" value="<?php p($_['target_user']); ?>">
         <?php endif; ?>

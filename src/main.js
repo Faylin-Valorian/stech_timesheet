@@ -14,6 +14,28 @@ window.StechTimesheet.state = {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // --- PATCH: PERSISTENT IMPERSONATION CHECK ---
+    const storedTarget = sessionStorage.getItem('stech_impersonate');
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentTarget = urlParams.get('target_user');
+
+    // If we have a stored impersonation target, but it's not in the URL, redirect immediately
+    if (storedTarget && storedTarget !== currentTarget) {
+        urlParams.set('target_user', storedTarget);
+        window.location.search = urlParams.toString();
+        return; // Stop further execution to allow reload
+    }
+    
+    // --- PATCH: CLOSE IMPERSONATION LISTENER ---
+    document.getElementById('btn-end-impersonation')?.addEventListener('click', () => {
+        sessionStorage.removeItem('stech_impersonate');
+        // Clear param and reload
+        const url = new URL(window.location.href);
+        url.searchParams.delete('target_user');
+        window.location.href = url.toString();
+    });
+    // ---------------------------------------------
+
     // 1. Load Initial Data
     try {
         const attributes = await StechAPI.getAttributes();
@@ -24,10 +46,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.StechTimesheet.state.stateMapRev[s.state_abbr] = s.state_name;
         });
 
-        // FIX: Populate State Datalist (Not the Input itself)
         const stateDatalist = document.getElementById('state-options');
         if (stateDatalist) {
-            stateDatalist.innerHTML = ''; // Clear existing
+            stateDatalist.innerHTML = ''; 
             attributes.states.forEach(s => {
                 const opt = document.createElement('option');
                 opt.value = s.state_name;
@@ -76,7 +97,6 @@ window.StechTimesheet.ActivityRows = {
         const row = document.createElement('div');
         row.className = 'work-row';
         
-        // Build Job Options
         let optionsHtml = '<option value="">Select Job...</option>';
         if (window.StechTimesheet.state.jobs) {
             window.StechTimesheet.state.jobs.forEach(job => {

@@ -26,12 +26,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const impersonateID = sessionStorage.getItem('stech_impersonate');
     if (impersonateID) {
         // Show banner immediately
-        banner.style.display = 'block';
+        // PATCH: Ensure display matches flex style for centering
+        if (banner) banner.style.display = 'flex'; 
         // Set hidden value to the impersonated ID (so "Myself" = "Impersonated User")
         userHidden.value = impersonateID; 
     } else {
         userHidden.value = 'self';
     }
+
+    // PATCH: Listener for Close Impersonation
+    document.getElementById('btn-end-impersonation-analysis')?.addEventListener('click', () => {
+        sessionStorage.removeItem('stech_impersonate');
+        // Update URL to remove parameter and reload
+        const url = new URL(window.location.href);
+        url.searchParams.delete('target_user');
+        window.location.href = url.toString();
+    });
 
     initTabs();
     initSearchBehaviors();
@@ -157,16 +167,24 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('val-overnight').innerText = data.travel?.overnight_stays || 0;
         document.getElementById('val-expenses').innerText = '$' + parseFloat(data.travel?.total_expenses || 0).toFixed(2);
 
-        AnalysisCharts.renderOverview(data.trend);
-        AnalysisCharts.renderJobTable(data.jobs, data.total_hours);
+        // Always render charts if containers exist (decoupled logic)
+        if (document.getElementById('chart-daily')) {
+            AnalysisCharts.renderOverview(data.trend);
+        }
         
-        if (jobSearch) {
-            const currentJob = (jobSearch.value === '' || jobSearch.value === 'All Jobs') ? 'all' : jobSearch.value;
+        if (document.getElementById('job-table-body')) {
+            AnalysisCharts.renderJobTable(data.jobs, data.total_hours);
+        }
+        
+        if (document.getElementById('chart-profitability-gauge')) {
+            const currentJob = (jobSearch && jobSearch.value && jobSearch.value !== 'All Jobs') ? jobSearch.value : 'all';
             AnalysisGauges.update(data.jobs, currentJob);
         }
         
         // Render Single Map
-        AnalysisMaps.initAndRender(data.states, data.counties);
+        if (document.getElementById('map-main-container')) {
+            AnalysisMaps.initAndRender(data.states, data.counties);
+        }
     }
 
     document.getElementById('btn-refresh-analysis')?.addEventListener('click', loadStats);

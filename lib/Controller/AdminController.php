@@ -103,12 +103,18 @@ class AdminController extends Controller {
      * @NoCSRFRequired
      */
     public function saveSetting(): DataResponse {
-        $data = $this->request->getParams();
-        $this->adminMapper->saveSetting($data['key'] ?? '', $data['value'] ?? '');
+        $params = $this->request->getParams();
+        
+        // PATCH: Added pay_color to allowed keys
+        $keys = ['pay_frequency', 'pay_start_date', 'pay_date_1', 'pay_date_2', 'pay_color'];
+        
+        foreach ($keys as $k) {
+            if (isset($params[$k])) {
+                $this->adminMapper->saveSetting($k, $params[$k]);
+            }
+        }
         return new DataResponse(['status' => 'success']);
     }
-
-    // REMOVED: uploadPayrollBg() as requested.
 
     // =========================================================================
     // USER MANAGEMENT
@@ -149,12 +155,15 @@ class AdminController extends Controller {
             $data = $this->request->getParams();
             $qb = $this->db->getQueryBuilder();
             
-            // Removed holiday_bg from both UPDATE and INSERT
+            // PATCH: Added holiday_bg (Background Color)
+            $bg = $data['bg'] ?? '#e67e22'; // Default Orange
+
             if (!empty($data['id'])) { 
                 $qb->update('stech_holidays')
                 ->set('holiday_name', $qb->createNamedParameter($data['name']))
                 ->set('holiday_start_date', $qb->createNamedParameter($data['start']))
                 ->set('holiday_end_date', $qb->createNamedParameter($data['end']))
+                ->set('holiday_bg', $qb->createNamedParameter($bg))
                 ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($data['id'])))
                 ->execute();
             } else {
@@ -162,7 +171,9 @@ class AdminController extends Controller {
                 ->values([
                     'holiday_name' => $qb->createNamedParameter($data['name']),
                     'holiday_start_date' => $qb->createNamedParameter($data['start']),
-                    'holiday_end_date' => $qb->createNamedParameter($data['end'])
+                    'holiday_end_date' => $qb->createNamedParameter($data['end']),
+                    'holiday_bg' => $qb->createNamedParameter($bg),
+                    'holiday_archive' => $qb->createNamedParameter(0)
                 ])->execute();
             }
             return new DataResponse(['status' => 'success']);

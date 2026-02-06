@@ -200,6 +200,14 @@ Util::addStyle('stech_timesheet', 'admin');
                         <p style="font-size: 0.85em; opacity: 0.7; margin-top:10px;">Select the two days of the month employees are paid.</p>
                     </div>
 
+                    <div class="input-group" style="margin-top: 20px;">
+                        <label>Payroll Overlay Color</label>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <input type="color" id="pay-color" value="#34495e" style="height: 36px; width: 60px; padding: 0; border: 1px solid var(--color-border); cursor: pointer;">
+                            <input type="text" id="pay-color-text" value="#34495e" class="form-control" style="width: 100px; font-family: monospace;" maxlength="7">
+                        </div>
+                    </div>
+
                     <div style="margin-top: 25px; display: flex; align-items: center; gap: 15px;">
                         <button id="btn-save-payroll" class="primary-button">Save Settings</button>
                         <span id="payroll-msg" style="color: var(--color-success); font-weight: bold; display: none;">Saved!</span>
@@ -233,7 +241,15 @@ Util::addStyle('stech_timesheet', 'admin');
                         <div class="input-group"><label>Start Date</label><input type="date" id="holiday-start" class="form-control" required></div>
                         <div class="input-group"><label>End Date (Optional)</label><input type="date" id="holiday-end" class="form-control"></div>
                         
-                        <div style="display: flex; gap: 10px;">
+                        <div class="input-group">
+                            <label>Holiday Color</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <input type="color" id="holiday-color" value="#e67e22" style="height: 36px; width: 60px; padding: 0; border: 1px solid var(--color-border); cursor: pointer;">
+                                <input type="text" id="holiday-color-text" value="#e67e22" class="form-control" style="width: 100px; font-family: monospace;" maxlength="7">
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
                             <button type="submit" id="btn-save-holiday" class="primary-button full-width">Add Holiday</button>
                             <button type="button" id="btn-cancel-holiday" class="secondary-button hidden">Cancel</button>
                         </div>
@@ -269,23 +285,11 @@ Util::addStyle('stech_timesheet', 'admin');
                             <label class="admin-switch" style="margin:0;"><input type="checkbox" id="job-is-pto"><span class="admin-slider"></span></label>
                             <span style="font-weight: bold; font-size: 0.9em; opacity: 0.8;">Is Vacation / Sick Record?</span>
                         </div>
-                        
                         <div class="form-separator"></div>
                         <h4>Financials</h4>
-                        
-                        <div class="input-group">
-                            <label>Estimated Revenue ($)</label>
-                            <input type="number" step="0.01" id="job-revenue" class="form-control">
-                        </div>
-                        <div class="input-group">
-                            <label>Expense Budget ($)</label>
-                            <input type="number" step="0.01" id="job-expense" class="form-control">
-                        </div>
-                        <div class="input-group">
-                            <label>Hourly Cost Estimate ($)</label>
-                            <input type="number" step="0.01" id="job-hourly" class="form-control">
-                        </div>
-
+                        <div class="input-group"><label>Estimated Revenue ($)</label><input type="number" step="0.01" id="job-revenue" class="form-control"></div>
+                        <div class="input-group"><label>Expense Budget ($)</label><input type="number" step="0.01" id="job-expense" class="form-control"></div>
+                        <div class="input-group"><label>Hourly Cost Estimate ($)</label><input type="number" step="0.01" id="job-hourly" class="form-control"></div>
                         <div style="display: flex; gap: 10px; margin-top: 15px;">
                             <button type="submit" id="btn-save-job" class="primary-button full-width">Create Job</button>
                             <button type="button" id="btn-cancel-job" class="secondary-button hidden">Cancel</button>

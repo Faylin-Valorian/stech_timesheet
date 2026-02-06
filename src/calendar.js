@@ -24,7 +24,6 @@ export const TimesheetCalendar = {
             height: '100%',
             weekNumbers: true,
             
-            // PATCH: Use eventSources to allow multiple data streams (Timesheets + Holidays)
             eventSources: [
                 // SOURCE 1: Timesheets (Editable Data)
                 {
@@ -37,53 +36,112 @@ export const TimesheetCalendar = {
                 // SOURCE 2: Holidays (Visual Background Tags)
                 {
                     events: (info, successCallback, failureCallback) => {
-                        // Ensure your API Controller has a route for '/api/calendar/holidays'
                         window.StechTimesheet.API.request('get', '/api/calendar/holidays', {
                             start: info.startStr,
                             end: info.endStr
                         }).then(data => {
-                            // Map API response to FullCalendar Background Events
-                            const events = data.map(h => ({
-                                id: 'holiday-' + (h.id || Math.random()),
-                                title: h.name || h.holiday_name,
-                                start: h.start || h.holiday_start_date,
-                                end: h.end || h.holiday_end_date, // FullCalendar end is exclusive
-                                display: 'background',
-                                backgroundColor: 'rgba(255, 165, 0, 0.15)', // Distinct Orange Tint
-                                classNames: ['fc-holiday-bg'],
-                                extendedProps: { 
-                                    isVisual: true,
-                                    customBg: '' 
+                            const events = [];
+                            
+                            data.forEach(h => {
+                                // PATCH: Split multi-day holidays into individual daily blocks
+                                // This ensures text appears on EVERY block.
+                                
+                                const startDate = new Date(h.start || h.holiday_start_date);
+                                // For loop boundary, use exclusive end or fallback to start+1
+                                let limitDate;
+                                
+                                if (h.end || h.holiday_end_date) {
+                                    limitDate = new Date(h.end || h.holiday_end_date);
+                                    // If start == end in DB, it's 1 day. In loop logic, we need exclusive end.
+                                    if (limitDate <= startDate) {
+                                        limitDate = new Date(startDate);
+                                        limitDate.setUTCDate(limitDate.getUTCDate() + 1);
+                                    } else {
+                                        // DB stores inclusive end date usually.
+                                        limitDate.setUTCDate(limitDate.getUTCDate() + 1);
+                                    }
+                                } else {
+                                    limitDate = new Date(startDate);
+                                    limitDate.setUTCDate(limitDate.getUTCDate() + 1);
                                 }
-                            }));
+
+                                const loopDate = new Date(startDate);
+                                
+                                while (loopDate < limitDate) {
+                                    const dateStr = loopDate.toISOString().split('T')[0];
+                                    
+                                    events.push({
+                                        id: 'holiday-' + (h.id || Math.random()) + '-' + dateStr,
+                                        title: h.name || h.holiday_name,
+                                        start: dateStr,
+                                        // Background events are always all-day by default in month view
+                                        display: 'background',
+                                        backgroundColor: 'rgba(255, 165, 0, 0.15)', // Fallback
+                                        extendedProps: { 
+                                            isVisual: true,
+                                            customBg: h.bg || '' // Server now sends calculated RGBA in 'bg' or mapped color
+                                        }
+                                    });
+                                    
+                                    // Next Day
+                                    loopDate.setUTCDate(loopDate.getUTCDate() + 1);
+                                }
+                            });
+                            
                             successCallback(events);
                         }).catch(err => {
-                            // Suppress errors if API is missing (keeps calendar functional)
-                            console.warn('Failed to fetch holidays for calendar background', err);
+                            console.warn('Failed to fetch holidays', err);
                             successCallback([]);
                         });
                     }
                 }
             ],
             
-            // Custom event rendering
+            // PATCH: Visual Styling & Click-Through Logic
+            eventDidMount: (info) => {
+                if (info.event.display === 'background') {
+                    // 1. Apply Custom Backgrounds
+                    const customBg = info.event.extendedProps.customBg;
+                    if (customBg && customBg.trim() !== '') {
+                        info.el.style.background = customBg;
+                        if (customBg.includes('url(')) {
+                            info.el.style.backgroundSize = 'cover';
+                            info.el.style.backgroundPosition = 'center';
+                        }
+                    } else {
+                        info.el.style.backgroundColor = info.event.backgroundColor;
+                    }
+
+                    // 2. CRITICAL FIX: Make the background overlay "invisible" to clicks
+                    // This allows clicks to pass through to the date cell (for adding entries)
+                    // or to any foreground events (Tabs) sitting on top.
+                    info.el.style.pointerEvents = 'none'; 
+                    info.el.style.zIndex = '0';
+                }
+            },
+
+            // PATCH: Render Text Content for ALL events (including Backgrounds)
             eventContent: (arg) => {
                 let div = document.createElement('div');
                 div.className = 'fc-event-content-box'; 
-                
-                const customBg = arg.event.extendedProps.customBg;
-                if (customBg && customBg.trim() !== '') {
-                    div.style.background = customBg;
-                    if (customBg.includes('url(')) {
-                        div.style.backgroundSize = 'cover';
-                        div.style.backgroundPosition = 'center';
-                        div.style.textShadow = '0 1px 2px rgba(0,0,0,0.8)'; 
-                    }
+                div.innerText = arg.event.title;
+
+                if (arg.event.display === 'background') {
+                    // Background Event Styling:
+                    div.style.background = 'transparent';
+                    // PATCH: Use Nextcloud Theme Variable
+                    div.style.color = 'var(--color-main-text)';
+                    div.style.opacity = '0.7'; 
+                    
+                    div.style.fontWeight = 'bold';
+                    div.style.padding = '2px 5px';
+                    div.style.textAlign = 'center';
+                    div.style.pointerEvents = 'none'; // Ensure text doesn't block clicks either
                 } else {
+                    // Foreground Event Styling:
                     div.style.backgroundColor = arg.event.backgroundColor;
                 }
 
-                div.innerText = arg.event.title;
                 return { domNodes: [div] };
             },
 
@@ -91,11 +149,9 @@ export const TimesheetCalendar = {
             eventClick: (info) => {
                 const props = info.event.extendedProps;
 
-                // Check for visual/background events (like Holidays)
+                // Should not trigger for background events due to pointer-events: none,
+                // but kept for safety.
                 if (props.isVisual || props.is_visual || info.event.display === 'background') {
-                    if (window.OCP && window.OCP.Toast && info.event.title) {
-                        window.OCP.Toast.info(info.event.title);
-                    }
                     return;
                 }
 
@@ -108,7 +164,7 @@ export const TimesheetCalendar = {
                     .catch(err => console.error('Failed to load record details:', err));
             },
 
-            // Handle clicking empty dates
+            // Handle clicking empty dates (This will now fire even when clicking "through" a holiday)
             dateClick: (info) => {
                 if (window.StechTimesheet.Form) {
                     window.StechTimesheet.Form.open(info.dateStr, null);

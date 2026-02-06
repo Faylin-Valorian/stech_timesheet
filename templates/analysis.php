@@ -20,8 +20,9 @@ Util::addStyle('stech_timesheet', 'analysis');
     </div>
 
     <div id="app-content">
-        <div id="impersonation-banner" style="display:none; background-color: var(--color-error); color: white; padding: 10px; text-align: center; font-weight: bold; width: 100%; box-sizing: border-box;">
-            You are viewing data for: <span id="impersonation-name">Unknown</span>
+        <div id="impersonation-banner" style="display:none; background-color: #d9534f; color: white; padding: 10px; justify-content: center; align-items: center; gap: 15px; font-weight: bold;">
+            <span>⚠️ You are viewing data for: <span id="impersonation-name">Unknown</span></span>
+            <button id="btn-end-impersonation-analysis" style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.5); color: white; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">Close Impersonation</button>
         </div>
 
         <div class="analysis-container">
@@ -90,10 +91,8 @@ Util::addStyle('stech_timesheet', 'analysis');
                         </div>
                         
                         <div class="travel-map-layout" style="display: grid; grid-template-columns: 350px 1fr; gap: 20px; margin-top: 20px; height: 600px;">
-                            
                             <div id="location-detail-panel" style="background: var(--color-main-background); padding: 20px; border: 1px solid var(--color-border); border-radius: var(--border-radius); display: flex; flex-direction: column;">
                                 <button id="btn-reset-map" class="secondary-button full-width" style="margin-bottom: 20px; display: none;">← Back to Select State</button>
-                                
                                 <h3 id="detail-title" style="margin-top: 0; text-align: center; border-bottom: 2px solid var(--color-primary); padding-bottom: 10px;">National Overview</h3>
                                 <div id="detail-content" style="flex: 1; overflow-y: auto;">
                                     <p style="text-align: center; color: var(--color-text-maxcontrast); padding-top: 10px;">
@@ -101,7 +100,6 @@ Util::addStyle('stech_timesheet', 'analysis');
                                     </p>
                                 </div>
                             </div>
-
                             <div id="map-main-container" class="map-wrapper" style="height: 100%; width: 100%;"></div>
                         </div>
                     </div>
