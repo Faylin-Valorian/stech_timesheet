@@ -1,19 +1,11 @@
-/* ... [KEEP ALL EXISTING CSS FROM YOUR UPLOAD ABOVE] ... */
-/* ... (Ensure you keep sections 1 through 7 exactly as they are) ... */
-
 /* =========================================
    1. LAYOUT & STRUCTURE
    ========================================= */
 
-/* Core Variables - Matching Nextcloud Logic */
-:root {
-    --color-main-background: #fff;
-    --color-text-maxcontrast: #222;
-    --border-radius-large: 10px;
-    --color-error: #e9322d;
-    --color-primary-element: #0082c9;
-    --color-primary-text: #fff;
-}
+/* REMOVED: :root { ... } 
+   We must let Nextcloud provide these variables automatically 
+   so Dark Mode works correctly.
+*/
 
 /* Main App Container - Force Flexbox */
 #app {
@@ -310,8 +302,21 @@
 }
 
 
-/* --- Form Internals --- */
-.form-row-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; }
+/* --- Form Internals: UPDATED GRID --- */
+.form-row-4 { 
+    display: grid; 
+    grid-template-columns: repeat(4, 1fr); /* Force 4 equal columns */
+    gap: 15px; 
+    width: 100%;
+    align-items: end; /* Align labels and inputs */
+}
+
+/* Prevent inputs from collapsing */
+.form-row-4 .input-group {
+    width: 100%;
+    min-width: 0;
+}
+
 .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; }
 .form-row-1 { display: block; width: 100%; }
 
@@ -376,21 +381,26 @@ input:checked + .slider:before { transform: translateX(14px); }
 .form-separator { height: 1px; background: var(--color-border); margin: 20px 0; opacity: 0.5; }
 
 /* =========================================
-   6. CALENDAR TAB HOVER EFFECTS
+   6. CALENDAR TAB HOVER EFFECTS (PATCHED)
    ========================================= */
 
 /* The FullCalendar Event Container */
-.fc-event {
+.fc-event, 
+.fc-event-main {
     cursor: pointer !important;
     transition: transform 0.1s, filter 0.1s;
+    /* FIX: Force events to be Opaque and Bright */
+    opacity: 1 !important;
+    background-color: var(--color-primary-element); /* Fallback */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2); /* Subtle pop */
 }
 
 /* Hovering the Tab itself */
 .fc-event:hover {
-    filter: brightness(1.15) contrast(1.1);
+    filter: brightness(1.1) !important; /* Brighter on hover */
     transform: scale(1.02);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    z-index: 50 !important; /* Bring to front */
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    z-index: 100 !important; /* Bring to front */
 }
 
 /* Custom Div inside the event */
@@ -402,6 +412,9 @@ input:checked + .slider:before { transform: translateX(14px); }
     overflow: hidden;
     white-space: nowrap;
     text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+    /* FIX: Ensure text is distinct */
+    opacity: 1 !important;
+    font-weight: 600;
 }
 
 /* Adjust Date Cell Hover (Separate from event) */
@@ -553,4 +566,90 @@ input:checked + .slider:before { transform: translateX(14px); }
     .work-row input[type="number"]::placeholder {
         content: "%"; 
     }
+}
+
+
+/* =========================================
+   9. TIME SELECTOR WIDGET (UPDATED)
+   ========================================= */
+
+/* =========================================
+   9. TIME SELECTOR WIDGET (NUCLEAR FIX)
+   ========================================= */
+
+/* Main Container - Forces Theme Background */
+.time-split-widget {
+    display: flex;
+    align-items: center;
+    /* Force the background to ALWAYS match the theme (Dark or Light) */
+    background-color: var(--color-main-background) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--border-radius);
+    padding: 0; 
+    height: 34px; 
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden; 
+}
+
+/* Focus State - Theme Highlight */
+.time-split-widget:focus-within {
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 0 2px var(--color-primary-light) !important;
+}
+
+/* The Dropdowns (Hours/Minutes) */
+.time-split-widget select.time-part {
+    border: none !important;
+    /* Force transparent so the container background shows through */
+    background-color: transparent !important;
+    background: transparent !important;
+    flex-grow: 1;
+    height: 100%;
+    font-size: 1rem;
+    cursor: pointer;
+    text-align: center;
+    -webkit-appearance: none;
+    appearance: none;
+    color: var(--color-main-text) !important;
+    outline: none !important;
+    padding: 0;
+    margin: 0;
+    box-shadow: none !important;
+}
+
+/* Hover effect ONLY on the specific select being hovered */
+.time-split-widget select.time-part:hover {
+    background-color: var(--color-background-hover) !important;
+}
+
+/* The AM/PM Box */
+.time-split-widget select.ampm-select {
+    width: 50px;
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: var(--color-text-maxcontrast) !important;
+    /* Ensure it stays transparent unless hovered */
+    background-color: transparent !important;
+    border-left: 1px solid var(--color-border) !important;
+}
+
+.time-split-widget select.ampm-select:hover {
+    background-color: var(--color-background-hover) !important;
+}
+
+/* Colon Separator */
+.time-split-widget .time-separator {
+    font-weight: bold;
+    color: var(--color-main-text) !important;
+    padding: 0 2px;
+    user-select: none;
+}
+
+/* CRITICAL FIX: Force the Dropdown List (Options) to match the theme */
+/* This prevents the list itself from being white text on white background in some browsers */
+.time-split-widget select option {
+    background-color: var(--color-main-background) !important;
+    color: var(--color-main-text) !important;
 }

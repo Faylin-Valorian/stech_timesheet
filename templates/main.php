@@ -88,14 +88,67 @@ Util::addStyle('stech_timesheet', 'style');
                                     <label>Date</label>
                                     <input type="date" id="timesheet-date" name="date" class="form-control readonly-highlight" readonly>
                                 </div>
+                                
                                 <div class="input-group">
                                     <label>Time In</label>
-                                    <input type="time" id="time-in" name="time_in" class="form-control">
+                                    <div class="time-split-widget">
+                                        <input type="hidden" name="time_in" id="time-in" class="combined-time-input">
+                                        
+                                        <select class="time-part hour-select">
+                                            <option value="" disabled selected>--</option>
+                                            <?php for($h=1; $h<=12; $h++) { 
+                                                $val = str_pad($h, 2, '0', STR_PAD_LEFT);
+                                                echo "<option value='$val'>$val</option>"; 
+                                            } ?>
+                                        </select>
+                                        
+                                        <span class="time-separator">:</span>
+                                        
+                                        <select class="time-part minute-select">
+                                            <option value="" disabled selected>--</option>
+                                            <?php for($m=0; $m<60; $m++) { 
+                                                $val = str_pad($m, 2, '0', STR_PAD_LEFT);
+                                                echo "<option value='$val'>$val</option>"; 
+                                            } ?>
+                                        </select>
+
+                                        <select class="time-part ampm-select">
+                                            <option value="AM">AM</option>
+                                            <option value="PM">PM</option>
+                                        </select>
+                                    </div>
                                 </div>
+
                                 <div class="input-group">
                                     <label>Time Out</label>
-                                    <input type="time" id="time-out" name="time_out" class="form-control">
+                                    <div class="time-split-widget">
+                                        <input type="hidden" name="time_out" id="time-out" class="combined-time-input">
+                                        
+                                        <select class="time-part hour-select">
+                                            <option value="" disabled selected>--</option>
+                                            <?php for($h=1; $h<=12; $h++) { 
+                                                $val = str_pad($h, 2, '0', STR_PAD_LEFT);
+                                                echo "<option value='$val'>$val</option>"; 
+                                            } ?>
+                                        </select>
+                                        
+                                        <span class="time-separator">:</span>
+                                        
+                                        <select class="time-part minute-select">
+                                            <option value="" disabled selected>--</option>
+                                            <?php for($m=0; $m<60; $m++) { 
+                                                $val = str_pad($m, 2, '0', STR_PAD_LEFT);
+                                                echo "<option value='$val'>$val</option>"; 
+                                            } ?>
+                                        </select>
+
+                                        <select class="time-part ampm-select">
+                                            <option value="AM">AM</option>
+                                            <option value="PM">PM</option>
+                                        </select>
+                                    </div>
                                 </div>
+
                                 <div class="input-group">
                                     <label>Break (min)</label>
                                     <input type="number" id="break-min" name="break_min" value="0" class="form-control">

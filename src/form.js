@@ -31,14 +31,13 @@ const Form = {
             }
         });
 
-        // Add Listener for "Add Item" button to handle Percent logic
+        // --- PATCH: Updated Add Item Listener for Auto-Balancing ---
         document.getElementById('btn-add-row')?.addEventListener('click', (e) => {
             e.preventDefault();
-            // If list is empty, default new row to 100%. Otherwise 0%.
-            const existingRows = document.querySelectorAll('.work-row').length;
-            const defaultPercent = existingRows === 0 ? 100 : 0;
-            window.StechTimesheet.ActivityRows.add('', defaultPercent);
+            // Pass 'true' as the 3rd argument to trigger the new recalculate() logic
+            window.StechTimesheet.ActivityRows.add('', 0, true);
         });
+        // -----------------------------------------------------------
 
         document.querySelectorAll('.close-modal, .secondary-button').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -71,22 +70,18 @@ const Form = {
         const totalInput = document.getElementById('total-hours');
 
         if (tIn && tOut) {
-            // Use a dummy date to compare times
             const d1 = new Date(`2000-01-01T${tIn}`);
             const d2 = new Date(`2000-01-01T${tOut}`);
             
-            // Handle overnight shifts (if out is before in, assume next day)
             if (d2 < d1) d2.setDate(d2.getDate() + 1);
 
             let diffMs = d2 - d1;
             let diffMins = Math.floor(diffMs / 60000);
             
-            // Subtract break
             diffMins -= breakMin;
 
             if (diffMins < 0) diffMins = 0;
 
-            // Convert to decimal hours (e.g. 8.50)
             const hours = (diffMins / 60).toFixed(2);
             totalInput.value = hours;
         }
@@ -116,25 +111,24 @@ const Form = {
         const timeOut = document.getElementById('time-out');
         const breakMin = document.getElementById('break-min');
 
-        // Only fill if empty (prevent overwriting user data)
         if (!timeIn.value && !timeOut.value) {
             timeIn.value = "08:00";
             timeOut.value = "17:00";
             breakMin.value = "60";
 
-            // Trigger calculation immediately so "Total Hours" updates
+            timeIn.refreshWidget?.();
+            timeOut.refreshWidget?.();
+
             this.calculateTotal();
 
-            // Find the PTO job and select it in the dropdown
             const ptoJob = window.StechTimesheet.state.jobs 
                 ? window.StechTimesheet.state.jobs.find(j => parseInt(j.is_pto) === 1) 
                 : null;
             
             if (ptoJob) {
-                // Clear existing rows
                 document.getElementById('work-rows-container').innerHTML = '';
-                // Add row with PTO job name and 100%
-                window.StechTimesheet.ActivityRows.add(ptoJob.job_name, 100);
+                // Add row and trigger balance (though it's 100% anyway)
+                window.StechTimesheet.ActivityRows.add(ptoJob.job_name, 100, true);
             }
         }
     },
@@ -166,7 +160,6 @@ const Form = {
         document.getElementById('timesheet-date').value = date;
         const deleteBtn = document.getElementById('btn-delete');
         
-        // Default Button State
         deleteBtn.textContent = "Delete";
         deleteBtn.style.backgroundColor = ''; 
         this.isArchivedRecord = false;
@@ -174,19 +167,17 @@ const Form = {
         if (id) {
             window.StechTimesheet.API.getTimesheetDetails(id).then(data => {
                 const isArchived = parseInt(data.archive) === 1;
-                const isAdmin = data.is_admin; // Flag from controller
+                const isAdmin = data.is_admin; 
 
                 if (isArchived) {
                     if (!isAdmin) {
-                        // User is NOT admin -> Locked out
                         this.showCenteredError("This record is locked/archived and cannot be edited.");
                         this.currentId = null;
                         return; 
                     } else {
-                        // User IS admin -> Allow Access + Restore Mode
                         this.isArchivedRecord = true;
                         deleteBtn.textContent = "Restore Record";
-                        deleteBtn.style.backgroundColor = '#28a745'; // Green for restore
+                        deleteBtn.style.backgroundColor = '#28a745'; 
                         deleteBtn.style.display = 'block';
                         
                         if (window.OCP && window.OCP.Toast) {
@@ -194,7 +185,6 @@ const Form = {
                         }
                     }
                 } else {
-                    // Standard Active Record
                     deleteBtn.style.display = 'block';
                 }
 
@@ -206,8 +196,8 @@ const Form = {
         } else {
             // NEW ENTRY MODE
             deleteBtn.style.display = 'none';
-            // Default new row to 100%
-            window.StechTimesheet.ActivityRows.add('', 100);
+            // Default new row with auto-balance enabled (will default to 100%)
+            window.StechTimesheet.ActivityRows.add('', 0, true);
             document.getElementById('timesheet-modal').style.display = 'flex';
         }
     },
@@ -227,7 +217,6 @@ const Form = {
         overlay.style.display = 'flex';
     },
 
-    // Archive Confirmation
     showConfirmArchive() {
         let overlay = document.getElementById('stech-confirm-archive');
         if (!overlay) {
@@ -252,7 +241,6 @@ const Form = {
             </div>
         `;
 
-        // Bind events (using onclick to avoid duplicate listeners if overlay persists)
         document.getElementById('btn-confirm-archive-yes').onclick = () => {
             overlay.style.display = 'none';
             this.executeArchive();
@@ -264,7 +252,6 @@ const Form = {
         overlay.style.display = 'flex';
     },
 
-    // Restore Confirmation
     showConfirmRestore() {
         let overlay = document.getElementById('stech-confirm-restore');
         if (!overlay) {
@@ -303,6 +290,10 @@ const Form = {
     mapDataToForm(data) {
         document.getElementById('time-in').value = data.time_in || '';
         document.getElementById('time-out').value = data.time_out || '';
+        
+        document.getElementById('time-in').refreshWidget?.();
+        document.getElementById('time-out').refreshWidget?.();
+        
         document.getElementById('break-min').value = data.time_break || 0;
         document.getElementById('total-hours').value = data.time_total || 0;
         document.getElementById('additional-comments').value = data.additional_comments || '';
@@ -314,12 +305,10 @@ const Form = {
         document.getElementById('travel-extra-expense').value = data.travel_extra_expenses || 0;
         document.getElementById('req-per-diem').checked = data.travel_per_diem == 1;
 
-        // FIX: Map new toggle fields
         document.getElementById('road-scanning').checked = parseInt(data.travel_road_scanning) === 1;
         document.getElementById('first-last-day').checked = parseInt(data.travel_first_last_day) === 1;
         document.getElementById('overnight').checked = parseInt(data.travel_overnight) === 1;
 
-        // Show Travel Section if relevant data exists
         if (data.travel_state || data.travel_miles > 0 || 
             data.travel_road_scanning == 1 || 
             data.travel_first_last_day == 1 || 
@@ -335,10 +324,12 @@ const Form = {
         const container = document.getElementById('work-rows-container');
         container.innerHTML = '';
         if (activities && activities.length > 0) {
-            activities.forEach(act => window.StechTimesheet.ActivityRows.add(act.activity_description, act.activity_percent));
+            // When loading existing data, DO NOT auto-balance (pass false)
+            // We want to trust the saved percentages exactly as they are.
+            activities.forEach(act => window.StechTimesheet.ActivityRows.add(act.activity_description, act.activity_percent, false));
         } else {
-            // Default 100% if opened but empty
-            window.StechTimesheet.ActivityRows.add('', 100);
+            // New or empty? Auto-balance to 100%
+            window.StechTimesheet.ActivityRows.add('', 0, true);
         }
     },
 
@@ -440,7 +431,6 @@ const Form = {
             extra_expense: document.getElementById('travel-extra-expense').value,
             req_per_diem: document.getElementById('req-per-diem').checked ? 1 : 0,
             
-            // FIX: Collect new toggle fields
             road_scanning: document.getElementById('road-scanning').checked ? 1 : 0,
             first_last_day: document.getElementById('first-last-day').checked ? 1 : 0,
             overnight: document.getElementById('overnight').checked ? 1 : 0,
@@ -452,8 +442,12 @@ const Form = {
 
     reset() {
         this.currentId = null;
-        this.isArchivedRecord = false; // Reset state
+        this.isArchivedRecord = false; 
         document.getElementById('timesheet-form').reset();
+        
+        document.getElementById('time-in').refreshWidget?.();
+        document.getElementById('time-out').refreshWidget?.();
+        
         document.getElementById('work-rows-container').innerHTML = '';
         document.getElementById('travel-fields-container').style.display = 'none';
         document.getElementById('toggle-travel').checked = false;
