@@ -28,6 +28,10 @@ class AnalysisController extends Controller {
         $this->userManager = $userManager;
     }
 
+    /**
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
     public function getFilters(): DataResponse {
         $currentUser = $this->userSession->getUser();
         $uid = $currentUser->getUID();
@@ -55,6 +59,10 @@ class AnalysisController extends Controller {
         ]);
     }
 
+    /**
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     */
     public function getStats(string $period, string $target_user = 'self'): DataResponse {
         if (!$this->service->checkAccess('analysis_tab')) {
             return new DataResponse(['error' => 'Denied'], 403);

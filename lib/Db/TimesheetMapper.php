@@ -23,11 +23,11 @@ class TimesheetMapper extends QBMapper {
     public function getActiveJobs(): array {
         $qb = $this->db->getQueryBuilder();
         return $qb->select('*')
-           ->from('stech_jobs')
-           ->where($qb->expr()->eq('job_archive', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)))
-           ->orderBy('job_name', 'ASC')
-           ->executeQuery()
-           ->fetchAll();
+            ->from('stech_jobs')
+            ->where($qb->expr()->eq('job_archive', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT)))
+            ->orderBy('job_name', 'ASC')
+            ->executeQuery()
+            ->fetchAll();
     }
 
     /**
@@ -37,11 +37,11 @@ class TimesheetMapper extends QBMapper {
     public function getEnabledStates(): array {
         $qb = $this->db->getQueryBuilder();
         return $qb->select('*')
-           ->from('stech_states')
-           ->where($qb->expr()->eq('is_enabled', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
-           ->orderBy('state_name', 'ASC')
-           ->executeQuery()
-           ->fetchAll();
+            ->from('stech_states')
+            ->where($qb->expr()->eq('is_enabled', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
+            ->orderBy('state_name', 'ASC')
+            ->executeQuery()
+            ->fetchAll();
     }
 
     /**
@@ -63,12 +63,12 @@ class TimesheetMapper extends QBMapper {
 
         $qb = $this->db->getQueryBuilder();
         return $qb->select('*')
-           ->from('stech_counties')
-           ->where($qb->expr()->eq('state_fips', $qb->createNamedParameter($state['fips_code'])))
-           ->andWhere($qb->expr()->eq('is_enabled', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
-           ->orderBy('county_name', 'ASC')
-           ->executeQuery()
-           ->fetchAll();
+            ->from('stech_counties')
+            ->where($qb->expr()->eq('state_fips', $qb->createNamedParameter($state['fips_code'])))
+            ->andWhere($qb->expr()->eq('is_enabled', $qb->createNamedParameter(1, IQueryBuilder::PARAM_INT)))
+            ->orderBy('county_name', 'ASC')
+            ->executeQuery()
+            ->fetchAll();
     }
 
     /**
@@ -80,18 +80,21 @@ class TimesheetMapper extends QBMapper {
     public function getTimesheetById(int $id, string $uid): ?array {
         $qb = $this->db->getQueryBuilder();
         $res = $qb->select('*')
-           ->from('stech_timesheets')
-           ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
-           ->andWhere($qb->expr()->eq('userid', $qb->createNamedParameter($uid)))
-           ->executeQuery()
-           ->fetch();
+            ->from('stech_timesheets')
+            ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+            // Note: Controller handles "Admin Impersonation" by swapping $uid before calling this.
+            // If the user is viewing their OWN sheet, $uid matches.
+            // If admin is viewing User B, $uid passed here IS User B.
+            // So we just check if the record belongs to the requested UID.
+            ->andWhere($qb->expr()->eq('userid', $qb->createNamedParameter($uid)))
+            ->executeQuery()
+            ->fetch();
 
         return $res ?: null;
     }
 
     /**
      * Find raw entries for a date range (used by Service layer)
-     * UPDATED: Accepts $archive parameter to filter active/archived records
      * @param string $userId
      * @param string $start
      * @param string $end
@@ -101,24 +104,25 @@ class TimesheetMapper extends QBMapper {
     public function findRawEntries(string $userId, string $start, string $end, int $archive = 0): array {
         $qb = $this->db->getQueryBuilder();
         return $qb->select('*')
-           ->from('stech_timesheets')
-           ->where($qb->expr()->eq('userid', $qb->createNamedParameter($userId)))
-           ->andWhere($qb->expr()->gte('timesheet_date', $qb->createNamedParameter($start)))
-           ->andWhere($qb->expr()->lte('timesheet_date', $qb->createNamedParameter($end)))
-           // Filter by archive status (default 0)
-           ->andWhere($qb->expr()->eq('archive', $qb->createNamedParameter($archive, IQueryBuilder::PARAM_INT)))
-           ->executeQuery()
-           ->fetchAll();
+            ->from('stech_timesheets')
+            ->where($qb->expr()->eq('userid', $qb->createNamedParameter($userId)))
+            ->andWhere($qb->expr()->gte('timesheet_date', $qb->createNamedParameter($start)))
+            ->andWhere($qb->expr()->lte('timesheet_date', $qb->createNamedParameter($end)))
+            // Filter by archive status (default 0)
+            ->andWhere($qb->expr()->eq('archive', $qb->createNamedParameter($archive, IQueryBuilder::PARAM_INT)))
+            ->executeQuery()
+            ->fetchAll();
     }
 
-    // NEW: Fetch holidays for calendar background events
+    // Fetch holidays for calendar background events
     public function getHolidaysForCalendar($start, $end): array {
         $qb = $this->db->getQueryBuilder();
         $query = $qb->select('*')
-           ->from('stech_holidays')
-           ->where($qb->expr()->eq('holiday_archive', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT))); // Active only
-           
+            ->from('stech_holidays')
+            ->where($qb->expr()->eq('holiday_archive', $qb->createNamedParameter(0, IQueryBuilder::PARAM_INT))); // Active only
+            
         if ($start && $end) {
+             // Inclusive Date Overlap Logic: (Start <= End AND End >= Start)
              $query->andWhere($qb->expr()->lte('holiday_start_date', $qb->createNamedParameter($end)))
                    ->andWhere($qb->expr()->gte('holiday_end_date', $qb->createNamedParameter($start)));
         }
@@ -158,14 +162,14 @@ class TimesheetMapper extends QBMapper {
     public function getActivitiesByTimesheet(int $id): array {
         $qb = $this->db->getQueryBuilder();
         return $qb->select('*')
-           ->from('stech_activity')
-           ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
-           ->executeQuery()
-           ->fetchAll();
+            ->from('stech_activity')
+            ->where($qb->expr()->eq('timesheet_id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT)))
+            ->executeQuery()
+            ->fetchAll();
     }
 
     /**
-     * Get Administrative settings
+     * Get Administrative settings (With Safe Defaults)
      * @return array
      */
     public function getAdminSettings(): array {
@@ -173,16 +177,27 @@ class TimesheetMapper extends QBMapper {
         try {
             $qb = $this->db->getQueryBuilder();
             $rows = $qb->select('*')
-                       ->from('stech_admin_settings')
-                       ->executeQuery()
-                       ->fetchAll();
+                        ->from('stech_admin_settings')
+                        ->executeQuery()
+                        ->fetchAll();
 
             foreach ($rows as $r) {
                 $settings[$r['setting_key']] = $r['setting_value'];
             }
         } catch (\Exception $e) {
-            // Log error if necessary
+            // Squelch DB errors if table doesn't exist yet
         }
+        
+        // CRITICAL PATCH: Return defaults if empty to prevent crashes
+        if (empty($settings)) {
+            return [
+                'pay_frequency' => 14,
+                'pay_start_date' => '2026-01-07',
+                'pay_color' => '#34495e',
+                'pay_bg_style' => ''
+            ];
+        }
+        
         return $settings;
     }
 }

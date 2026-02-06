@@ -18,7 +18,6 @@ class TimesheetController extends Controller {
     private $mapper;
     private $db;
     private $groupManager;
-    private $userId;
 
     public function __construct(IRequest $request, 
                                 IUserSession $userSession, 
@@ -57,31 +56,41 @@ class TimesheetController extends Controller {
         return $currentUid;
     }
 
-    /** @NoAdminRequired */
+    /** * @NoAdminRequired 
+     * @NoCSRFRequired
+     */
     public function getAttributes(): DataResponse {
         return new DataResponse(['jobs' => $this->mapper->getActiveJobs(), 'states' => $this->mapper->getEnabledStates()]);
     }
 
-    /** @NoAdminRequired */
+    /** * @NoAdminRequired 
+     * @NoCSRFRequired
+     */
     public function getCounties(string $stateAbbr): DataResponse {
         return new DataResponse($this->mapper->getCountiesByState($stateAbbr));
     }
 
-    /** @NoAdminRequired */
+    /** * @NoAdminRequired 
+     * @NoCSRFRequired
+     */
     public function getTimesheets(string $start, string $end): DataResponse {
         $uid = $this->getEffectiveUserId(); 
         $archive = (int)$this->request->getParam('archive', 0);
         return new DataResponse($this->service->getCalendarEvents($uid, $start, $end, $archive));
     }
 
-    /** @NoAdminRequired */
+    /** * @NoAdminRequired 
+     * @NoCSRFRequired
+     */
     public function getCalendarHolidays(): DataResponse {
         $start = $this->request->getParam('start');
         $end = $this->request->getParam('end');
         return new DataResponse($this->mapper->getHolidaysForCalendar($start, $end));
     }
 
-    /** @NoAdminRequired */
+    /** * @NoAdminRequired 
+     * @NoCSRFRequired
+     */
     public function getTimesheet(int $id): DataResponse {
         $uid = $this->getEffectiveUserId();
         $ts = $this->mapper->getTimesheetById($id, $uid);
@@ -98,7 +107,9 @@ class TimesheetController extends Controller {
         return new DataResponse($ts);
     }
 
-    /** @NoAdminRequired */
+    /** * @NoAdminRequired 
+     * @NoCSRFRequired
+     */
     public function saveTimesheet(): DataResponse {
         $uid = $this->getEffectiveUserId();
         $data = $this->request->getParams();
@@ -147,6 +158,7 @@ class TimesheetController extends Controller {
 
         try {
             $qb = $this->db->getQueryBuilder();
+            
             if (!empty($data['timesheet_id'])) {
                 $tid = (int)$data['timesheet_id'];
                 $qb->update('stech_timesheets');
@@ -166,7 +178,10 @@ class TimesheetController extends Controller {
             }
 
             if ($tid > 0) {
+                // Clear old activities
                 $this->db->prepare("DELETE FROM `*PREFIX*stech_activity` WHERE `timesheet_id` = ?")->execute([$tid]);
+                
+                // Insert new ones
                 if (isset($data['work_desc']) && is_array($data['work_desc'])) {
                     $stmt = $this->db->prepare("INSERT INTO `*PREFIX*stech_activity` (`timesheet_id`, `activity_description`, `activity_percent`) VALUES (?, ?, ?)");
                     foreach ($data['work_desc'] as $idx => $desc) { 
@@ -186,7 +201,9 @@ class TimesheetController extends Controller {
         }
     }
 
-    /** @NoAdminRequired */
+    /** * @NoAdminRequired 
+     * @NoCSRFRequired
+     */
     public function deleteTimesheet(int $id): DataResponse {
         $uid = $this->getEffectiveUserId(); 
         $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 1 WHERE `timesheet_id` = ? AND `userid` = ?";
@@ -194,7 +211,9 @@ class TimesheetController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-    /** * @NoAdminRequired */
+    /** * @NoAdminRequired 
+     * @NoCSRFRequired
+     */
     public function restoreTimesheet(int $id): DataResponse {
         $uid = $this->getEffectiveUserId();
         $sql = "UPDATE `*PREFIX*stech_timesheets` SET `archive` = 0 WHERE `timesheet_id` = ? AND `userid` = ?";

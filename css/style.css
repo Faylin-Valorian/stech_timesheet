@@ -653,3 +653,51 @@ input:checked + .slider:before { transform: translateX(14px); }
     background-color: var(--color-main-background) !important;
     color: var(--color-main-text) !important;
 }
+
+
+/* =========================================
+   10. CALENDAR TEXT & SPACING FIXES (NEW)
+   ========================================= */
+
+/* 1. The Day Number (1, 2, 3...) */
+/* Ensure it sits ON TOP of the background text so it's readable */
+.fc-daygrid-day-top {
+    z-index: 5;
+    position: relative;
+    padding-left: 4px;
+    padding-top: 2px;
+}
+
+/* 2. The Event Tabs (Timesheets) */
+/* Push them down to create a gap for the Holiday/Payroll text */
+.fc-daygrid-day-events {
+    margin-top: 28px !important; /* Creates the "Safe Zone" */
+    margin-bottom: 2px;
+}
+
+/* 3. The Background Events (Holiday / Payroll Strips) */
+/* Push their text down so it doesn't overlap the Day Number */
+.fc-bg-event {
+    opacity: 1 !important; /* Ensure color is vibrant */
+}
+
+/* Target the text inside the background event */
+.fc-bg-event .fc-event-title {
+    padding-top: 24px; /* Push text down below the number */
+    padding-left: 6px;
+    font-size: 0.85em; /* Make it slightly smaller */
+    font-weight: 800;  /* Make it bold to stand out */
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    
+    /* Ensure text wraps nicely if long */
+    white-space: nowrap; 
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Fix for Dark Mode text contrast on Holidays */
+.fc-bg-event {
+    color: rgba(255, 255, 255, 0.9); /* Default white text for backgrounds */
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3); /* Shadow for readability */
+}

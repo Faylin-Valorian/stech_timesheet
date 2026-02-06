@@ -12,7 +12,7 @@ export const PayrollAdmin = {
             document.getElementById('pay-date-1').value = settings['pay_date_1'] || 1;
             document.getElementById('pay-date-2').value = settings['pay_date_2'] || 15;
 
-            // PATCH: Load Saved Color & Sync Inputs
+            // Load Saved Color & Sync Inputs
             const savedColor = settings['pay_color'] || '#34495e';
             const colorInput = document.getElementById('pay-color');
             const colorText = document.getElementById('pay-color-text');
@@ -64,19 +64,18 @@ export const PayrollAdmin = {
     },
 
     async save() {
+        // 1. Gather all data into one object
         const data = {
             pay_frequency: document.getElementById('pay-frequency').value,
             pay_start_date: document.getElementById('pay-start-date').value,
             pay_date_1: document.getElementById('pay-date-1').value,
             pay_date_2: document.getElementById('pay-date-2').value,
-            // PATCH: Save Color Setting
             pay_color: document.getElementById('pay-color-text').value
         };
 
         try {
-            await Promise.all(Object.entries(data).map(([key, value]) => 
-                StechAPI.request('post', '/api/admin/settings', { key, value })
-            ));
+            // PATCH: Send ONE request with all data (matches PHP Controller expectation)
+            await StechAPI.request('post', '/api/admin/settings', data);
 
             const msg = document.getElementById('payroll-msg');
             if (msg) {
@@ -85,8 +84,8 @@ export const PayrollAdmin = {
             }
         } catch (err) {
             console.error(err);
-            if(OC.dialogs && OC.dialogs.alert) {
-                 OC.dialogs.alert(err.message || 'Failed to save settings', 'Error', null);
+            if(window.OC && window.OC.dialogs && window.OC.dialogs.alert) {
+                 window.OC.dialogs.alert(err.message || 'Failed to save settings', 'Error', null);
             } else {
                  alert('Failed to save settings');
             }

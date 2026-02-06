@@ -154,14 +154,21 @@ class TimesheetService {
 
     private function generatePayrollMarkers(array $settings, string $start, string $end): array {
         $markers = [];
-        $payStart = new \DateTime($settings['pay_start_date'] ?? '2026-01-07');
-        $freq = (int)($settings['pay_frequency'] ?? 14);
         
-        // PATCH: Get User Setting for Payroll Color (Default #34495e)
+        // PATCH: Safe Defaults if Settings Empty
+        $startDateStr = $settings['pay_start_date'] ?? '2026-01-07';
+        if (!$startDateStr) $startDateStr = '2026-01-07';
+        
+        $payStart = new \DateTime($startDateStr);
+        
+        $freq = (int)($settings['pay_frequency'] ?? 14);
+        if ($freq <= 0) $freq = 14; 
+        
         $hexColor = $settings['pay_color'] ?? '#34495e';
-        // PATCH: Convert to RGBA (0.35 opacity)
+        if (!$hexColor) $hexColor = '#34495e';
+        
         $rgba = $this->hex2rgba($hexColor, 0.35);
-        $payBg = $settings['pay_bg_style'] ?? ''; // Keep for custom CSS/Images if used
+        $payBg = $settings['pay_bg_style'] ?? '';
 
         $viewStart = new \DateTime($start); 
         $viewEnd = new \DateTime($end);
@@ -188,7 +195,6 @@ class TimesheetService {
                 'title' => 'Payroll', 
                 'start' => $nextPay->format('Y-m-d'), 
                 'display' => 'background',
-                // PATCH: Use Dynamic Color
                 'backgroundColor' => $rgba, 
                 'extendedProps' => ['isVisual' => true, 'customBg' => $payBg]
             ];
@@ -198,7 +204,6 @@ class TimesheetService {
         return $markers;
     }
 
-    // PATCH: Hex to RGBA Helper
     private function hex2rgba($color, $opacity = false) {
         $default = 'rgb(0,0,0)';
         if(empty($color)) return $default; 

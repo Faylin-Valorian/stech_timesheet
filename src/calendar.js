@@ -61,7 +61,6 @@ export const TimesheetCalendar = {
                                 }
 
                                 // 2. Determine Color (Hex -> RGBA)
-                                // Use the saved hex, or default orange. Convert to 0.2 opacity.
                                 const rawColor = h.holiday_bg || h.bg || '#e67e22';
                                 const overlayColor = this.hexToRgba(rawColor, 0.2);
 
@@ -75,11 +74,10 @@ export const TimesheetCalendar = {
                                         title: h.name || h.holiday_name,
                                         start: dateStr,
                                         display: 'background',
-                                        // Apply the calculated transparent color
                                         backgroundColor: overlayColor, 
                                         extendedProps: { 
                                             isVisual: true,
-                                            customBg: '' // We use standard backgroundColor for colors
+                                            customBg: '' 
                                         }
                                     });
                                     
@@ -101,7 +99,6 @@ export const TimesheetCalendar = {
                 if (info.event.display === 'background') {
                     const customBg = info.event.extendedProps.customBg;
                     
-                    // If we have a custom image/gradient (from Payroll settings), use it
                     if (customBg && customBg.trim() !== '') {
                         info.el.style.background = customBg;
                         if (customBg.includes('url(')) {
@@ -109,35 +106,44 @@ export const TimesheetCalendar = {
                             info.el.style.backgroundPosition = 'center';
                         }
                     } else {
-                        // Otherwise, rely on the event's backgroundColor (which we set to RGBA)
                         info.el.style.backgroundColor = info.event.backgroundColor;
                     }
 
-                    // CRITICAL: Make background invisible to clicks so you can add entries
                     info.el.style.pointerEvents = 'none'; 
                     info.el.style.zIndex = '0';
                 }
             },
 
-            // PATCH: Render Text Content for ALL events (including Backgrounds)
+            // PATCH: Render Text Content - FIXING THE OVERLAP HERE
             eventContent: (arg) => {
                 let div = document.createElement('div');
                 div.className = 'fc-event-content-box'; 
                 div.innerText = arg.event.title;
 
                 if (arg.event.display === 'background') {
-                    // Background Event Styling:
+                    // --- BACKGROUND EVENT (Holiday/Payroll) ---
                     div.style.background = 'transparent';
-                    div.style.color = 'var(--color-main-text)';
-                    div.style.opacity = '0.7'; 
+                    // Force text color for better visibility in FullCalendar
+                    div.style.color = 'var(--color-text-maxcontrast)'; 
+                    div.style.opacity = '0.85'; 
                     
-                    div.style.fontWeight = 'bold';
-                    div.style.padding = '2px 5px';
-                    div.style.textAlign = 'center';
+                    // FONT STYLING
+                    div.style.fontWeight = '800';
+                    div.style.fontSize = '0.75em';
+                    div.style.textTransform = 'uppercase';
+                    div.style.letterSpacing = '0.5px';
+
+                    // THE FIX: Push text down 24px to clear the date number
+                    div.style.paddingTop = '24px'; 
+                    div.style.paddingLeft = '6px';
+                    div.style.textAlign = 'left';
+                    
                     div.style.pointerEvents = 'none'; 
                 } else {
-                    // Foreground Event Styling:
+                    // --- FOREGROUND EVENT (Timesheet) ---
                     div.style.backgroundColor = arg.event.backgroundColor;
+                    // Standard padding for normal events
+                    div.style.padding = '2px 4px';
                 }
 
                 return { domNodes: [div] };
@@ -177,14 +183,8 @@ export const TimesheetCalendar = {
         this.setupSidebarNavigation();
     },
 
-    /**
-     * Helper to convert Hex to RGBA
-     * @param {string} hex - The hex color (e.g., #ff0000)
-     * @param {number} opacity - Alpha value (0 to 1)
-     * @returns {string} - rgba(...) string
-     */
     hexToRgba(hex, opacity) {
-        if (!hex) return `rgba(230, 126, 34, ${opacity})`; // Default Orange
+        if (!hex) return `rgba(230, 126, 34, ${opacity})`; 
         
         let c;
         if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)){
@@ -195,7 +195,7 @@ export const TimesheetCalendar = {
             c = '0x'+c.join('');
             return 'rgba('+[(c>>16)&255, (c>>8)&255, c&255].join(',')+','+opacity+')';
         }
-        return hex; // Fallback if not valid hex
+        return hex;
     },
 
     setupSidebarNavigation() {

@@ -6,20 +6,23 @@ namespace OCA\StechTimesheet\Controller;
 use OCP\IRequest;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\TemplateResponse;
-use OCP\IDBConnection;
 use OCP\IUserSession;
 use OCP\IGroupManager;
+use OCA\StechTimesheet\Service\AnalysisService;
 
 class PageController extends Controller {
     private $userSession;
-    private $db;
     private $groupManager;
+    private $analysisService;
 
-    public function __construct(IRequest $request, IUserSession $userSession, IDBConnection $db, IGroupManager $groupManager) {
+    public function __construct(IRequest $request, 
+                                IUserSession $userSession, 
+                                IGroupManager $groupManager,
+                                AnalysisService $analysisService) {
         parent::__construct('stech_timesheet', $request);
         $this->userSession = $userSession;
-        $this->db = $db;
         $this->groupManager = $groupManager;
+        $this->analysisService = $analysisService;
     }
 
     /**
@@ -28,97 +31,71 @@ class PageController extends Controller {
      */
     public function index(): TemplateResponse {
         $user = $this->userSession->getUser();
-        $uid = $user ? $user->getUID() : null;
+        $uid = $user ? $user->getUID() : '';
+        $isAdmin = $user && $this->groupManager->isAdmin($uid);
 
-        $canViewAdmin = $this->checkAccess($uid, 'admin_panel');
-        $canViewAnalysis = $this->checkAccess($uid, 'analysis_tab');
+        // Security Check: Can they view Analysis?
+        $canViewAnalysis = $this->analysisService->checkAccess('analysis_tab');
         
-        $response = new TemplateResponse('stech_timesheet', 'main');
-        $response->setParams([
-            'target_user' => $this->request->getParam('target_user', ''),
+        // Security Check: Can they view Admin? (Admins OR explicit permission)
+        $canViewAdmin = $isAdmin || $this->analysisService->checkAccess('admin_panel');
+
+        $params = [
+            'user_id' => $uid,
+            'is_admin' => $isAdmin,
+            'can_view_analysis' => $canViewAnalysis,
             'can_view_admin' => $canViewAdmin,
-            'can_view_analysis' => $canViewAnalysis
-        ]);
-        
-        return $response;
+            'target_user' => $this->request->getParam('target_user', '') // Support impersonation
+        ];
+
+        return new TemplateResponse('stech_timesheet', 'main', $params);
     }
 
     /**
      * @NoAdminRequired
      * @NoCSRFRequired
      */
-    public function analysis(): TemplateResponse {
-        $user = $this->userSession->getUser();
-        $uid = $user ? $user->getUID() : null;
-
-        // 1. Basic Access Check
-        if (!$this->checkAccess($uid, 'analysis_tab')) {
-            $response = new TemplateResponse('stech_timesheet', 'error');
-            $response->setParams(['msg' => 'You do not have permission to view the Analysis Dashboard.']);
-            return $response;
+    public function analysis_page(): TemplateResponse {
+        // Enforce Security on the Page Load too
+        if (!$this->analysisService->checkAccess('analysis_tab')) {
+            return new TemplateResponse('stech_timesheet', 'error', ['msg' => 'Access Denied'], 403);
         }
-
-        // 2. Feature Checks (The new Access Control Keys)
-        $canViewOthers = $this->checkAccess($uid, 'analysis_view_others');
-        $canViewTravel = $this->checkAccess($uid, 'analysis_travel');
-        $canViewFinancial = $this->checkAccess($uid, 'analysis_financial'); // Covers Profit & Jobs
-        $canViewLocation = $this->checkAccess($uid, 'analysis_location'); // Covers Maps
         
-        // Logic: If user has Financial Access, they inherently get Job Breakdown access.
-        // Otherwise, check for specific breakdown permission.
-        $canViewJobBreakdown = $this->checkAccess($uid, 'analysis_job_breakdown');
+        // FEATURE FLAGS for the Analysis View
+        $canViewOthers = $this->analysisService->checkAccess('analysis_view_others');
+        $canViewTravel = $this->analysisService->checkAccess('analysis_travel');
+        $canViewFinancial = $this->analysisService->checkAccess('analysis_financial');
+        $canViewLocation = $this->analysisService->checkAccess('analysis_location');
+        $canViewJobBreakdown = $this->analysisService->checkAccess('analysis_job_breakdown');
+        
+        // Financial access implies job breakdown access
         if ($canViewFinancial) {
             $canViewJobBreakdown = true;
         }
 
-        $response = new TemplateResponse('stech_timesheet', 'analysis');
-        $response->setParams([
+        $params = [
             'can_view_others' => (bool)$canViewOthers,
             'can_view_travel_analytics' => (bool)$canViewTravel,
             'can_view_financial_analytics' => (bool)$canViewFinancial,
             'can_view_location_analytics' => (bool)$canViewLocation,
             'can_view_job_breakdown' => (bool)$canViewJobBreakdown
-        ]);
-        
-        return $response;
+        ];
+
+        return new TemplateResponse('stech_timesheet', 'analysis', $params);
     }
 
     /**
-     * Helper to check access rules
+     * @NoAdminRequired
+     * @NoCSRFRequired
      */
-    private function checkAccess($uid, $ruleKey): bool {
-        if (!$uid) return false;
-
-        // Admin always has access
-        if ($this->groupManager->isAdmin($uid)) {
-            return true;
+    public function admin_page(): TemplateResponse {
+        $user = $this->userSession->getUser();
+        $isAdmin = $user && $this->groupManager->isAdmin($user->getUID());
+        
+        // Allow if Admin OR has explicit 'admin_panel' permission
+        if (!$isAdmin && !$this->analysisService->checkAccess('admin_panel')) {
+             return new TemplateResponse('stech_timesheet', 'error', ['msg' => 'Access Denied'], 403);
         }
-
-        try {
-            $qb = $this->db->getQueryBuilder();
-            $result = $qb->select('allowed_groups')
-                         ->from('stech_access_rules')
-                         ->where($qb->expr()->eq('rule_key', $qb->createNamedParameter($ruleKey)))
-                         ->executeQuery()
-                         ->fetch();
-
-            if (!$result) return false;
-
-            $allowedGroups = json_decode($result['allowed_groups'], true);
-            if (!is_array($allowedGroups) || empty($allowedGroups)) return false;
-
-            $userGroups = $this->groupManager->getUserGroupIds($this->userSession->getUser());
-            
-            foreach ($userGroups as $gid) {
-                if (in_array($gid, $allowedGroups)) {
-                    return true;
-                }
-            }
-
-        } catch (\Exception $e) {
-            return false;
-        }
-
-        return false;
+        return new TemplateResponse('stech_timesheet', 'admin');
     }
 }

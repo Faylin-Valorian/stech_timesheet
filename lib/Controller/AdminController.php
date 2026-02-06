@@ -13,6 +13,7 @@ use OCP\IDBConnection;
 use OCP\IGroupManager;
 use OCP\Files\IAppData;
 use OCA\StechTimesheet\Service\AdminService;
+use OCA\StechTimesheet\Service\AnalysisService; // Need this for permissions
 use OCA\StechTimesheet\Db\AdminMapper;
 
 class AdminController extends Controller {
@@ -21,25 +22,37 @@ class AdminController extends Controller {
     private $adminMapper;
     private $groupManager;
     private $appData;
+    private $analysisService; // Injected for checks
 
     public function __construct(IRequest $request, 
                                 IDBConnection $db, 
                                 AdminService $adminService, 
                                 AdminMapper $adminMapper, 
                                 IGroupManager $groupManager, 
-                                IAppData $appData) {
+                                IAppData $appData,
+                                AnalysisService $analysisService) {
         parent::__construct('stech_timesheet', $request);
         $this->db = $db;
         $this->adminService = $adminService;
         $this->adminMapper = $adminMapper;
         $this->groupManager = $groupManager;
         $this->appData = $appData;
+        $this->analysisService = $analysisService;
+    }
+
+    /** * Helper to enforce Admin Panel access
+     */
+    private function checkAdminAccess(): void {
+        if (!$this->analysisService->checkAccess('admin_panel')) {
+            throw new \Exception('Access Denied');
+        }
     }
 
     /** * @NoAdminRequired 
      * @NoCSRFRequired
      */
     public function index(): TemplateResponse { 
+        // PageController handles the view logic, this is just a fallback
         return new TemplateResponse('stech_timesheet', 'admin'); 
     }
 
@@ -47,10 +60,12 @@ class AdminController extends Controller {
     // ACCESS CONTROL & SETTINGS
     // =========================================================================
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getGroups(): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
+        
         $groups = $this->groupManager->search('');
         $list = [];
         foreach ($groups as $g) { 
@@ -62,10 +77,12 @@ class AdminController extends Controller {
         return new DataResponse($list);
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getAccess(): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
+
         $rules = [];
         foreach($this->adminMapper->getAccessRules() as $row) { 
             $rules[$row['rule_key']] = json_decode($row['allowed_groups'] ?? '[]', true); 
@@ -73,10 +90,12 @@ class AdminController extends Controller {
         return new DataResponse($rules);
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function saveAccess(): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
+
         $data = $this->request->getParams();
         if (empty($data['rule_key'])) return new DataResponse(['error' => 'Missing key'], 400);
         
@@ -88,10 +107,12 @@ class AdminController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getSettings(): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
+
         $settings = [];
         foreach($this->adminMapper->getSettings() as $row) { 
             $settings[$row['setting_key']] = $row['setting_value']; 
@@ -99,13 +120,13 @@ class AdminController extends Controller {
         return new DataResponse($settings);
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function saveSetting(): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
+
         $params = $this->request->getParams();
-        
-        // PATCH: Added pay_color to allowed keys
         $keys = ['pay_frequency', 'pay_start_date', 'pay_date_1', 'pay_date_2', 'pay_color'];
         
         foreach ($keys as $k) {
@@ -120,17 +141,20 @@ class AdminController extends Controller {
     // USER MANAGEMENT
     // =========================================================================
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getUsers(): DataResponse { 
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
         return new DataResponse($this->adminService->getAllUsers()); 
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function toggleUser(): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
+
         $uid = $this->request->getParam('uid');
         if (!$uid) return new DataResponse(['error' => 'No UID'], 400);
         $newState = $this->adminService->toggleUserStatus($uid);
@@ -141,22 +165,24 @@ class AdminController extends Controller {
     // HOLIDAYS, JOBS, & LOCATIONS
     // =========================================================================
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getHolidays(): DataResponse { 
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
         return new DataResponse($this->adminMapper->getHolidays()); 
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function saveHoliday(): DataResponse {
+            try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
+
             $data = $this->request->getParams();
             $qb = $this->db->getQueryBuilder();
             
-            // PATCH: Added holiday_bg (Background Color)
-            $bg = $data['bg'] ?? '#e67e22'; // Default Orange
+            $bg = $data['bg'] ?? '#e67e22'; 
 
             if (!empty($data['id'])) { 
                 $qb->update('stech_holidays')
@@ -179,18 +205,20 @@ class AdminController extends Controller {
             return new DataResponse(['status' => 'success']);
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function toggleHoliday(int $id): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
         $this->adminMapper->toggleHoliday($id);
         return new DataResponse(['status' => 'success']);
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function deleteHoliday(int $id): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
         $qb = $this->db->getQueryBuilder();
         $qb->delete('stech_holidays')
             ->where($qb->expr()->eq('holiday_id', $qb->createNamedParameter($id)))
@@ -198,17 +226,20 @@ class AdminController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getJobs(): DataResponse { 
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
         return new DataResponse($this->adminMapper->getJobs()); 
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function saveJob(): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
+
         $data = $this->request->getParams();
         $qb = $this->db->getQueryBuilder();
         if (!empty($data['job_id'])) {
@@ -233,55 +264,62 @@ class AdminController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function toggleJob(int $id): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
         $this->adminMapper->toggleJob($id);
         return new DataResponse(['status' => 'success']);
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getStates(): DataResponse { 
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
         return new DataResponse($this->adminMapper->getStatesAdmin()); 
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getCounties(string $abbr): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
         return new DataResponse($this->adminMapper->getCountiesByStateAdmin($abbr));
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function toggleState(int $id): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
+
         $qb = $this->db->getQueryBuilder();
         $state = $qb->select('*')->from('stech_states')
-                    ->where($qb->expr()->eq('state_id', $qb->createNamedParameter($id)))
+                    ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
                     ->executeQuery()->fetch();
         if (!$state) return new DataResponse(['error' => 'Not found'], 404);
         
         $new = ((int)$state['is_enabled'] === 1) ? 0 : 1;
         $qb->update('stech_states')
            ->set('is_enabled', $qb->createNamedParameter($new))
-           ->where($qb->expr()->eq('state_id', $qb->createNamedParameter($id)))
+           ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
            ->execute();
 
         return new DataResponse(['status' => 'success']);
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function toggleCounty(int $id): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
+
         $qb = $this->db->getQueryBuilder();
         $county = $qb->select('is_enabled')
                 ->from('stech_counties')
-                ->where($qb->expr()->eq('county_id', $qb->createNamedParameter($id)))
+                ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
                 ->executeQuery()
                 ->fetch();
 
@@ -290,7 +328,7 @@ class AdminController extends Controller {
         $newStatus = ((int)$county['is_enabled'] === 1) ? 0 : 1;
         $qb->update('stech_counties')
            ->set('is_enabled', $qb->createNamedParameter($newStatus))
-           ->where($qb->expr()->eq('county_id', $qb->createNamedParameter($id)))
+           ->where($qb->expr()->eq('id', $qb->createNamedParameter($id)))
            ->execute();
 
         return new DataResponse(['status' => 'success', 'new_state' => $newStatus]);
@@ -300,10 +338,12 @@ class AdminController extends Controller {
     // THUMBNAILS & ASSETS
     // =========================================================================
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getThumbnail(string $filename) {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
+
         $local = $this->adminService->getLocalImagePath($filename);
         if ($local) return new StreamResponse(fopen($local, 'rb'));
         try {
@@ -312,10 +352,12 @@ class AdminController extends Controller {
         } catch (\Exception $e) { return new DataResponse(['error' => 'Not found'], 404); }
     }
 
-    /** * @AdminRequired
+    /** * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function uploadThumbnail(string $cardId): DataResponse {
+        try { $this->checkAdminAccess(); } catch(\Exception $e) { return new DataResponse([], 403); }
+
         $file = $this->request->getUploadedFile('image');
         if (is_array($file)) $file = reset($file);
 

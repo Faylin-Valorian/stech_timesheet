@@ -13,7 +13,7 @@ use OCP\IUserSession;
 use OCP\IUserManager;
 use OCP\IGroupManager;
 use OCP\Files\IAppData;
-use OCP\INavigationManager; // Import Navigation Manager
+use OCP\INavigationManager;
 
 // Controllers
 use OCA\StechTimesheet\Controller\PageController;
@@ -88,16 +88,18 @@ class Application extends App implements IBootstrap {
         });
 
         // --- Register Controllers ---
+        
+        // PATCH: Updated for new PageController signature
+        // Removed IDBConnection, Added AnalysisService
         $context->registerService(PageController::class, function($c) {
             return new PageController(
                 $c->get(IRequest::class),
                 $c->get(IUserSession::class),
-                $c->get(IDBConnection::class),
-                $c->get(IGroupManager::class)
+                $c->get(IGroupManager::class),
+                $c->get(AnalysisService::class)
             );
         });
 
-        // UPDATED: Added IGroupManager injection
         $context->registerService(TimesheetController::class, function ($c) {
             return new TimesheetController(
                 $c->get(IRequest::class),
@@ -109,6 +111,8 @@ class Application extends App implements IBootstrap {
             );
         });
 
+        // PATCH: Updated for new AdminController signature
+        // Added AnalysisService at the end
         $context->registerService(AdminController::class, function($c) {
             return new AdminController(
                 $c->get(IRequest::class),
@@ -116,7 +120,8 @@ class Application extends App implements IBootstrap {
                 $c->get(AdminService::class),
                 $c->get(AdminMapper::class),
                 $c->get(IGroupManager::class),
-                $c->get(IAppData::class)
+                $c->get(IAppData::class),
+                $c->get(AnalysisService::class)
             );
         });
 
@@ -133,15 +138,12 @@ class Application extends App implements IBootstrap {
     }
 
     public function boot(IBootContext $context): void {
-        // PATCH: Register Navigation Entry for Nextcloud 32+
         $context->injectFn(function(INavigationManager $navigationManager) {
             $navigationManager->add(function() {
                 return [
                     'id' => self::APP_ID,
                     'order' => 10,
-                    // FIX: Replaced deprecated Util::linkToRoute with URLGenerator
                     'href' => \OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.page.index'),
-                    // FIX: Replaced deprecated Util::imagePath with URLGenerator
                     'icon' => \OC::$server->getURLGenerator()->imagePath(self::APP_ID, 'app.svg'),
                     'name' => 'Timesheet',
                 ];
