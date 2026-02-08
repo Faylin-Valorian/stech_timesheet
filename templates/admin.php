@@ -18,45 +18,59 @@ Util::addStyle('stech_timesheet', 'admin');
 
             <li class="nav-section-header"><span>Management</span></li>
             
+            <?php if(!empty($_['can_access_users'])): ?>
             <li class="nav-item" data-rule="admin_users">
                 <a class="nav-link active" href="#" id="nav-users">
                     <span class="icon-user"></span>
                     <span>Employees</span>
                 </a>
             </li>
+            <?php endif; ?>
             
+            <?php if(!empty($_['can_access_access'])): ?>
             <li class="nav-item" data-rule="admin_access">
                 <a class="nav-link" href="#" id="nav-access">
                     <span class="icon-password"></span>
                     <span>Access Control</span>
                 </a>
             </li>
+            <?php endif; ?>
 
+            <?php if(!empty($_['can_access_payroll'])): ?>
             <li class="nav-item" data-rule="admin_payroll">
                 <a class="nav-link" href="#" id="nav-payroll">
                     <span class="icon-money"></span>
                     <span>Payroll Settings</span>
                 </a>
             </li>
+            <?php endif; ?>
             
+            <?php if(!empty($_['can_access_holidays'])): ?>
             <li class="nav-item" data-rule="admin_holidays">
                 <a class="nav-link" href="#" id="nav-holidays">
                     <span class="icon-calendar-dark"></span>
                     <span>Holidays</span>
                 </a>
             </li>
+            <?php endif; ?>
+
+            <?php if(!empty($_['can_access_jobs'])): ?>
             <li class="nav-item" data-rule="admin_jobs">
                 <a class="nav-link" href="#" id="nav-jobs">
                     <span class="icon-category-office"></span>
                     <span>Jobs / Codes</span>
                 </a>
             </li>
+            <?php endif; ?>
+
+            <?php if(!empty($_['can_access_locations'])): ?>
             <li class="nav-item" data-rule="admin_locations">
                 <a class="nav-link" href="#" id="nav-locations">
                     <span class="icon-address"></span>
                     <span>Locations</span>
                 </a>
             </li>
+            <?php endif; ?>
         </ul>
     </div>
 
@@ -103,6 +117,7 @@ Util::addStyle('stech_timesheet', 'admin');
                         <div class="access-tab" data-target="panel-view-others">View All Employees</div>
                         <div class="access-tab" data-target="panel-travel">Travel Tab</div>
                         <div class="access-tab" data-target="panel-financial">Financial Tab</div>
+                        <div class="access-tab" data-target="panel-job-breakdown">Job Breakdown Tab</div>
                     </div>
 
                     <div class="split-panel right">
@@ -152,6 +167,11 @@ Util::addStyle('stech_timesheet', 'admin');
                         <div id="panel-financial" class="access-group-panel hidden">
                             <h3 class="panel-title">Financial Tab</h3>
                             <div id="list-access-analysis-financial" class="group-toggle-list"></div>
+                        </div>
+                        <div id="panel-job-breakdown" class="access-group-panel hidden">
+                            <h3 class="panel-title">Job Breakdown Tab</h3>
+                            <p class="panel-desc">Allows users to see the "Job Breakdown" charts in analysis.</p>
+                            <div id="list-access-analysis-jobs" class="group-toggle-list"></div>
                         </div>
                     </div>
                 </div>

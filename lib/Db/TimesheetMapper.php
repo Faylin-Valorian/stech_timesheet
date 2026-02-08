@@ -200,4 +200,27 @@ class TimesheetMapper extends QBMapper {
         
         return $settings;
     }
+
+    // --- NEW METHOD ADDED HERE ---
+    /**
+     * Retrieve access rules for a specific key.
+     * Used by AnalysisService to determine user permissions.
+     */
+    public function getAccessRule(string $key): array {
+        try {
+            $qb = $this->db->getQueryBuilder();
+            $row = $qb->select('allowed_groups')
+                      ->from('stech_access_rules')
+                      ->where($qb->expr()->eq('rule_key', $qb->createNamedParameter($key)))
+                      ->executeQuery()
+                      ->fetch();
+            
+            if (!$row || empty($row['allowed_groups'])) {
+                return [];
+            }
+            return json_decode($row['allowed_groups'], true) ?: [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
 }

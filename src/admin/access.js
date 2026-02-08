@@ -4,9 +4,6 @@ export const AccessAdmin = {
     groups: [],
     rules: {},
 
-    /**
-     * Load Groups and existing Access Rules from the server
-     */
     async load() {
         try {
             const [groups, rules] = await Promise.all([
@@ -18,131 +15,84 @@ export const AccessAdmin = {
             this.render();
         } catch (e) {
             console.error('Error loading access data', e);
-            if (window.OCP && window.OCP.Toast) {
-                window.OCP.Toast.error('Failed to load access control settings.');
-            }
         }
     },
 
-    /**
-     * Render the checkboxes for each access section
-     */
     render() {
-        // Define the mapping between your HTML container IDs and the Database Rule Keys
+        // STRICT MAPPING to HTML IDs
         const mapping = {
-            // General Admin Access (New)
+            // Main Page
             'list-access-admin-global': 'admin_global_access',
+            'list-access-analysis-tab': 'analysis_tab',
+            'list-access-archive': 'view_archive_toggle', // Assuming you create this container
 
-            // New Granular Admin Permissions
-            'list-access-admin-access': 'admin_access',
+            // Admin Sidebar
             'list-access-admin-users': 'admin_users',
             'list-access-admin-payroll': 'admin_payroll',
             'list-access-admin-holidays': 'admin_holidays',
             'list-access-admin-jobs': 'admin_jobs',
             'list-access-admin-locations': 'admin_locations',
+            'list-access-admin-access': 'admin_access',
 
-            // Analysis - General
-            'list-access-analysis-tab': 'analysis_tab',
-            
-            // Analysis - Specific Features
+            // Analysis Features
             'list-access-analysis-others': 'analysis_view_others',
             'list-access-analysis-travel': 'analysis_travel',
             'list-access-analysis-financial': 'analysis_financial',
-            'list-access-analysis-location': 'analysis_location',
-            'list-access-analysis-jobs': 'analysis_job_breakdown'
+            'list-access-analysis-location': 'analysis_location'
         };
 
-        // Loop through each section and render groups
         for (const [elementId, ruleKey] of Object.entries(mapping)) {
             const container = document.getElementById(elementId);
-            if (!container) continue; // Skip if element doesn't exist in HTML
+            if (!container) continue; 
 
-            container.innerHTML = ''; // Clear current list
+            container.innerHTML = ''; 
             const allowedGroups = this.rules[ruleKey] || [];
-
-            if (this.groups.length === 0) {
-                container.innerHTML = '<div style="opacity:0.6; padding:10px;">No groups found in Nextcloud.</div>';
-                continue;
-            }
 
             this.groups.forEach(group => {
                 const gid = group.gid;
-                const name = group.displayName;
-
-                // PATCH: Identify Admin group
                 const isAdmin = (gid === 'admin');
-
-                // PATCH: Admin is ALWAYS checked, otherwise check the DB rule
                 const isChecked = isAdmin || allowedGroups.includes(gid);
                 
                 const div = document.createElement('div');
                 div.className = 'toggle-wrapper';
-                
-                // PATCH: Add locked styling and disabled state for Admin
                 div.innerHTML = `
-                    <label class="toggle-button" style="display:flex; justify-content:space-between; align-items:center; ${isAdmin ? 'cursor:not-allowed; opacity:0.9;' : ''}">
-                        <span>${name} ${isAdmin ? '<small>(Locked)</small>' : ''}</span>
-                        <input type="checkbox" 
-                               class="toggle-checkbox" 
-                               data-gid="${gid}"
-                               ${isChecked ? 'checked' : ''}
-                               ${isAdmin ? 'disabled' : ''}>
+                    <label class="toggle-button" style="${isAdmin ? 'opacity:0.7; pointer-events:none;' : ''}">
+                        <span>${group.displayName}</span>
+                        <input type="checkbox" ${isChecked ? 'checked' : ''} ${isAdmin ? 'disabled' : ''}>
                     </label>
                 `;
 
-                // PATCH: Only add click listener if NOT admin (prevent changes)
                 if (!isAdmin) {
                     const checkbox = div.querySelector('input');
                     checkbox.addEventListener('change', (e) => {
                         this.toggleRule(ruleKey, gid, e.target.checked);
-                        
-                        // Visual feedback
-                        const btn = div.querySelector('.toggle-button');
-                        if(e.target.checked) {
-                            btn.style.backgroundColor = 'var(--color-primary-element)';
-                            btn.style.color = 'var(--color-primary-text)';
-                        } else {
-                            btn.style.backgroundColor = '';
-                            btn.style.color = '';
-                        }
+                        this.updateVisual(div.querySelector('.toggle-button'), e.target.checked);
                     });
                 }
-
-                // Set initial visual state
-                const btn = div.querySelector('.toggle-button');
-                if(isChecked) {
-                    btn.style.backgroundColor = 'var(--color-primary-element)';
-                    btn.style.color = 'var(--color-primary-text)';
-                }
-
+                this.updateVisual(div.querySelector('.toggle-button'), isChecked);
                 container.appendChild(div);
             });
         }
     },
 
-    /**
-     * Save the change immediately when clicked
-     */
+    updateVisual(btn, checked) {
+        if(checked) {
+            btn.style.backgroundColor = 'var(--color-primary-element)';
+            btn.style.color = 'var(--color-primary-text)';
+        } else {
+            btn.style.backgroundColor = '';
+            btn.style.color = '';
+        }
+    },
+
     async toggleRule(ruleKey, gid, isAdded) {
         let currentList = this.rules[ruleKey] || [];
-
         if (isAdded) {
-            if (!currentList.includes(gid)) {
-                currentList.push(gid);
-            }
+            if (!currentList.includes(gid)) currentList.push(gid);
         } else {
             currentList = currentList.filter(g => g !== gid);
         }
-
-        // Update local state
         this.rules[ruleKey] = currentList;
-
-        // Send to backend
-        try {
-            await StechAPI.saveAccessRule(ruleKey, currentList);
-        } catch (e) {
-            console.error('Save failed', e);
-            if (window.OCP && window.OCP.Toast) window.OCP.Toast.error('Error saving rule');
-        }
+        await StechAPI.saveAccessRule(ruleKey, currentList);
     }
 };

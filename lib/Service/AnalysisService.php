@@ -21,18 +21,29 @@ class AnalysisService {
         $this->userSession = $userSession;
     }
 
+    /**
+     * The Master Check Function
+     * Returns TRUE if the user is a Super Admin OR belongs to an allowed group defined in DB.
+     */
     public function checkAccess(string $ruleKey): bool {
         $user = $this->userSession->getUser();
         if (!$user) return false;
+        
+        // 1. Super Admin ALWAYS has access to everything
         if ($this->groupManager->isAdmin($user->getUID())) return true;
 
-        $settings = $this->timesheetMapper->getAdminSettings();
-        $allowedGroups = json_decode($settings['rule_' . $ruleKey] ?? '[]', true);
+        // 2. Fetch allowed groups from Database (using the new Mapper method)
+        $allowedGroups = $this->timesheetMapper->getAccessRule($ruleKey);
         
+        // 3. If no rule exists or list is empty, default to FALSE
+        if (empty($allowedGroups)) return false;
+
+        // 4. Check if user is in any of the allowed groups
         $userGroups = $this->groupManager->getUserGroupIds($user);
         foreach ($userGroups as $gid) {
             if (in_array($gid, $allowedGroups)) return true;
         }
+
         return false;
     }
 

@@ -37,18 +37,13 @@ class AnalysisController extends Controller {
         $uid = $currentUser->getUID();
         $users = [];
 
-        // FIX: "Everyone" Option Logic
         if ($this->service->checkAccess('analysis_view_others')) {
-            // Add "Everyone" as the first option
             $users[] = ['uid' => 'all', 'displayname' => 'Everyone'];
-            
-            // Add all specific users (Admin/Manager view)
             $allUsers = $this->userManager->search('');
             foreach($allUsers as $u) {
                 $users[] = ['uid' => $u->getUID(), 'displayname' => $u->getDisplayName()];
             }
         } else {
-            // Non-admins just see themselves
             $users[] = ['uid' => $uid, 'displayname' => $currentUser->getDisplayName()];
         }
 
@@ -69,26 +64,17 @@ class AnalysisController extends Controller {
         }
         
         $uid = $this->userSession->getUser()->getUID();
-        
-        // FIX: Target Selection Logic
-        // 1. If 'self', always use current UID.
-        // 2. If 'all', check permissions -> if valid, use NULL (mapper fetches all).
-        // 3. If specific user, check permissions -> if valid, use that UID.
-        // 4. Fallback -> current UID.
-        
         $target = $uid;
 
         if ($this->service->checkAccess('analysis_view_others')) {
             if ($target_user === 'all') {
-                $target = null; // null tells Mapper to fetch EVERYONE
+                $target = null;
             } elseif ($target_user !== 'self') {
                 $target = $target_user;
             }
         }
 
         list($start, $end) = $this->service->getPayrollDateRange($period);
-        
-        // Fetch raw data from Mapper
         $results = $this->anMapper->getFullReportingData($start, $end, $target);
 
         $perms = [

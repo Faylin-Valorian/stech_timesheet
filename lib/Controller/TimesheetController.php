@@ -33,44 +33,39 @@ class TimesheetController extends Controller {
         $this->groupManager = $groupManager;
     }
 
-    /**
-     * Helper: Determines if we should load the logged-in user OR the target user.
-     */
     private function getEffectiveUserId(): string {
         $currentUser = $this->userSession->getUser();
-        if (!$currentUser) {
-            return ''; 
-        }
+        if (!$currentUser) return ''; 
         
         $currentUid = $currentUser->getUID();
         $targetUid = $this->request->getParam('target_user');
 
-        // If target is requested and is different from current user
         if ($targetUid && $targetUid !== $currentUid) {
-            // Security Check: Only Admins can swap view
             if ($this->groupManager->isAdmin($currentUid)) {
                 return $targetUid;
             }
         }
-        
         return $currentUid;
     }
 
-    /** * @NoAdminRequired 
+    /**
+     * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getAttributes(): DataResponse {
         return new DataResponse(['jobs' => $this->mapper->getActiveJobs(), 'states' => $this->mapper->getEnabledStates()]);
     }
 
-    /** * @NoAdminRequired 
+    /**
+     * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getCounties(string $stateAbbr): DataResponse {
         return new DataResponse($this->mapper->getCountiesByState($stateAbbr));
     }
 
-    /** * @NoAdminRequired 
+    /**
+     * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getTimesheets(string $start, string $end): DataResponse {
@@ -79,7 +74,8 @@ class TimesheetController extends Controller {
         return new DataResponse($this->service->getCalendarEvents($uid, $start, $end, $archive));
     }
 
-    /** * @NoAdminRequired 
+    /**
+     * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getCalendarHolidays(): DataResponse {
@@ -88,7 +84,8 @@ class TimesheetController extends Controller {
         return new DataResponse($this->mapper->getHolidaysForCalendar($start, $end));
     }
 
-    /** * @NoAdminRequired 
+    /**
+     * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function getTimesheet(int $id): DataResponse {
@@ -99,7 +96,6 @@ class TimesheetController extends Controller {
         
         $ts['activities'] = $this->mapper->getActivitiesByTimesheet($id);
         
-        // Pass admin flag to frontend
         $currentUser = $this->userSession->getUser();
         $isAdmin = $currentUser && $this->groupManager->isAdmin($currentUser->getUID());
         $ts['is_admin'] = $isAdmin;
@@ -107,7 +103,8 @@ class TimesheetController extends Controller {
         return new DataResponse($ts);
     }
 
-    /** * @NoAdminRequired 
+    /**
+     * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function saveTimesheet(): DataResponse {
@@ -115,15 +112,12 @@ class TimesheetController extends Controller {
         $data = $this->request->getParams();
         $date = $data['date'] ?? null;
         
-        if (!$date) {
-            return new DataResponse(['error' => 'Date is required.'], 400);
-        }
+        if (!$date) return new DataResponse(['error' => 'Date is required.'], 400);
         
         if (empty($data['time_in']) && !isset($data['req_per_diem'])) {
             return new DataResponse(['error' => 'Start Time required unless Per Diem only.'], 400);
         }
 
-        // Determine if any travel options are selected
         $hasRoadScanning = (isset($data['road_scanning']) && $data['road_scanning'] == 1);
         $hasFirstLast = (isset($data['first_last_day']) && $data['first_last_day'] == 1);
         $hasOvernight = (isset($data['overnight']) && $data['overnight'] == 1);
@@ -138,17 +132,11 @@ class TimesheetController extends Controller {
             'time_break' => (int)($data['break_min'] ?? 0),
             'time_total' => (float)($data['total_hours'] ?? 0),
             'additional_comments' => $data['comments'] ?? '',
-            
-            // FIX: Main Travel flag now checks ALL travel sub-options
             'travel' => ($hasPerDiem || $hasMiles || $hasRoadScanning || $hasFirstLast || $hasOvernight) ? 1 : 0,
-            
             'travel_per_diem' => $hasPerDiem ? 1 : 0,
-            
-            // FIX: Map new fields to database columns
             'travel_road_scanning' => $hasRoadScanning ? 1 : 0,
             'travel_first_last_day' => $hasFirstLast ? 1 : 0,
             'travel_overnight' => $hasOvernight ? 1 : 0,
-
             'travel_state' => $data['state'] ?? null,
             'travel_county' => $data['county'] ?? null,
             'travel_miles' => (int)($data['miles'] ?? 0),
@@ -173,15 +161,11 @@ class TimesheetController extends Controller {
                     $qb->setValue($col, $qb->createNamedParameter($val));
                 }
                 $qb->executeStatement();
-                
                 $tid = (int)$this->db->lastInsertId('*PREFIX*stech_timesheets');
             }
 
             if ($tid > 0) {
-                // Clear old activities
                 $this->db->prepare("DELETE FROM `*PREFIX*stech_activity` WHERE `timesheet_id` = ?")->execute([$tid]);
-                
-                // Insert new ones
                 if (isset($data['work_desc']) && is_array($data['work_desc'])) {
                     $stmt = $this->db->prepare("INSERT INTO `*PREFIX*stech_activity` (`timesheet_id`, `activity_description`, `activity_percent`) VALUES (?, ?, ?)");
                     foreach ($data['work_desc'] as $idx => $desc) { 
@@ -201,7 +185,8 @@ class TimesheetController extends Controller {
         }
     }
 
-    /** * @NoAdminRequired 
+    /**
+     * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function deleteTimesheet(int $id): DataResponse {
@@ -211,7 +196,8 @@ class TimesheetController extends Controller {
         return new DataResponse(['status' => 'success']);
     }
 
-    /** * @NoAdminRequired 
+    /**
+     * @NoAdminRequired
      * @NoCSRFRequired
      */
     public function restoreTimesheet(int $id): DataResponse {
