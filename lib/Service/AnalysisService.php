@@ -33,6 +33,7 @@ class AnalysisService {
         if ($this->groupManager->isAdmin($user->getUID())) return true;
 
         // 2. Fetch allowed groups from Database (using the new Mapper method)
+        // FIX: Replaced old settings lookup with direct DB table lookup
         $allowedGroups = $this->timesheetMapper->getAccessRule($ruleKey);
         
         // 3. If no rule exists or list is empty, default to FALSE

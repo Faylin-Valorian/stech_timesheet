@@ -25,6 +25,12 @@ Util::addStyle('stech_timesheet', 'style');
                     <button id="view-month" class="primary-button active">Month</button>
                     <button id="view-week" class="primary-button">Week</button>
                     <button id="view-today" class="secondary-button">Today</button>
+                    
+                    <?php if(!empty($_['can_toggle_archive'])): ?>
+                    <button id="toggle-archive-view" class="secondary-button" title="Toggle Archived/Active Records" style="margin-left: 10px; display: inline-flex; align-items: center; justify-content: center; padding: 0 12px;">
+                        <span class="icon-filter"></span>
+                    </button>
+                    <?php endif; ?>
                 </div>
             </li>
             <div class="app-navigation-separator"></div>
@@ -35,7 +41,7 @@ Util::addStyle('stech_timesheet', 'style');
                 </a>
             </li>
 
-            <?php if($_['can_view_analysis']): ?>
+            <?php if(!empty($_['can_view_analysis'])): ?>
             <li class="nav-item">
                 <a class="nav-link" href="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.page.analysis')); ?>">
                     <span class="icon-category-monitoring"></span><span>Time Analysis</span>
@@ -43,7 +49,7 @@ Util::addStyle('stech_timesheet', 'style');
             </li>
             <?php endif; ?>
 
-            <?php if($_['can_view_admin']): ?>
+            <?php if(!empty($_['can_view_admin'])): ?>
             <li class="nav-item">
                 <a class="nav-link" href="<?php p(\OC::$server->getURLGenerator()->linkToRoute('stech_timesheet.admin.index')); ?>">
                     <span class="icon-settings-dark"></span><span>Admin Panel</span>

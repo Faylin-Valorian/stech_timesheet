@@ -34,9 +34,11 @@ class PageController extends Controller {
         $uid = $user ? $user->getUID() : '';
         $isAdmin = $user && $this->groupManager->isAdmin($uid);
 
-        // FIX: Match the standardized keys established in the Master Key List
+        // Permissions for Main Page Elements
         $canViewAnalysis = $this->analysisService->checkAccess('analysis_tab');
         $canViewAdmin = $isAdmin || $this->analysisService->checkAccess('admin_global_access');
+        
+        // This is the specific variable that controls the "Show Archived" button
         $canToggleArchive = $this->analysisService->checkAccess('view_archive_toggle');
 
         $response = new TemplateResponse('stech_timesheet', 'main');
@@ -45,7 +47,7 @@ class PageController extends Controller {
             'is_admin' => $isAdmin,
             'can_view_analysis' => $canViewAnalysis,
             'can_view_admin' => $canViewAdmin,
-            'can_toggle_archive' => $canToggleArchive,
+            'can_toggle_archive' => $canToggleArchive, 
             'target_user' => $this->request->getParam('target_user', '')
         ]);
         
@@ -61,13 +63,11 @@ class PageController extends Controller {
             return new TemplateResponse('stech_timesheet', 'error', ['msg' => 'Access Denied'], 403);
         }
 
-        // FIX: Match standardized keys
         $perms = [
             'can_view_others' => (bool)$this->analysisService->checkAccess('analysis_view_others'),
             'can_view_travel_analytics' => (bool)$this->analysisService->checkAccess('analysis_travel'),
             'can_view_financial_analytics' => (bool)$this->analysisService->checkAccess('analysis_financial'),
             'can_view_location_analytics' => (bool)$this->analysisService->checkAccess('analysis_location'),
-            // Financial access implies Job Breakdown access, otherwise check specific rule
             'can_view_job_breakdown' => (bool)($this->analysisService->checkAccess('analysis_financial') || $this->analysisService->checkAccess('analysis_job_breakdown'))
         ];
 
@@ -85,12 +85,10 @@ class PageController extends Controller {
         $user = $this->userSession->getUser();
         $isAdmin = $user && $this->groupManager->isAdmin($user->getUID());
         
-        // FIX: Match standardized key 'admin_global_access'
         if (!$isAdmin && !$this->analysisService->checkAccess('admin_global_access')) {
              return new TemplateResponse('stech_timesheet', 'error', ['msg' => 'Access Denied'], 403);
         }
 
-        // Pass granular admin permissions to the template for sidebar hiding
         $perms = [
             'can_access_users' => $this->analysisService->checkAccess('admin_users'),
             'can_access_payroll' => $this->analysisService->checkAccess('admin_payroll'),

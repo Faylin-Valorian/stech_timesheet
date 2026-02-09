@@ -14,8 +14,6 @@ export const TimesheetCalendar = {
      * Initialize the calendar
      */
     init(el) {
-        this.injectArchiveToggle();
-
         this.instance = new FullCalendar(el, {
             plugins: [dayGridPlugin, interactionPlugin],
             initialView: 'dayGridMonth',
@@ -163,7 +161,18 @@ export const TimesheetCalendar = {
                     .catch(err => console.error('Failed to load record details:', err));
             },
 
+            // FIX: Reset form logic added here
             dateClick: (info) => {
+                // RESET FORM: Clear any previous data (like time from an old entry)
+                const formEl = document.getElementById('timesheet-form');
+                if (formEl) {
+                    formEl.reset(); // Standard reset (reverts selects to default --)
+                    
+                    // Extra safety: Clear hidden time inputs that dropdowns populate
+                    const hiddenTimeInputs = formEl.querySelectorAll('.combined-time-input');
+                    hiddenTimeInputs.forEach(input => input.value = '');
+                }
+
                 if (window.StechTimesheet.Form) {
                     window.StechTimesheet.Form.open(info.dateStr, null);
                 }
@@ -181,6 +190,9 @@ export const TimesheetCalendar = {
 
         this.instance.render();
         this.setupSidebarNavigation();
+        
+        // FIX: Hook up the PHP-rendered filter button (if it exists)
+        this.setupArchiveFilter();
     },
 
     hexToRgba(hex, opacity) {
@@ -222,52 +234,51 @@ export const TimesheetCalendar = {
         });
     },
 
+    // FIX: Secure Filter Logic (Updated for Text Button)
+    setupArchiveFilter() {
+        const btn = document.getElementById('toggle-archive-view');
+        if (btn) {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                
+                // Toggle State
+                this.archiveMode = (this.archiveMode === 0) ? 1 : 0;
+                
+                // Visual Update: Dynamic Text/Icon Swapping
+                const textSpan = btn.querySelector('span:not([class*="icon"])');
+                const iconSpan = btn.querySelector('span[class*="icon"]');
+                
+                if (this.archiveMode === 1) {
+                    btn.classList.add('active'); 
+                    btn.classList.remove('secondary-button');
+                    btn.classList.add('primary-button'); // Highlight active state
+                    
+                    if(textSpan) textSpan.innerText = "Back to Active";
+                    if(iconSpan) {
+                        iconSpan.classList.remove('icon-filter');
+                        iconSpan.classList.add('icon-history'); 
+                    }
+                } else {
+                    btn.classList.remove('active');
+                    btn.classList.remove('primary-button');
+                    btn.classList.add('secondary-button'); // Revert to secondary
+                    
+                    if(textSpan) textSpan.innerText = "Show Archived";
+                    if(iconSpan) {
+                        iconSpan.classList.remove('icon-history');
+                        iconSpan.classList.add('icon-filter');
+                    }
+                }
+                
+                // Refresh Calendar Data
+                this.refresh();
+            });
+        }
+    },
+
     toggleActiveButton(activeBtn) {
         document.querySelectorAll('.view-buttons button').forEach(btn => btn.classList.remove('active'));
         activeBtn.classList.add('active');
-    },
-
-    injectArchiveToggle() {
-        const container = document.getElementById('app-navigation');
-        if (!container || document.getElementById('btn-toggle-archive')) return;
-
-        const filterSection = document.createElement('ul');
-        filterSection.className = 'nav-section-views';
-        filterSection.style.marginTop = '20px';
-        filterSection.innerHTML = `
-            <li class="nav-section-header" style="opacity:0.6; font-size:12px; font-weight:bold; margin-bottom:5px;">FILTER</li>
-            <li class="nav-item">
-                <button id="btn-toggle-archive" class="secondary-button" style="width:100%; text-align:center;">
-                    Show Archived
-                </button>
-            </li>
-        `;
-        container.appendChild(filterSection);
-
-        const btn = document.getElementById('btn-toggle-archive');
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.toggleArchiveMode(btn);
-        });
-    },
-
-    toggleArchiveMode(btn) {
-        if (this.archiveMode === 0) {
-            this.archiveMode = 1;
-            btn.textContent = "Back to Active";
-            btn.classList.remove('secondary-button');
-            btn.classList.add('primary-button');
-            btn.style.backgroundColor = '#777777'; 
-            btn.style.color = '#fff';
-        } else {
-            this.archiveMode = 0;
-            btn.textContent = "Show Archived";
-            btn.classList.remove('primary-button');
-            btn.classList.add('secondary-button');
-            btn.style.backgroundColor = 'transparent';
-            btn.style.color = 'var(--color-main-text)';
-        }
-        this.refresh();
     },
 
     refresh() {
