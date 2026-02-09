@@ -40,19 +40,15 @@ const Form = {
         // -----------------------------------------------------------
 
         document.querySelectorAll('.close-modal, .secondary-button').forEach(btn => {
+            // Avoid attaching to dynamic confirm buttons which don't exist yet
+            if (btn.id.startsWith('btn-confirm')) return; 
+            
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 this.close();
             });
         });
         
-        const errorOverlay = document.getElementById('stech-centered-error');
-        if(errorOverlay) {
-            errorOverlay.addEventListener('click', () => {
-                errorOverlay.style.display = 'none';
-            });
-        }
-
         // Auto-Calculate Total Hours on Input Change
         ['time-in', 'time-out', 'break-min'].forEach(id => {
             const el = document.getElementById(id);
@@ -202,18 +198,43 @@ const Form = {
         }
     },
     
+    // FIX: Secure overlay creation (Removed inline onclick)
     showCenteredError(msg) {
         let overlay = document.getElementById('stech-centered-error');
+        
         if (!overlay) {
             overlay = document.createElement('div');
             overlay.id = 'stech-centered-error';
+            // Create content structure
+            const content = document.createElement('div');
+            content.className = 'stech-error-content';
+            
+            const title = document.createElement('h3');
+            title.textContent = 'Access Denied';
+            
+            const message = document.createElement('p');
+            message.id = 'stech-error-msg-text'; // Give ID to update text later
+            
+            const btn = document.createElement('button');
+            btn.className = 'primary-button';
+            btn.textContent = 'Close';
+            
+            // Secure event listener
+            btn.addEventListener('click', () => {
+                overlay.style.display = 'none';
+            });
+
+            content.appendChild(title);
+            content.appendChild(message);
+            content.appendChild(btn);
+            overlay.appendChild(content);
             document.body.appendChild(overlay);
         }
-        overlay.innerHTML = `<div class="stech-error-content">
-            <h3>Access Denied</h3>
-            <p>${msg}</p>
-            <button onclick="document.getElementById('stech-centered-error').style.display='none'" class="primary-button">Close</button>
-        </div>`;
+
+        // Update message text
+        const p = overlay.querySelector('#stech-error-msg-text') || overlay.querySelector('p');
+        if(p) p.textContent = msg;
+        
         overlay.style.display = 'flex';
     },
 
