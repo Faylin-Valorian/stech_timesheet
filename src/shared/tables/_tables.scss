@@ -1,0 +1,63 @@
+/* src/shared/admin/_tables.scss */
+
+.admin-table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+
+    thead {
+        background-color: var(--color-background-hover);
+        
+        th {
+            text-align: left;
+            padding: 12px 15px;
+            font-weight: 600;
+            color: var(--color-text-maxcontrast);
+            border-bottom: 2px solid var(--color-border);
+            white-space: nowrap;
+        }
+    }
+
+    tbody {
+        tr {
+            border-bottom: 1px solid var(--color-border);
+            transition: background-color 0.1s;
+
+            &:last-child {
+                border-bottom: none;
+            }
+
+            &:hover {
+                background-color: var(--color-background-hover);
+            }
+
+            td {
+                padding: 10px 15px;
+                vertical-align: middle;
+            }
+        }
+    }
+}
+
+/* Action Buttons inside tables */
+button[class^="icon-"], 
+button[class*=" icon-"] {
+    background-color: transparent;
+    border: none;
+    opacity: 0.6;
+    cursor: pointer;
+    padding: 5px;
+    margin-left: 5px;
+    border-radius: 3px;
+
+    &:hover {
+        opacity: 1;
+        background-color: var(--color-background-dark);
+    }
+}

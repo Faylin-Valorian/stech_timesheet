@@ -1,0 +1,29 @@
+/* Feature: Job Breakdown Tab */
+
+#tab-breakdown {
+    .split-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        align-items: start;
+
+        .chart-wrapper, .table-wrapper {
+            background: var(--color-main-background);
+            border: 1px solid var(--color-border);
+            border-radius: var(--border-radius-large);
+            padding: 20px;
+        }
+
+        .chart-wrapper {
+            height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .table-wrapper {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    }
+}

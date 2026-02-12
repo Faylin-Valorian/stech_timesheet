@@ -3,8 +3,7 @@
 use OCP\Util;
 
 // Load Dependencies
-Util::addScript('stech_timesheet', 'script');
-Util::addStyle('stech_timesheet', 'style');
+Util::addScript('stech_timesheet', 'timesheet-main');
 ?>
 
 <div id="app">
@@ -97,61 +96,61 @@ Util::addStyle('stech_timesheet', 'style');
                                 
                                 <div class="input-group">
                                     <label>Time In</label>
-                                    <div class="time-split-widget">
-                                        <input type="hidden" name="time_in" id="time-in" class="combined-time-input">
+                                    <div class="time-input-container">
+                                        <input type="time" id="time-in" name="time_in" class="form-control standard-time-input">
                                         
-                                        <select class="time-part hour-select">
-                                            <option value="" disabled selected>--</option>
-                                            <?php for($h=1; $h<=12; $h++) { 
-                                                $val = str_pad($h, 2, '0', STR_PAD_LEFT);
-                                                echo "<option value='$val'>$val</option>"; 
-                                            } ?>
-                                        </select>
-                                        
-                                        <span class="time-separator">:</span>
-                                        
-                                        <select class="time-part minute-select">
-                                            <option value="" disabled selected>--</option>
-                                            <?php for($m=0; $m<60; $m++) { 
-                                                $val = str_pad($m, 2, '0', STR_PAD_LEFT);
-                                                echo "<option value='$val'>$val</option>"; 
-                                            } ?>
-                                        </select>
-
-                                        <select class="time-part ampm-select">
-                                            <option value="AM">AM</option>
-                                            <option value="PM">PM</option>
-                                        </select>
+                                        <div class="time-split-widget hidden">
+                                            <select class="time-part hour-select">
+                                                <option value="" disabled selected>Hr</option>
+                                                <?php for($h=1; $h<=12; $h++) { 
+                                                    $val = str_pad($h, 2, '0', STR_PAD_LEFT);
+                                                    echo "<option value='$val'>$val</option>"; 
+                                                } ?>
+                                            </select>
+                                            <span class="time-separator">:</span>
+                                            <select class="time-part minute-select">
+                                                <option value="" disabled selected>Min</option>
+                                                <?php for($m=0; $m<60; $m++) { 
+                                                    $val = str_pad($m, 2, '0', STR_PAD_LEFT);
+                                                    echo "<option value='$val'>$val</option>"; 
+                                                } ?>
+                                            </select>
+                                            <select class="time-part ampm-select">
+                                                <option value="AM">AM</option>
+                                                <option value="PM">PM</option>
+                                            </select>
+                                        </div>
+                                        <span class="icon-timezone toggle-time-mode" title="Toggle Input Style"></span>
                                     </div>
                                 </div>
 
                                 <div class="input-group">
                                     <label>Time Out</label>
-                                    <div class="time-split-widget">
-                                        <input type="hidden" name="time_out" id="time-out" class="combined-time-input">
+                                    <div class="time-input-container">
+                                        <input type="time" id="time-out" name="time_out" class="form-control standard-time-input">
                                         
-                                        <select class="time-part hour-select">
-                                            <option value="" disabled selected>--</option>
-                                            <?php for($h=1; $h<=12; $h++) { 
-                                                $val = str_pad($h, 2, '0', STR_PAD_LEFT);
-                                                echo "<option value='$val'>$val</option>"; 
-                                            } ?>
-                                        </select>
-                                        
-                                        <span class="time-separator">:</span>
-                                        
-                                        <select class="time-part minute-select">
-                                            <option value="" disabled selected>--</option>
-                                            <?php for($m=0; $m<60; $m++) { 
-                                                $val = str_pad($m, 2, '0', STR_PAD_LEFT);
-                                                echo "<option value='$val'>$val</option>"; 
-                                            } ?>
-                                        </select>
-
-                                        <select class="time-part ampm-select">
-                                            <option value="AM">AM</option>
-                                            <option value="PM">PM</option>
-                                        </select>
+                                        <div class="time-split-widget hidden">
+                                            <select class="time-part hour-select">
+                                                <option value="" disabled selected>Hr</option>
+                                                <?php for($h=1; $h<=12; $h++) { 
+                                                    $val = str_pad($h, 2, '0', STR_PAD_LEFT);
+                                                    echo "<option value='$val'>$val</option>"; 
+                                                } ?>
+                                            </select>
+                                            <span class="time-separator">:</span>
+                                            <select class="time-part minute-select">
+                                                <option value="" disabled selected>Min</option>
+                                                <?php for($m=0; $m<60; $m++) { 
+                                                    $val = str_pad($m, 2, '0', STR_PAD_LEFT);
+                                                    echo "<option value='$val'>$val</option>"; 
+                                                } ?>
+                                            </select>
+                                            <select class="time-part ampm-select">
+                                                <option value="AM">AM</option>
+                                                <option value="PM">PM</option>
+                                            </select>
+                                        </div>
+                                        <span class="icon-timezone toggle-time-mode" title="Toggle Input Style"></span>
                                     </div>
                                 </div>
 

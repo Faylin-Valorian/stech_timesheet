@@ -1,0 +1,38 @@
+/* Feature: Job Profitability Tab */
+
+#tab-profitability {
+    .profit-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        background: var(--color-background-hover);
+        padding: 15px 20px;
+        border-radius: var(--border-radius);
+        border: 1px solid var(--color-border);
+
+        h3 { margin: 0; }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+    }
+
+    .gauge-wrapper {
+        position: relative;
+        height: 400px; 
+        display: flex; 
+        justify-content: center;
+        margin-top: 20px;
+
+        #profit-display-text {
+            position: absolute;
+            bottom: 40px; 
+            width: 100%;
+            text-align: center;
+            pointer-events: none; /* Let clicks pass through to chart */
+        }
+    }
+}

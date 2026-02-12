@@ -1,0 +1,10 @@
+/* 1. Global Config */
+@import 'shared/variables';
+@import 'shared/mixins';
+
+/* 2. Shared Styles */
+@import 'shared/forms/forms';
+
+/* 3. Feature Modules */
+@import 'features/timesheet/calendar/calendar';
+@import 'features/timesheet/entry/entry';

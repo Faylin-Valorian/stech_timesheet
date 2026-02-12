@@ -1,0 +1,44 @@
+/* Feature: Overview Tab */
+
+#tab-overview {
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+        margin-bottom: 30px;
+
+        .stat-card {
+            background: var(--color-main-background);
+            border: 1px solid var(--color-border);
+            border-radius: var(--border-radius-large);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+
+            .val {
+                display: block;
+                font-size: 2.5rem;
+                font-weight: bold;
+                color: var(--color-primary);
+                margin-bottom: 5px;
+            }
+
+            .lbl {
+                display: block;
+                font-size: 0.9rem;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                color: var(--color-text-maxcontrast);
+                opacity: 0.7;
+            }
+        }
+    }
+
+    .chart-container.large {
+        background: var(--color-main-background);
+        border: 1px solid var(--color-border);
+        border-radius: var(--border-radius-large);
+        padding: 20px;
+        position: relative;
+    }
+}

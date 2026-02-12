@@ -113,12 +113,22 @@ class Version20260204200000 implements IMigrationStep {
         // 4. Seed Default RBAC Access Rules
         $this->db->prepare("
             INSERT INTO `*PREFIX*stech_access_rules` (rule_key, allowed_groups) VALUES
-            ('admin_panel', '[\"admin\"]'),
-            ('analysis_tab', '[\"admin\", \"managers\"]'),
-            ('analysis_view_others', '[\"admin\", \"managers\"]'),
-            ('analysis_travel', '[\"admin\", \"managers\"]'),
+            ('admin_global_access', '[\"admin\"]'),
+            ('analysis_tab', '[\"admin\"]'),
+            ('view_archive_toggle', '[\"admin\"]'),
+            
+            ('admin_users', '[\"admin\"]'),
+            ('admin_access', '[\"admin\"]'),
+            ('admin_payroll', '[\"admin\"]'),
+            ('admin_holidays', '[\"admin\"]'),
+            ('admin_jobs', '[\"admin\"]'),
+            ('admin_locations', '[\"admin\"]'),
+
+            ('analysis_view_others', '[\"admin\"]'),
+            ('analysis_travel', '[\"admin\"]'),
             ('analysis_financial', '[\"admin\"]'),
-            ('analysis_location', '[\"admin\", \"managers\"]')
+            ('analysis_location', '[\"admin\"]'),
+            ('analysis_job_breakdown', '[\"admin\"]')
         ")->execute();
     }
 }

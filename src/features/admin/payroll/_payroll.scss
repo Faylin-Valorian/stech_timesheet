@@ -1,0 +1,27 @@
+/* Payroll Feature Styles */
+
+#admin-payroll-settings {
+    .toggle-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* Specific overrides for payroll frequency dropdown */
+    #pay-frequency {
+        max-width: 300px;
+    }
+
+    .color-picker-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        
+        .color-swatch {
+            height: 40px;
+            width: 60px;
+            padding: 0;
+            border: 1px solid var(--color-border);
+        }
+    }
+}

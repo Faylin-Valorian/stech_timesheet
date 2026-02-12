@@ -1,0 +1,16 @@
+/* 1. Global Config */
+@import 'shared/variables';
+@import 'shared/mixins';
+
+/* 2. Shared Styles (Moved from shared/admin/ to shared/) */
+/* Assumes structure: src/shared/layout/_layout.scss */
+@import 'shared/layout/layout'; 
+@import 'shared/tables/tables';
+@import 'shared/forms/forms';
+
+/* 3. Feature Modules */
+@import 'features/admin/payroll/payroll';
+@import 'features/admin/holidays/holidays';
+@import 'features/admin/locations/locations';
+@import 'features/admin/jobs/jobs';
+@import 'features/admin/users/users';

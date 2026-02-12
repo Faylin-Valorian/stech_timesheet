@@ -1,59 +1,26 @@
 <?php
 return [
     'routes' => [
-        // Page Routes
+        // Ensure this line exists exactly like this:
         ['name' => 'page#index', 'url' => '/', 'verb' => 'GET'],
-        ['name' => 'page#admin_page', 'url' => '/admin', 'verb' => 'GET'],
-        ['name' => 'page#analysis_page', 'url' => '/analysis', 'verb' => 'GET'],
-
-        // API: Attributes
-        ['name' => 'timesheet#getAttributes', 'url' => '/api/attributes', 'verb' => 'GET'],
-        ['name' => 'timesheet#getCounties', 'url' => '/api/counties/{stateAbbr}', 'verb' => 'GET'],
-
-        // API: Timesheets
-        ['name' => 'timesheet#getTimesheets', 'url' => '/api/timesheets', 'verb' => 'GET'],
-        ['name' => 'timesheet#saveTimesheet', 'url' => '/api/timesheets', 'verb' => 'POST'],
-        ['name' => 'timesheet#getTimesheet', 'url' => '/api/timesheets/{id}', 'verb' => 'GET'],
-        ['name' => 'timesheet#deleteTimesheet', 'url' => '/api/timesheets/{id}', 'verb' => 'DELETE'],
         
-        // NEW: Calendar Holidays Route (Fixes the 404 Error)
-        ['name' => 'timesheet#getCalendarHolidays', 'url' => '/api/calendar/holidays', 'verb' => 'GET'],
+        ['name' => 'page#analysis', 'url' => '/analysis', 'verb' => 'GET'],
+        ['name' => 'page#admin',    'url' => '/admin',    'verb' => 'GET'],
         
-        // NEW: Route for restoring archived records
-        ['name' => 'timesheet#restoreTimesheet', 'url' => '/api/timesheets/{id}/restore', 'verb' => 'POST'],
-
-        // API: Analysis
-        ['name' => 'analysis#getFilters', 'url' => '/api/analysis/filters', 'verb' => 'GET'],
-        ['name' => 'analysis#getStats', 'url' => '/api/analysis/stats', 'verb' => 'GET'],
-
-        // API: Admin - Users & Groups
-        ['name' => 'admin#getUsers', 'url' => '/api/admin/users', 'verb' => 'GET'],
-        ['name' => 'admin#toggleUser', 'url' => '/api/admin/users/toggle', 'verb' => 'POST'],
-        ['name' => 'admin#getGroups', 'url' => '/api/admin/groups', 'verb' => 'GET'],
-        ['name' => 'admin#getAccess', 'url' => '/api/admin/access', 'verb' => 'GET'],
-        ['name' => 'admin#saveAccess', 'url' => '/api/admin/access', 'verb' => 'POST'],
-
-        // API: Admin - Settings
-        ['name' => 'admin#getSettings', 'url' => '/api/admin/settings', 'verb' => 'GET'],
-        ['name' => 'admin#saveSetting', 'url' => '/api/admin/settings', 'verb' => 'POST'],
-        
-        // NEW: Route for Payroll Background Upload
-        ['name' => 'admin#uploadPayrollBg', 'url' => '/api/admin/payroll/bg', 'verb' => 'POST'],
-
-        // API: Admin - Holidays
-        ['name' => 'admin#getHolidays', 'url' => '/api/admin/holidays', 'verb' => 'GET'],
-        ['name' => 'admin#saveHoliday', 'url' => '/api/admin/holidays', 'verb' => 'POST'],
-        ['name' => 'admin#toggleHoliday', 'url' => '/api/admin/holidays/{id}/toggle', 'verb' => 'POST'],
-
-        // API: Admin - Jobs
-        ['name' => 'admin#getJobs', 'url' => '/api/admin/jobs', 'verb' => 'GET'],
-        ['name' => 'admin#saveJob', 'url' => '/api/admin/jobs', 'verb' => 'POST'],
-        ['name' => 'admin#toggleJob', 'url' => '/api/admin/jobs/{id}/toggle', 'verb' => 'POST'],
-
-        // API: Admin - States & Counties
-        ['name' => 'admin#getStates', 'url' => '/api/admin/states', 'verb' => 'GET'],
-        ['name' => 'admin#toggleState', 'url' => '/api/admin/states/{id}/toggle', 'verb' => 'POST'],
-        ['name' => 'admin#getCounties', 'url' => '/api/admin/counties/{abbr}', 'verb' => 'GET'],
-        ['name' => 'admin#toggleCounty', 'url' => '/api/admin/counties/{id}/toggle', 'verb' => 'POST'],
+        // ... (rest of your API routes)
+        ['name' => 'calendar#get_events',   'url' => '/api/calendar/events',   'verb' => 'GET'],
+        ['name' => 'calendar#get_holidays', 'url' => '/api/calendar/holidays', 'verb' => 'GET'],
+        ['name' => 'entry#get_attributes', 'url' => '/api/entry/attributes',       'verb' => 'GET'],
+        ['name' => 'entry#get_counties',   'url' => '/api/entry/counties/{stateAbbr}', 'verb' => 'GET'],
+        ['name' => 'entry#get_entry',      'url' => '/api/entry/{id}',             'verb' => 'GET'],
+        ['name' => 'entry#save_entry',     'url' => '/api/entry/save',             'verb' => 'POST'],
+        ['name' => 'entry#delete_entry',   'url' => '/api/entry/{id}/delete',      'verb' => 'POST'],
+        ['name' => 'entry#restore_entry',  'url' => '/api/entry/{id}/restore',     'verb' => 'POST'],
+        ['name' => 'dashboard#get_data', 'url' => '/api/analysis/data', 'verb' => 'GET'],
+        ['name' => 'payroll#get_periods', 'url' => '/api/admin/payroll',      'verb' => 'GET'],
+        ['name' => 'holiday#get_all',     'url' => '/api/admin/holidays',     'verb' => 'GET'],
+        ['name' => 'location#get_all',    'url' => '/api/admin/locations',    'verb' => 'GET'],
+        ['name' => 'admin_job#get_all',   'url' => '/api/admin/jobs',         'verb' => 'GET'],
+        ['name' => 'user#get_all',        'url' => '/api/admin/users',        'verb' => 'GET'],
     ]
 ];

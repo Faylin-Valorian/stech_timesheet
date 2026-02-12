@@ -8,99 +8,72 @@ use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\IUserSession;
 use OCP\IGroupManager;
-use OCA\StechTimesheet\Service\AnalysisService;
+// IMPORTANT: Import the attributes
+use OCP\AppFramework\Http\Attribute\NoAdminRequired;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
+
+use OCA\StechTimesheet\Features\Analysis\Dashboard\Service\DashboardService;
 
 class PageController extends Controller {
     private $userSession;
     private $groupManager;
-    private $analysisService;
+    private $dashboardService;
 
     public function __construct(IRequest $request, 
                                 IUserSession $userSession, 
                                 IGroupManager $groupManager,
-                                AnalysisService $analysisService) {
+                                DashboardService $dashboardService) {
+        // Ensure this matches your app folder name exactly ('stech_timesheet')
         parent::__construct('stech_timesheet', $request);
         $this->userSession = $userSession;
         $this->groupManager = $groupManager;
-        $this->analysisService = $analysisService;
+        $this->dashboardService = $dashboardService;
     }
 
     /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
+     * Main Timesheet View
      */
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
     public function index(): TemplateResponse {
         $user = $this->userSession->getUser();
         $uid = $user ? $user->getUID() : '';
-        $isAdmin = $user && $this->groupManager->isAdmin($uid);
+        $isAdmin = $this->groupManager->isAdmin($uid);
 
-        // Permissions for Main Page Elements
-        $canViewAnalysis = $this->analysisService->checkAccess('analysis_tab');
-        $canViewAdmin = $isAdmin || $this->analysisService->checkAccess('admin_global_access');
+        // Security: Check if they can see the Analysis tab
+        $canViewAnalysis = $this->dashboardService->checkAccess('analysis_tab');
         
-        // This is the specific variable that controls the "Show Archived" button
-        $canToggleArchive = $this->analysisService->checkAccess('view_archive_toggle');
-
-        $response = new TemplateResponse('stech_timesheet', 'main');
-        $response->setParams([
+        return new TemplateResponse('stech_timesheet', 'main', [
             'user_id' => $uid,
             'is_admin' => $isAdmin,
+            'can_view_admin' => $isAdmin,
             'can_view_analysis' => $canViewAnalysis,
-            'can_view_admin' => $canViewAdmin,
-            'can_toggle_archive' => $canToggleArchive, 
-            'target_user' => $this->request->getParam('target_user', '')
+            'target_user' => $this->request->getParam('target_user')
         ]);
-        
-        return $response;
     }
 
     /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
+     * Analysis Dashboard View
      */
-    public function analysisPage(): TemplateResponse {
-        if (!$this->analysisService->checkAccess('analysis_tab')) {
-            return new TemplateResponse('stech_timesheet', 'error', ['msg' => 'Access Denied'], 403);
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function analysis(): TemplateResponse {
+        if (!$this->dashboardService->checkAccess('analysis_tab')) {
+            return new TemplateResponse('stech_timesheet', 'error', ['msg' => 'Access Denied'], '403');
         }
-
-        $perms = [
-            'can_view_others' => (bool)$this->analysisService->checkAccess('analysis_view_others'),
-            'can_view_travel_analytics' => (bool)$this->analysisService->checkAccess('analysis_travel'),
-            'can_view_financial_analytics' => (bool)$this->analysisService->checkAccess('analysis_financial'),
-            'can_view_location_analytics' => (bool)$this->analysisService->checkAccess('analysis_location'),
-            'can_view_job_breakdown' => (bool)($this->analysisService->checkAccess('analysis_financial') || $this->analysisService->checkAccess('analysis_job_breakdown'))
-        ];
-
-        $response = new TemplateResponse('stech_timesheet', 'analysis');
-        $response->setParams($perms);
-        
-        return $response;
+        return new TemplateResponse('stech_timesheet', 'analysis');
     }
 
     /**
-     * @NoAdminRequired
-     * @NoCSRFRequired
+     * Admin Settings View
      */
-    public function adminPage(): TemplateResponse {
+    #[NoAdminRequired]
+    #[NoCSRFRequired]
+    public function admin(): TemplateResponse {
         $user = $this->userSession->getUser();
-        $isAdmin = $user && $this->groupManager->isAdmin($user->getUID());
-        
-        if (!$isAdmin && !$this->analysisService->checkAccess('admin_global_access')) {
-             return new TemplateResponse('stech_timesheet', 'error', ['msg' => 'Access Denied'], 403);
+        if (!$user || !$this->groupManager->isAdmin($user->getUID())) {
+             return new TemplateResponse('stech_timesheet', 'error', ['msg' => 'Admin Access Only'], '403');
         }
-
-        $perms = [
-            'can_access_users' => $this->analysisService->checkAccess('admin_users'),
-            'can_access_payroll' => $this->analysisService->checkAccess('admin_payroll'),
-            'can_access_holidays' => $this->analysisService->checkAccess('admin_holidays'),
-            'can_access_jobs' => $this->analysisService->checkAccess('admin_jobs'),
-            'can_access_locations' => $this->analysisService->checkAccess('admin_locations'),
-            'can_access_access' => $this->analysisService->checkAccess('admin_access'),
-        ];
-
-        $response = new TemplateResponse('stech_timesheet', 'admin');
-        $response->setParams($perms);
-
-        return $response;
+        return new TemplateResponse('stech_timesheet', 'admin');
     }
 }

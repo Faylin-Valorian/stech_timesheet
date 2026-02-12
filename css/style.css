@@ -570,14 +570,36 @@ input:checked + .slider:before { transform: translateX(14px); }
 
 
 /* =========================================
-   9. TIME SELECTOR WIDGET (UPDATED)
+   9. TIME SELECTOR TOGGLE MODE RULES
    ========================================= */
 
-/* =========================================
-   9. TIME SELECTOR WIDGET (NUCLEAR FIX)
-   ========================================= */
+.time-input-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
 
-/* Main Container - Forces Theme Background */
+.standard-time-input {
+    width: 100%;
+    padding-right: 35px !important; /* Make room for toggle icon */
+}
+
+.toggle-time-mode {
+    position: absolute;
+    right: 8px;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: opacity 0.2s, color 0.2s;
+    z-index: 10;
+    font-size: 18px;
+}
+
+.toggle-time-mode:hover {
+    opacity: 1;
+    color: var(--color-primary);
+}
+
 .time-split-widget {
     display: flex;
     align-items: center;
@@ -590,6 +612,12 @@ input:checked + .slider:before { transform: translateX(14px); }
     width: 100%;
     box-sizing: border-box;
     overflow: hidden; 
+    padding-right: 30px; /* Space for toggle icon inside widget mode */
+}
+
+.time-split-widget.hidden, 
+.standard-time-input.hidden {
+    display: none !important;
 }
 
 /* Focus State - Theme Highlight */
@@ -606,7 +634,7 @@ input:checked + .slider:before { transform: translateX(14px); }
     background: transparent !important;
     flex-grow: 1;
     height: 100%;
-    font-size: 1rem;
+    font-size: 0.95rem;
     cursor: pointer;
     text-align: center;
     -webkit-appearance: none;
@@ -648,7 +676,6 @@ input:checked + .slider:before { transform: translateX(14px); }
 }
 
 /* CRITICAL FIX: Force the Dropdown List (Options) to match the theme */
-/* This prevents the list itself from being white text on white background in some browsers */
 .time-split-widget select option {
     background-color: var(--color-main-background) !important;
     color: var(--color-main-text) !important;

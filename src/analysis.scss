@@ -1,0 +1,15 @@
+/* 1. Global Config */
+@import 'shared/variables';
+@import 'shared/mixins';
+
+/* 2. Shared Styles */
+/* Note: We do NOT import layout here if Analysis has its own specific layout */
+@import 'shared/tables/tables';
+@import 'shared/forms/forms';
+
+/* 3. Feature Modules */
+@import 'features/analysis/dashboard/dashboard';
+@import 'features/analysis/overview/overview';
+@import 'features/analysis/travel/travel';
+@import 'features/analysis/jobbreakdown/jobbreakdown';
+@import 'features/analysis/jobprofitability/jobprofitability';
