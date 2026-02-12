@@ -1,37 +1,155 @@
-/* Entry Form Styles */
+/* =========================================
+   1. MODAL STRUCTURE
+   ========================================= */
 .modal-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.5);
-    z-index: 2000;
-    display: none; /* Hidden by default */
-    justify-content: center;
-    align-items: center;
+    position: absolute; 
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(2px);
-    
-    .modal-card {
-        background: var(--color-main-background);
-        border-radius: var(--border-radius-large);
-        width: 600px;
-        max-width: 95%;
-        max-height: 90vh;
-        display: flex;
-        flex-direction: column;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+}
 
-        .modal-body {
-            padding: 20px;
-            overflow-y: auto;
-        }
+.modal-card {
+    background: var(--color-main-background);
+    color: var(--color-main-text);
+    width: 80%; max-width: 95%; max-height: 90vh;
+    border-radius: var(--border-radius-large);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+    display: flex; flex-direction: column;
+    overflow: hidden; margin: 20px auto;
+}
 
-        .work-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 10px;
-            align-items: center;
-            
-            .work-desc { flex-grow: 1; }
-            .work-percent { width: 80px; text-align: center; }
-        }
-    }
+#timesheet-form {
+    display: flex; flex-direction: column;
+    flex: 1 1 auto; min-height: 0; height: 100%; width: 100%;
+}
+
+.modal-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 20px 25px;
+    background: var(--color-background-hover);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0; 
+}
+.modal-header h2 { margin: 0; font-size: 20px; font-weight: bold; }
+.modal-subtitle { font-size: 13px; opacity: 0.6; }
+
+.btn-close-custom {
+    border: none; background: transparent; font-size: 28px; line-height: 1;
+    cursor: pointer; color: var(--color-text-maxcontrast); opacity: 0.5; padding: 0 5px;
+}
+.btn-close-custom:hover { opacity: 1; color: var(--color-error); }
+
+.modal-body { padding: 25px; overflow-y: auto; flex-grow: 1; min-height: 0; }
+
+.modal-footer { 
+    padding: 20px 25px; 
+    border-top: 1px solid var(--color-border); 
+    background: var(--color-background-hover); 
+    display: flex; justify-content: flex-end; gap: 10px;
+    flex-shrink: 0; 
+}
+
+/* =========================================
+   2. FORM CONTROLS
+   ========================================= */
+.form-row-4 { 
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; 
+    width: 100%; align-items: end;
+}
+.form-row-4 .input-group { width: 100%; min-width: 0; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+.form-row-1 { display: block; width: 100%; }
+
+.input-group label { display: block; font-size: 12px; font-weight: bold; opacity: 0.8; margin-bottom: 5px; }
+.form-control {
+    width: 100%; padding: 8px; border: 1px solid var(--color-border);
+    border-radius: var(--border-radius); background: var(--color-main-background);
+    color: var(--color-main-text); box-sizing: border-box;
+}
+.readonly-highlight { background-color: var(--color-background-dark); font-weight: bold; color: var(--color-primary-element); }
+
+.section-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.section-title { margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; }
+.text-button { background: none; border: none; color: var(--color-primary-element); cursor: pointer; font-weight: bold; font-size: 13px; }
+
+/* Work Rows */
+.work-grid-header { display: grid; grid-template-columns: 1fr 80px 30px; gap: 10px; margin-bottom: 5px; font-size: 11px; font-weight: bold; opacity: 0.5; }
+.work-row { display: grid; grid-template-columns: 1fr 80px 30px; gap: 10px; margin-bottom: 8px; align-items: center; }
+.btn-remove-row { color: var(--color-error); cursor: pointer; font-weight: bold; display: flex; justify-content: center; font-size: 20px; }
+
+/* Toggles */
+.toggle-row-container { display: flex; gap: 15px; }
+.toggle-wrapper { flex: 1; }
+.toggle-checkbox { display: none; }
+
+.toggle-button {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 12px;
+    border: 2px solid var(--color-border); border-radius: var(--border-radius-large);
+    cursor: pointer; font-weight: bold; transition: all 0.2s;
+    background: var(--color-main-background); opacity: 0.7;
+}
+.toggle-button:hover { border-color: var(--color-primary-element); opacity: 1; }
+.toggle-checkbox:checked + .toggle-button {
+    background-color: var(--color-primary-element); border-color: var(--color-primary-element); color: var(--color-primary-text); opacity: 1;
+}
+
+/* Travel Grid */
+.travel-box {
+    background: var(--color-background-hover);
+    padding: 15px; border-radius: var(--border-radius);
+    margin-top: 15px; border: 1px solid var(--color-border);
+}
+.travel-toggles-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+.switch-wrapper { display: flex; justify-content: space-between; align-items: center; background: var(--color-main-background); padding: 8px 12px; border-radius: var(--border-radius); border: 1px solid var(--color-border); }
+.switch-label { font-size: 13px; font-weight: bold; }
+.switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+.slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: var(--color-primary-element); }
+input:checked + .slider:before { transform: translateX(14px); }
+
+/* =========================================
+   3. TIME SELECTOR WIDGET
+   ========================================= */
+.time-split-widget {
+    display: flex; align-items: center;
+    background-color: var(--color-main-background) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--border-radius); padding: 0; height: 34px; width: 100%;
+    box-sizing: border-box; overflow: hidden;
+}
+.time-split-widget:focus-within { border-color: var(--color-primary) !important; box-shadow: 0 0 0 2px var(--color-primary-light) !important; }
+.time-split-widget select.time-part {
+    border: none !important; background-color: transparent !important; background: transparent !important;
+    flex-grow: 1; height: 100%; font-size: 1rem; cursor: pointer; text-align: center;
+    -webkit-appearance: none; appearance: none; color: var(--color-main-text) !important;
+    outline: none !important; padding: 0; margin: 0; box-shadow: none !important;
+}
+.time-split-widget select.time-part:hover { background-color: var(--color-background-hover) !important; }
+.time-split-widget select.ampm-select {
+    width: 50px; flex-shrink: 0; font-size: 0.85rem; font-weight: bold;
+    color: var(--color-text-maxcontrast) !important; background-color: transparent !important;
+    border-left: 1px solid var(--color-border) !important;
+}
+.time-split-widget select.ampm-select:hover { background-color: var(--color-background-hover) !important; }
+.time-split-widget .time-separator { font-weight: bold; color: var(--color-main-text) !important; padding: 0 2px; user-select: none; }
+.time-split-widget select option { background-color: var(--color-main-background) !important; color: var(--color-main-text) !important; }
+
+/* =========================================
+   4. MOBILE RESPONSIVE
+   ========================================= */
+@media only screen and (max-width: 1000px) {
+    .modal-card { width: 100% !important; height: 100% !important; max-width: 100% !important; max-height: 100% !important; border-radius: 0; margin: 0; }
+    .modal-body { padding: 15px; }
+    .form-row-4, .form-row-3 { grid-template-columns: 1fr; gap: 10px; }
+    .toggle-row-container { flex-direction: column; }
+    .travel-toggles-grid { grid-template-columns: 1fr; }
+    .work-grid-header { display: none; }
+    .work-row { grid-template-columns: 1fr 80px 40px; gap: 5px; }
+    .work-row input[type="number"]::placeholder { content: "%"; }
 }

@@ -1,56 +1,284 @@
-/* src/shared/admin/_layout.scss */
+/* src/shared/layout/_layout.scss */
 
-.admin-container {
-    padding: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+/* =========================================
+   1. MAIN APP SHELL (Flexbox Base)
+   ========================================= */
+/* This matches your original style.css structure */
+#app {
+    display: flex !important;
+    flex-direction: row !important;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Sidebar Navigation - Fixed Width */
+#app-navigation {
+    width: 300px;
+    min-width: 300px;
+    height: 100%;
+    background-color: var(--color-main-background);
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    padding-top: 20px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    z-index: 50;
+}
+
+/* Main Content Area - Grows to fill space */
+#app-content {
+    /* Flexbox properties (Timesheet Style) */
+    position: relative; /* Override Admin absolute positioning */
+    left: auto;         /* Override Admin left offset */
+    top: auto;
+    flex-grow: 1;
+    height: 100vh;
+    overflow-x: auto !important; 
+    overflow-y: auto !important; 
+    padding: 0;
+    /* Admin Compatibility */
+    background-color: var(--color-main-background);
     color: var(--color-main-text);
+}
 
-    h1 {
-        font-size: 24px;
-        font-weight: bold;
-        margin-bottom: 30px;
-        border-bottom: 2px solid var(--color-border);
-        padding-bottom: 15px;
+/* Generic Wrapper used by Timesheet */
+#app-content-wrapper {
+    height: 100%;
+    width: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* =========================================
+   2. SIDEBAR CONTROLS (Timesheet Specific)
+   ========================================= */
+.nav-section-header, 
+.nav-section-views, 
+.nav-item { 
+    padding: 10px 15px; 
+    list-style: none; 
+}
+
+/* Date Header (Black Box) */
+.date-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--color-background-dark);
+    padding: 10px;
+    border-radius: var(--border-radius-large);
+}
+
+#current-date-label {
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    color: var(--color-main-text);
+    &:hover { text-decoration: underline; }
+}
+
+#date-picker-input {
+    position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;
+}
+
+/* Arrow Buttons */
+.icon-action {
+    background: none; border: none; cursor: pointer;
+    font-size: 18px; color: var(--color-main-text);
+    padding: 5px 10px; border-radius: var(--border-radius);
+    &:hover { background-color: var(--color-background-hover); }
+}
+
+/* View Switcher Buttons */
+.view-buttons { display: flex; gap: 5px; justify-content: center; }
+
+.primary-button, .secondary-button {
+    padding: 8px 16px; border: none; border-radius: var(--border-radius-pill);
+    cursor: pointer; font-weight: bold; font-size: 13px; transition: all 0.2s;
+}
+
+.primary-button {
+    background-color: var(--color-primary-element);
+    color: var(--color-primary-text);
+    &:hover { background-color: var(--color-primary-element-hover); }
+    &.active {
+        background-color: var(--color-primary-element-text-dark);
+        box-shadow: inset 0 0 4px rgba(0,0,0,0.2);
     }
 }
 
-/* Standard Section Card */
-.section {
-    background: var(--color-main-background);
+.secondary-button {
+    background-color: transparent;
     border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-large);
-    padding: 25px;
-    margin-bottom: 30px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    color: var(--color-main-text);
+    &:hover { background-color: var(--color-background-hover); }
+}
 
-    .section-header-row {
+/* Nav Links */
+.app-navigation-separator {
+    height: 1px; background-color: var(--color-border); margin: 10px 15px;
+}
+.nav-link {
+    display: flex; align-items: center; padding: 10px 20px;
+    color: var(--color-main-text); text-decoration: none;
+    opacity: 0.7; transition: opacity 0.2s;
+    
+    &:hover, &.active {
+        opacity: 1; background-color: var(--color-background-hover);
+    }
+    span[class^="icon-"] { margin-right: 10px; width: 20px; text-align: center; }
+}
+
+/* =========================================
+   3. ADMIN LAYOUT STRUCTURE
+   ========================================= */
+.admin-view {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 40px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.admin-view.hidden { display: none !important; }
+
+.view-header {
+    flex: 0 0 auto;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 15px;
+    width: 100%;
+
+    h2 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: bold;
+        color: var(--color-main-text);
+    }
+
+    p { margin: 5px 0 0 0; opacity: 0.7; font-size: 14px; }
+}
+
+.view-body {
+    flex: 1 1 auto;
+    position: relative;
+    padding-bottom: 50px;
+    width: 100%;
+}
+
+/* Split Layout (List Left / Details Right) */
+.split-layout {
+    display: flex;
+    gap: 30px;
+    height: 100%;
+    min-height: 500px;
+    
+    .split-panel {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-        border-bottom: 1px solid var(--color-border);
-        padding-bottom: 15px;
-
-        h2.app-name, h3.subsection-title {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 600;
+        flex-direction: column;
+        
+        &.left {
+            width: 350px;
+            flex-shrink: 0;
+            border-right: 1px solid var(--color-border);
+            padding-right: 30px;
+        }
+        
+        &.right {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
         }
     }
 }
 
-/* Hints and Helpers */
-.settings-hint {
+.panel-title {
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    font-weight: bold;
     color: var(--color-text-maxcontrast);
-    opacity: 0.7;
-    margin-bottom: 15px;
-    font-size: 0.9em;
-    font-style: italic;
 }
 
-/* Utility Helpers */
+.panel-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+    flex-shrink: 0;
+    width: 100%;
+}
+
+/* =========================================
+   4. SHARED OVERLAYS (Modal & Error)
+   ========================================= */
+/* Centered Error Overlay */
+#stech-centered-error {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.6); z-index: 10001;
+    display: none; align-items: center; justify-content: center;
+    backdrop-filter: blur(2px);
+}
+
+.stech-error-content {
+    background: var(--color-main-background);
+    color: var(--color-text-maxcontrast);
+    padding: 30px; border-radius: var(--border-radius-large);
+    text-align: center; box-shadow: 0 4px 25px rgba(0,0,0,0.2);
+    border-top: 6px solid var(--color-error); max-width: 450px; width: 90%;
+    animation: fadeIn 0.2s ease-out;
+    
+    h3 { color: var(--color-error); margin-top: 0; font-size: 1.5rem; font-weight: bold; }
+    p { font-size: 1.1rem; margin: 15px 0 25px 0; line-height: 1.5; }
+    button.primary-button {
+        background-color: var(--color-primary-element); color: var(--color-primary-text);
+        border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1rem;
+    }
+}
+
+/* Generic Modal Overlay (Used by Entries) */
+.modal-overlay {
+    position: fixed; 
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+/* =========================================
+   5. UTILITIES & MOBILE
+   ========================================= */
 .text-right { text-align: right; }
 .text-center { text-align: center; }
 .hidden { display: none !important; }
+
+@media only screen and (max-width: 1000px) {
+    #app-content {
+        width: 100% !important;
+        padding-top: 50px; /* Space for mobile header */
+    }
+
+    /* Admin Stack */
+    .admin-view { padding: 15px; }
+    .split-layout {
+        flex-direction: column;
+        min-height: auto;
+        
+        .split-panel.left {
+            width: 100%;
+            border-right: none;
+            border-bottom: 1px solid var(--color-border);
+            padding-right: 0; padding-bottom: 20px; margin-bottom: 20px;
+            flex: 0 0 auto;
+        }
+        .split-panel.right { width: 100%; padding-left: 0; }
+    }
+}

@@ -129,39 +129,38 @@ class Application extends App implements IBootstrap {
         // ============================
         // ANALYSIS REGISTRATION
         // ============================
-        // Dashboard (Core)
         $context->registerService(DashboardMapper::class, function($c) { return new DashboardMapper($c->get(IDBConnection::class)); });
+        
+        // FIXED: DashboardService now correctly uses CalendarMapper instead of TimesheetMapper
         $context->registerService(DashboardService::class, function($c) {
             return new DashboardService(
                 $c->get(DashboardMapper::class),
-                $c->get(CalendarMapper::class), // <--- This is what caused the error because the Service didn't expect it
+                $c->get(CalendarMapper::class), 
                 $c->get(IGroupManager::class),
                 $c->get(IUserSession::class)
             );
         });
+
         $context->registerService(DashboardController::class, function($c) {
             return new DashboardController(
                 $c->get(IRequest::class),
                 $c->get(DashboardService::class),
-                $c->get(CalendarMapper::class), // Replacement for TimesheetMapper
+                $c->get(CalendarMapper::class),
                 $c->get(IUserSession::class),
                 $c->get(IUserManager::class)
             );
         });
 
-        // Overview
         $context->registerService(OverviewService::class, function($c) { return new OverviewService(); });
         $context->registerService(OverviewController::class, function($c) {
             return new OverviewController($c->get(IRequest::class), $c->get(DashboardService::class), $c->get(OverviewService::class));
         });
 
-        // Travel
         $context->registerService(TravelService::class, function($c) { return new TravelService($c->get(CalendarMapper::class)); });
         $context->registerService(TravelController::class, function($c) {
             return new TravelController($c->get(IRequest::class), $c->get(DashboardService::class), $c->get(TravelService::class));
         });
 
-        // Jobs
         $context->registerService(JobBreakdownService::class, function($c) { return new JobBreakdownService(); });
         $context->registerService(JobBreakdownController::class, function($c) {
             return new JobBreakdownController($c->get(IRequest::class), $c->get(DashboardService::class), $c->get(JobBreakdownService::class));
@@ -181,8 +180,41 @@ class Application extends App implements IBootstrap {
                 $c->get(IRequest::class),
                 $c->get(IUserSession::class),
                 $c->get(IGroupManager::class),
-                $c->get(DashboardService::class) // REPLACES old AnalysisService
+                $c->get(DashboardService::class)
             );
+        });
+
+        // ============================
+        // CONTROLLER ALIASING (CRITICAL FIX)
+        // ============================
+        // This maps the "Expected Name" (from routes.php) to the "Actual Class" (in Features)
+        
+        $context->registerService('OCA\StechTimesheet\Controller\CalendarController', function($c) {
+            return $c->query(CalendarController::class);
+        });
+
+        $context->registerService('OCA\StechTimesheet\Controller\EntryController', function($c) {
+            return $c->query(EntryController::class);
+        });
+
+        $context->registerService('OCA\StechTimesheet\Controller\DashboardController', function($c) {
+            return $c->query(DashboardController::class);
+        });
+
+        $context->registerService('OCA\StechTimesheet\Controller\PayrollController', function($c) {
+            return $c->query(PayrollController::class);
+        });
+        $context->registerService('OCA\StechTimesheet\Controller\HolidayController', function($c) {
+            return $c->query(HolidayController::class);
+        });
+        $context->registerService('OCA\StechTimesheet\Controller\LocationController', function($c) {
+            return $c->query(LocationController::class);
+        });
+        $context->registerService('OCA\StechTimesheet\Controller\AdminJobController', function($c) {
+            return $c->query(AdminJobController::class);
+        });
+        $context->registerService('OCA\StechTimesheet\Controller\UserController', function($c) {
+            return $c->query(UserController::class);
         });
     }
 
